@@ -12,6 +12,7 @@ import type {
   WorldState,
 } from "../src/shared/messages";
 import type { PlayerProfile, Storage } from "./storage";
+import { consumeThrow, remainingThrows } from "./budget";
 
 // One live world. Holds who's connected (presence — ephemeral) and the
 // shared world state. Presence dies with the socket; world state and
@@ -120,7 +121,7 @@ export class Room {
       selfId: identity.id,
       players: [...this.occupants.values()].map((o) => o.info),
       world: { ...this.world },
-      throwsRemaining: BALANCE.budget.throwsPerDay, // budget lands in step 7
+      throwsRemaining: remainingThrows(profile, new Date()),
       history: this.history.slice(0, -1), // minus our own join, logged live
     });
     return true;
@@ -180,7 +181,20 @@ export class Room {
           });
           break;
         }
-        // budget check lands in build step 7
+        // the budget is the server's, not the client's
+        if (!consumeThrow(occ.profile, new Date())) {
+          send(occ.ws, {
+            t: "throw-rejected",
+            throwId: msg.throwId,
+            reason: "budget",
+          });
+          break;
+        }
+        void this.storage.saveProfile(occ.profile).catch(logSaveError);
+        send(occ.ws, {
+          t: "budget",
+          throwsRemaining: remainingThrows(occ.profile, new Date()),
+        });
         // the thrower already animates locally — relay to everyone else
         this.broadcast(
           { t: "throw", id: playerId, throwId: msg.throwId, launch: msg.launch },

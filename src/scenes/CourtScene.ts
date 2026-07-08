@@ -119,8 +119,12 @@ export class CourtScene extends Phaser.Scene {
       this.renderHistory(e.history);
       this.hud.log("presence", `${esc(this.playerName)} joined the court.`);
       this.hud.setScore(e.world.sharedScore);
+      this.hud.setThrowsRemaining(e.throwsRemaining);
       for (const p of e.players)
         if (p.id !== e.selfId) this.addRemote(p);
+    });
+    this.backend.on("budget", (e) => {
+      this.hud.setThrowsRemaining(e.throwsRemaining);
     });
     this.backend.on("joinRejected", () => {
       this.hud.log("presence", "This court is full — try again later.");

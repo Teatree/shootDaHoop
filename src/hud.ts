@@ -11,6 +11,8 @@ export type LogType = "throw" | "chat" | "presence";
 
 export interface HUD {
   setScore(n: number): void;
+  /** dim ball slots beyond the server's remaining daily throw budget */
+  setThrowsRemaining(n: number): void;
   /** text may contain the placeholders handled below; kept plain-text safe. */
   log(
     type: LogType,
@@ -92,6 +94,11 @@ export function initHUD(): HUD {
   });
 
   return {
+    setThrowsRemaining(n: number) {
+      const slots = document.querySelectorAll("#ball-slots .slot");
+      slots.forEach((slot, i) => slot.classList.toggle("used", i >= n));
+    },
+
     setScore(n: number) {
       scoreEl.textContent = String(n);
       scoreEl.classList.remove("bump");

@@ -39,11 +39,9 @@ npm test
 
 ## Testing multiplayer
 
-> Status: the multiplayer server is Stage 2 of `MULTIPLAYER.md` and is not
-> built yet. Stage 1 (the Backend seam and the shared simulation module) is
-> done, and single player runs through `LocalBackend`. The steps below are
-> the procedure once the server lands; this section will be updated as each
-> build step ships.
+> Status: working. All Stage 2 build steps of `MULTIPLAYER.md` are done and
+> two-browser verified. Not yet done: cloud deploy (Render/Postgres) and the
+> chat-bot invite flow; locally the server persists to JSON files in `data/`.
 
 1. Start the game server (Node + WebSocket) and the client dev server:
 
@@ -58,6 +56,10 @@ npm test
    ```
    http://localhost:5173/?lobby=test-court
    ```
+
+   Useful dev parameters: `?pid=<id>` forces a player identity (handy for two
+   tabs in the same window, which otherwise share one), and `?server=<ws-url>`
+   points at a non-default game server.
 
 3. What to check:
    - Both windows show both avatars; walking in one window animates in the other.

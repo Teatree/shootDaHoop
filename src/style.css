@@ -83,6 +83,15 @@ body {
   justify-content: center;
 }
 
+/* a spent daily throw (server-authoritative budget) */
+.slot.used {
+  opacity: 0.35;
+}
+
+.slot.used .ball {
+  filter: grayscale(0.9);
+}
+
 .slot .ball {
   width: 28px;
   height: 28px;

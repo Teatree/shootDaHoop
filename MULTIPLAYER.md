@@ -1,8 +1,13 @@
 # Multiplayer — Reference & Working Doc
 
-> **Status (2026-07-09):** Stage 1 (modularity refactor) DONE — verified
-> identical play through `LocalBackend` (13-point parity smoke + 34 unit
-> tests). Stage 2 (server) not started; paused for owner check.
+> **Status (2026-07-09):** Stage 1 (modularity refactor) AND Stage 2
+> (multiplayer, build steps 2–7) DONE. Two-browser verified at every step:
+> presence + cross-client walking, server-authoritative throws/scoring,
+> snapshots, persistence across room teardown, chat/bubbles, and the
+> server-side daily budget (survives reconnect). Single-player unchanged
+> through `LocalBackend` (re-verified). 38 unit tests. `npm run server` +
+> `npm run dev`, then two windows at `?lobby=<id>` — see README.
+> Not yet done: Render/Postgres deploy, bot integration, hoop tiers 2+.
 
 > Read this fully before writing multiplayer code. It is **both the spec and a
 > live working doc**: as you build, **update it** — replace each `DECIDE:` with
@@ -93,8 +98,13 @@ worlds.
 - The **game server and the bots are separate processes that share the
   database** (profiles, lobby↔chat mapping, scores). Bot = invites + notifications;
   game server = live play. Keep them decoupled.
-- `DECIDE:` max players per lobby (public groups can be huge; the design assumes
-  small worlds) and the overflow behaviour (reject / queue / spectate).
+- **DECIDED: max 8 players per lobby** (`BALANCE.lobby.maxPlayers`); overflow is
+  **rejected** with a friendly "court is full" notice (queue/spectate deferred —
+  they need UI that doesn't exist yet, and 8 concurrent players per chat group
+  is already generous for a hangout).
+- *Dev interim:* until the bots exist, identity is `?pid=` (or a per-browser
+  localStorage id) and the display name comes from the existing name overlay.
+  The bot platform id/name slots straight into `join.identity`.
 
 ---
 
@@ -133,8 +143,9 @@ is local.**
 **Not synced (local only):**
 
 - **Per-frame position** — derived from `move-to`.
-- **Aim-in-progress** — the live drag is local/cosmetic. `DECIDE:` whether to
-  telegraph a wind-up to others (optional later polish).
+- **Aim-in-progress** — the live drag is local/cosmetic. **DECIDED: not
+  telegraphed** this pass — it's pure polish, costs a per-frame-ish message
+  class we otherwise don't have, and nothing depends on it. Revisit later.
 - **UI / camera / cursor / previews.**
 - **A player's private ball inventory and remaining throw budget** — persisted
   per-player; only the *effects* (a throw, a score) are broadcast.
@@ -156,8 +167,10 @@ is local.**
   updates shared score/tier → broadcasts outcome + new snapshot. The server does
   **not** stream the ball; it resolves the outcome and clients animate the known
   arc.
-- `DECIDE:` when the daily budget resets (UTC midnight / rolling 24h / per-world
-  local). Pick and record.
+- **DECIDED: the budget resets at UTC MIDNIGHT** (`server/budget.ts`, unit
+  tested). Simple, identical for every world, explainable in five words.
+  Rolling-24h rejected (opaque to players); per-world local time rejected (no
+  timezone source until the bot platform provides one).
 
 ---
 
@@ -266,10 +279,14 @@ chat+bubble, walk, teleport slam, ghost replays) all green.
 ## Tech stack
 
 - **Client:** Phaser (`pixelArt` rendering).
-- **Server:** a single Node server with WebSockets (Socket.IO-style) doing the
-  event relay. One world = one room; events broadcast to that room.
+- **Server:** a single Node server with WebSockets — built with plain `ws`
+  (lighter than Socket.IO; `shared/messages.ts` is the protocol). One world =
+  one room; events broadcast to that room. Run via `tsx` (`npm run server`).
 - **Hosting (initial):** Render.com — reachable by a plain browser link.
-- **Persistence:** Postgres (on Render).
+  *(Not deployed yet — next infrastructure task.)*
+- **Persistence:** Postgres (on Render). *Interim:* `JsonFileStorage` behind
+  the same `Storage` interface for local dev; the Postgres implementation is a
+  drop-in when deploying.
 - **Scaling path (later, only if needed):** Cloudflare Durable Objects — one
   object per world, native hibernation. Building each world's state as a clean
   serializable bundle keeps this migration close to one-to-one.
@@ -281,20 +298,58 @@ chat+bubble, walk, teleport slam, ghost replays) all green.
 1. ✅ **Refactor** prototype behind the Backend seam; move throw + scoring into
    `src/shared/`; extract balance/data. No behaviour change — still plays
    identically via `LocalBackend`. *(Done — see Stage-1 notes above.)*
-2. **Server + presence:** Node + WebSocket; one room per `?lobby=` id; broadcast
-   presence + `move-to`; two browsers see each other walk.
-3. **Throws:** throw events + server-authoritative resolution + scoring broadcast.
-4. **Shared state:** cumulative score + hoop tier in the snapshot; render it.
-5. **Persistence:** world bundle + player profile; save on event, hydrate on join.
-6. **Social:** chat relay to the log; join/leave log lines.
-7. **Budget:** 5 throws/day, server-side.
+2. ✅ **Server + presence:** Node + `ws` (`npm run server`, port 8787); one Room
+   per `?lobby=` id, created on demand, torn down when empty; presence +
+   `move-to` intents (clamped server-side, relayed to others); two browsers see
+   each other walk. Client: `SocketBackend` + `RemoteAvatar` (per-shirt-colour
+   textures, Player-identical walk feel).
+3. ✅ **Throws:** launch validated (never trust the client), relayed to the
+   others; the thrower spawns **optimistically** for zero-latency feel; outcome
+   resolved immediately via `resolveThrow` but **broadcast on a timer at
+   `resolvedAtS`** so score juice lands when the ball visually lands.
+4. ✅ **Shared state:** score + tier update atomically per outcome; full
+   snapshot broadcast every 5s (the snapshot IS the recovery mechanism);
+   tier-unlock event wired (fires once tiers 2+ exist as data).
+5. ✅ **Persistence:** `server/storage.ts` — `Storage` interface (the
+   Postgres/DO swap point) with `JsonFileStorage` for local dev (`data/`,
+   gitignored). World bundle (score, tier, last 50 wall lines) + player profile
+   (name, shirt, budget), saved on event, hydrated before joins; welcome
+   replays the wall history to late joiners.
+6. ✅ **Social:** chat broadcast to everyone (one client render path) +
+   persisted to the wall; join/leave lines; speech bubbles over remote
+   avatars too.
+7. ✅ **Budget:** `server/budget.ts` (pure, unit-tested), consumed at throw
+   acceptance, persisted in the profile (survives reconnect — verified), UTC
+   midnight reset; ball slots double as the remaining-throws display; local
+   play stays unlimited.
 
 ---
 
 ## Open decisions to surface (don't silently pick — default, implement, flag)
 
-- `DECIDE:` max players per lobby + overflow behaviour.
-- `DECIDE:` daily throw-budget reset boundary.
-- `DECIDE:` aim-in-progress telegraphed to others or not.
+- ✅ DECIDED: **max 8 players / lobby, overflow rejected** (see Identity & lobbies).
+- ✅ DECIDED: **budget resets at UTC midnight** (see Server authority).
+- ✅ DECIDED: **aim-in-progress NOT telegraphed** this pass (see Syncing).
 - `DECIDE:` (design, later) shared progress counts makes vs. attempts; contribution
   floor; top-of-ladder endgame.
+
+## Stage-2 implementation notes & known follow-ups
+
+- **Optimistic own-throw spawn:** the thrower's ball appears instantly (the
+  prototype feel); the server relays to others and owns the outcome. If the
+  server rejects (budget/invalid), the flight was cosmetic — a rejection notice
+  follows and no score can result. Flagged as intended behaviour.
+- **Client visuals vs. server truth:** every client animates its own live ball
+  (variable frame time, by design); the server's fixed-dt `resolveThrow` decides.
+  Knife-edge rim rattles can rarely LOOK different from the ruling. Watch for it
+  in playtests; the fix (animating the server's sampled arc) is available if it
+  ever grates.
+- **The teleport orb is still client-local.** A slam flag rides on the launch
+  and the server pays `slamPts` for it without being able to validate the
+  levitation. Fine among friends; the orb must move server-side (spawn + hit
+  detection in the Room) before strangers share worlds. **Top follow-up.**
+- **Ghost records are recorded only for your own throws** — remote outcome log
+  lines are not clickable. Replaying others' throws would need remote-avatar
+  history capture; deferred (the sample format already supports it).
+- **Not built yet:** Render deploy + Postgres `Storage` impl, bot processes,
+  hoop tiers 2+ (pure data + behaviour implementations), amenities.
