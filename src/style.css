@@ -1,0 +1,426 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  background: #1d1712;
+  font-family: "Courier New", Courier, monospace;
+  font-weight: bold; /* everything bold — reads better in pixel mode */
+}
+
+#app {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* ── Game viewport: left 70% ─────────────────────────────── */
+
+#game-wrap {
+  position: relative;
+  width: 70%;
+  height: 100%;
+}
+
+#game-container {
+  width: 100%;
+  height: 100%;
+}
+
+#game-container canvas {
+  display: block;
+  image-rendering: pixelated;
+}
+
+/* Score — top-center, large and prominent */
+#score {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 44px;
+  font-weight: bold;
+  color: #fff3d6;
+  text-shadow:
+    3px 3px 0 #5a3d28,
+    -1px -1px 0 #5a3d28,
+    1px -1px 0 #5a3d28,
+    -1px 1px 0 #5a3d28;
+  letter-spacing: 2px;
+  pointer-events: none;
+  user-select: none;
+  transition: transform 0.08s ease-out;
+}
+
+#score.bump {
+  transform: translateX(-50%) scale(1.25);
+}
+
+/* Ball inventory — bottom-left of the viewport, 5 cosmetic slots */
+#ball-slots {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 8px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.slot {
+  width: 46px;
+  height: 46px;
+  border: 3px solid #7a5a3a;
+  border-radius: 6px;
+  background: rgba(43, 32, 24, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.slot .ball {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f0955a, #d2691e 60%, #a34e12);
+  box-shadow: inset -2px -3px 0 rgba(0, 0, 0, 0.25);
+  position: relative;
+}
+
+.slot .ball::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border-left: 2px solid rgba(90, 40, 10, 0.55);
+  transform: rotate(20deg);
+}
+
+/* ── Name overlay: first-visit "who are you?" card ────────── */
+
+#name-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 14, 10, 0.82);
+}
+
+#name-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 26px 30px;
+  background: rgba(30, 22, 16, 0.95);
+  border: 3px solid #7a5a3a;
+  border-radius: 8px;
+  text-align: center;
+}
+
+#name-title {
+  font-size: 20px;
+  font-weight: bold;
+  color: #fff3d6;
+  letter-spacing: 1px;
+}
+
+#name-sub {
+  font-size: 13px;
+  color: #cdbb9b;
+}
+
+#name-input {
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 15px;
+  text-align: center;
+  color: #fff3d6;
+  background: rgba(20, 14, 10, 0.8);
+  border: 2px solid #7a5a3a;
+  border-radius: 4px;
+  outline: none;
+}
+
+#name-input:focus {
+  border-color: #e8b878;
+}
+
+#name-input::placeholder {
+  color: #9c8465;
+}
+
+#name-play {
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: bold;
+  color: #2b1e16;
+  background: #e8b878;
+  border: 2px solid #7a5a3a;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#name-play:hover {
+  background: #ffd97a;
+}
+
+/* Chat — MMORPG-style input, bottom-center */
+#chat-wrap {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(420px, 50%);
+  display: flex;
+  gap: 6px;
+}
+
+#chat-field {
+  position: relative;
+  flex: 1;
+}
+
+#chat-send {
+  padding: 8px 14px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: bold;
+  color: #2b1e16;
+  background: #e8b878;
+  border: 2px solid #7a5a3a;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#chat-send:hover {
+  background: #ffd97a;
+}
+
+#chat-input {
+  width: 100%;
+  padding: 8px 38px 8px 12px; /* room for the emoji button */
+  font-family: inherit;
+  font-size: 14px;
+  color: #fff3d6;
+  background: rgba(30, 22, 16, 0.8);
+  border: 2px solid #7a5a3a;
+  border-radius: 4px;
+  outline: none;
+}
+
+#chat-input:focus {
+  border-color: #e8b878;
+  background: rgba(30, 22, 16, 0.95);
+}
+
+#chat-input::placeholder {
+  color: #9c8465;
+}
+
+/* Emoji button + picker (Discord-style, minimal) */
+#emoji-btn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: none;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  filter: grayscale(0.6);
+  transition: filter 0.1s ease, transform 0.1s ease;
+}
+
+#emoji-btn:hover {
+  filter: none;
+  transform: translateY(-50%) scale(1.15);
+}
+
+#emoji-pop[hidden] {
+  display: none; /* display:grid below would otherwise defeat [hidden] */
+}
+
+#emoji-pop {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  grid-template-columns: repeat(8, 30px);
+  gap: 2px;
+  padding: 8px;
+  background: rgba(30, 22, 16, 0.95);
+  border: 2px solid #7a5a3a;
+  border-radius: 6px;
+}
+
+#emoji-pop span {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+#emoji-pop span:hover {
+  background: rgba(255, 220, 150, 0.18);
+}
+
+/* ── Log panel: the court "wall", right 30%, full height ──── */
+
+#log-panel {
+  width: 30%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  /* brick-wall look */
+  background:
+    repeating-linear-gradient(
+      0deg,
+      #4a3226 0px,
+      #4a3226 22px,
+      #3a2820 22px,
+      #3a2820 24px
+    ),
+    #4a3226;
+  border-left: 4px solid #2b1e16;
+}
+
+#log-header {
+  padding: 10px 8px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: bold;
+  color: #d8c39a;
+  letter-spacing: 1px;
+  border-bottom: 2px solid #2b1e16;
+  background: rgba(0, 0, 0, 0.2);
+  user-select: none;
+}
+
+#log-feed {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: #7a5a3a transparent;
+}
+
+.log-line {
+  font-size: 12px;
+  line-height: 1.45;
+  word-wrap: break-word;
+  /* chalk-on-wall look */
+  color: #cdbb9b;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* Throw outcomes — the standard line */
+.log-line.throw {
+  color: #cdbb9b;
+}
+
+/* Ghost records: clickable throw lines replay the event on the court */
+.log-line.clickable {
+  cursor: pointer;
+  border-radius: 2px;
+  transition: background 0.1s ease;
+}
+
+.log-line.clickable:hover {
+  background: rgba(255, 220, 150, 0.12);
+}
+
+.log-line.clickable:hover::after {
+  content: " ▶";
+  color: #ffd97a;
+}
+
+.log-line.throw .pts {
+  color: #ffd97a;
+  font-weight: bold;
+}
+
+.log-line.throw .swish {
+  color: #ffb84d;
+  font-weight: bold;
+}
+
+/* Big score (>300 pts in one shot) — swimming animated rainbow.
+   The line must be plain text: background-clip:text fights inner spans. */
+.log-line.throw.bigscore {
+  background: linear-gradient(
+    90deg,
+    #ff5a5a,
+    #ffb84d,
+    #ffe95a,
+    #6ac48a,
+    #6a9ad9,
+    #a97ad9,
+    #ff5a5a
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  font-weight: bold;
+  font-size: 13px;
+  animation:
+    rainbow-slide 2.2s linear infinite,
+    rainbow-swim 1.6s ease-in-out infinite;
+}
+
+@keyframes rainbow-slide {
+  to {
+    background-position: 300% 0;
+  }
+}
+
+@keyframes rainbow-swim {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-0.4deg);
+  }
+  50% {
+    transform: translateY(-1.5px) rotate(0.4deg);
+  }
+}
+
+/* Chat — styled MORE prominently than other lines */
+.log-line.chat {
+  color: #fff3d6;
+  font-size: 13px;
+  font-weight: bold;
+  background: rgba(255, 220, 150, 0.08);
+  border-left: 3px solid #e8b878;
+  padding: 4px 6px;
+  border-radius: 2px;
+}
+
+.log-line.chat .who {
+  color: #ffb84d;
+}
+
+/* Presence — join / leave / idle, subdued */
+.log-line.presence {
+  color: #8fa387;
+  font-style: italic;
+  font-size: 11px;
+}

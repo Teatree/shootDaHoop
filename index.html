@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>shootDaHoop — feel prototype</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <div id="game-wrap">
+        <div id="game-container"></div>
+
+        <!-- HUD overlays (inside the game viewport) -->
+        <div id="score">0</div>
+
+        <div id="ball-slots">
+          <div class="slot"><div class="ball"></div></div>
+          <div class="slot"><div class="ball"></div></div>
+          <div class="slot"><div class="ball"></div></div>
+          <div class="slot"><div class="ball"></div></div>
+          <div class="slot"><div class="ball"></div></div>
+        </div>
+
+        <div id="chat-wrap">
+          <div id="chat-field">
+            <input
+              id="chat-input"
+              type="text"
+              maxlength="1000"
+              autocomplete="off"
+              placeholder="Press Enter to chat…"
+            />
+            <button id="emoji-btn" type="button" tabindex="-1">🙂</button>
+            <div id="emoji-pop" hidden></div>
+          </div>
+          <button id="chat-send" type="button">Send</button>
+        </div>
+      </div>
+
+      <!-- The court "wall": right 30%, full height -->
+      <div id="log-panel">
+        <div id="log-header">— COURT WALL —</div>
+        <div id="log-feed"></div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
