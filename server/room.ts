@@ -202,10 +202,21 @@ export class Room {
         this.pending.add(entry);
         break;
       }
+      case "chat": {
+        const text = String(msg.text).slice(0, 1000).trim();
+        if (!text) break;
+        // to EVERYONE including the sender — one render path on the client
+        this.broadcast({
+          t: "chat",
+          id: playerId,
+          name: occ.info.name,
+          text,
+        });
+        this.record({ kind: "chat", name: occ.info.name, text });
+        break;
+      }
       case "join":
         break; // already joined; ignore
-      default:
-        break; // chat lands in build step 6
     }
   }
 
