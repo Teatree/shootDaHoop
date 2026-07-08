@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "phaser-editor": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@phaserjs/editor-mcp-server"]
+    },
+    "playwright": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@playwright/mcp@latest"]
+    },
+    "context7": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@upstash/context7-mcp"]
+    }
+  }
+}

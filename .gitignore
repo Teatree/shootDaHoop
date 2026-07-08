@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.local
+
+# browser-automation test artifacts (screenshots, console dumps)
+.playwright-mcp/
+
+# per-machine Claude Code permissions
+.claude/settings.local.json
