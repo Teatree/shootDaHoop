@@ -215,21 +215,64 @@ are not the same thing."* The log is UI; the walls are world.
 
 ---
 
-## 8. File map (post-build)
+## 8. Architecture & file map (post-foundations refactor)
+
+Two layers, split when the project graduated from prototype to "serious
+work" (2026-07-09):
+
+**Pure logic (no Phaser — unit-testable, and reusable server-side later):**
 
 | File | Owns |
 |---|---|
 | `src/tuning.ts` | every feel knob, grouped and commented |
 | `src/world.ts` | meters→px mapping, RIM/landmarks, wall X positions, clamps |
-| `src/ball.ts` | flight integration (substepped), rim/board/wall/ground collisions, swept scoring, consume/pos for power-ups |
+| `src/physics.ts` | `stepBall(state, dt) → events`: substepped flight, rim/board/wall/ground collisions, swept scoring |
+| `src/scoring.ts` | distance → points table |
+| `src/ghostData.ts` | ghost record sample types + interpolation (doubles as a future replication format) |
+
+**Phaser layer:**
+
+| File | Owns |
+|---|---|
+| `src/ball.ts` | Phaser face over the physics stepper: sprite/trail/shadow/sfx, outcome callbacks, consume/pos |
 | `src/aiming.ts` | right-click aim: direction at cursor, power by drag; power-meter preview |
 | `src/player.ts` | walking, stance, `airH`/`control`, name label, outlined sprite, sun shadow |
-| `src/powerup.ts` | teleport orb (see teleport-orb.md) |
-| `src/ghost.ts` | ghost records: recording types + playback (see ghost-records.md) |
+| `src/powerup.ts` | the orb object itself (see teleport-orb.md) |
+| `src/ghost.ts` | ghost playback rendering (see ghost-records.md) |
 | `src/sky.ts` | sun procession + smoothed light direction for all shadows |
-| `src/speech.ts` | speech bubble queue + animations |
-| `src/scenes/CourtScene.ts` | orchestration: throw/score/log wiring, teleport state machine, zone fade |
+| `src/speech.ts` | speech bubble queue + animations (+ shared `buildBubble`) |
+| `src/systems/teleport.ts` | orb lifecycle + hit check + zapp + levitate/fall/down state machine |
+| `src/systems/recording.ts` | ghost record capture: rolling history, per-throw recorders, playback wiring |
+| `src/systems/shotFeedback.ts` | score/miss juice + attributed log lines |
+| `src/scenes/CourtScene.ts` | world construction, system wiring, frame order — orchestration only |
 | `src/placeholders.ts` | generated textures, backdrop, court, walls, hoop, keep-out zone |
 | `src/hud.ts` | DOM HUD: score, log, chat, emoji picker, send |
 | `src/playerName.ts` | first-visit name overlay + localStorage |
 | `src/juice.ts`, `src/sfx.ts`, `src/cameraRig.ts` | effects, sound, framing (camera tracks `airH`) |
+
+## 9. Testing
+
+- `npm test` — vitest over the pure layer (`src/*.test.ts`): swept scoring
+  (make/swish/rim-graze/depth-gate + the far-catch regression), backboard
+  swept crossing (the board-teleport regression), both wall bounces, ground
+  miss/bounce/rest, the points table, coordinate mappings/clamps, and ghost
+  sample interpolation.
+- Tests drive the stepper with a FIXED dt, so they are deterministic even
+  though live play (variable frame times) deliberately is not — a design
+  decision: the game should never feel "solved". Tests assert invariants
+  and event outcomes, not exact trajectories.
+- Browser smoke: the scene is exposed as `window.__court`
+  (`__court.throwBall({vx, vh, power})`, `__court.teleport.state`,
+  `__court.recording.store`, …). Foreground the tab first — background-tab
+  rAF throttling breaks all timing.
+
+## 10. Project direction (owner decisions, 2026-07-09)
+
+- **Multiplayer: yes** — dedicated prompt to come; architecture should
+  assume client-side physics + state replication (ghost sample format).
+- **Physics stays non-deterministic on purpose** — no fixed-timestep
+  refactor, ever: variable frame timing keeps outcomes organic and the game
+  un-solvable. Replays are data; multiplayer will replicate state.
+- **Persistent world** — no sessions/rounds; players come and go; lobbies
+  later. **Score is shared between players.**
+- Touch/mobile input, art/audio pipeline, session design: deferred.

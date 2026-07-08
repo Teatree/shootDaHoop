@@ -10,8 +10,45 @@ import type { Player } from "./player";
 
 interface ActiveBubble {
   container: Phaser.GameObjects.Container;
+  text: string;
   age: number;
   fading: boolean;
+}
+
+/**
+ * Build a bubble (body + tail + text) around origin = tail tip. Shared by
+ * live chat and ghost replays.
+ */
+export function buildBubble(
+  scene: Phaser.Scene,
+  text: string,
+): Phaser.GameObjects.Container {
+  const s = T.speech;
+  const txt = scene.add
+    .text(0, 0, text, {
+      fontFamily: '"Courier New", Courier, monospace',
+      fontSize: "12px",
+      fontStyle: "bold",
+      color: "#2b1e16",
+      wordWrap: { width: s.wrapPx, useAdvancedWrap: true },
+    })
+    .setResolution(2);
+  const w = txt.width + s.padPx * 2;
+  const h = txt.height + s.padPx * 2;
+
+  const g = scene.add.graphics();
+  g.fillStyle(0xfff6e0, 0.95).fillRoundedRect(-w / 2, -h - 8, w, h, 6);
+  g.lineStyle(2, 0x5a3d28, 1).strokeRoundedRect(-w / 2, -h - 8, w, h, 6);
+  g.fillStyle(0xfff6e0, 0.95).fillTriangle(-6, -9, 6, -9, 0, 0);
+  g.lineStyle(2, 0x5a3d28, 1);
+  g.beginPath();
+  g.moveTo(-6, -8);
+  g.lineTo(0, 0);
+  g.lineTo(6, -8);
+  g.strokePath();
+  txt.setPosition(-w / 2 + s.padPx, -h - 8 + s.padPx);
+
+  return scene.add.container(0, 0, [g, txt]);
 }
 
 export class SpeechBubbles {
@@ -28,6 +65,12 @@ export class SpeechBubbles {
     if (!msg) return;
     this.queue.push(msg);
     if (!this.active) this.showNext();
+  }
+
+  /** What's on screen right now — sampled by ghost recordings. */
+  current(): { text: string; age: number } | null {
+    const a = this.active;
+    return a && !a.fading ? { text: a.text, age: a.age } : null;
   }
 
   update(dt: number) {
@@ -65,43 +108,17 @@ export class SpeechBubbles {
     const msg = this.queue.shift();
     if (msg === undefined) return;
 
-    const s = T.speech;
-    const txt = this.scene.add
-      .text(0, 0, msg, {
-        fontFamily: '"Courier New", Courier, monospace',
-        fontSize: "12px",
-        fontStyle: "bold",
-        color: "#2b1e16",
-        wordWrap: { width: s.wrapPx, useAdvancedWrap: true },
-      })
-      .setResolution(2);
-    const w = txt.width + s.padPx * 2;
-    const h = txt.height + s.padPx * 2;
-
-    // bubble body + tail, drawn around origin = tail tip (bottom center)
-    const g = this.scene.add.graphics();
-    g.fillStyle(0xfff6e0, 0.95).fillRoundedRect(-w / 2, -h - 8, w, h, 6);
-    g.lineStyle(2, 0x5a3d28, 1).strokeRoundedRect(-w / 2, -h - 8, w, h, 6);
-    g.fillStyle(0xfff6e0, 0.95).fillTriangle(-6, -9, 6, -9, 0, 0);
-    g.lineStyle(2, 0x5a3d28, 1);
-    g.beginPath();
-    g.moveTo(-6, -8);
-    g.lineTo(0, 0);
-    g.lineTo(6, -8);
-    g.strokePath();
-    txt.setPosition(-w / 2 + s.padPx, -h - 8 + s.padPx);
-
-    const container = this.scene.add.container(0, 0, [g, txt]);
+    const container = buildBubble(this.scene, msg);
     container.setScale(0.3).setAlpha(0);
     this.scene.tweens.add({
       targets: container,
       scale: 1,
       alpha: 1,
-      duration: s.appearMs,
+      duration: T.speech.appearMs,
       ease: "Back.easeOut",
     });
 
-    this.active = { container, age: 0, fading: false };
+    this.active = { container, text: msg, age: 0, fading: false };
     this.update(0); // position immediately, no one-frame pop at (0,0)
   }
 }

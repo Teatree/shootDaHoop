@@ -1,78 +1,32 @@
 import Phaser from "phaser";
 import { T } from "./tuning";
-import { floorY, sortDepth, toScreen } from "./world";
+import { M, floorY, sortDepth, toScreen } from "./world";
+import { buildBubble } from "./speech";
 
 // Ghost Records: every throw is recorded as raw per-frame samples — the
-// player from T.ghost.preRollS before the release, the ball from release
-// until the hit/miss plus T.ghost.postRollS of aftermath. Clicking the
-// throw's log line replays those samples with 50%-alpha ghosts on the
-// court. Replaying data (not re-simulating) guarantees the recording looks
-// EXACTLY like the original: the physics integrator is frame-timing
-// dependent, so a re-simulation could resolve differently.
+// player (plus the teleport orb and any speech bubble they could see) from
+// T.ghost.preRollS before the release, the ball from release until the
+// hit/miss plus T.ghost.postRollS of aftermath. Teleport slams rewind
+// further: T.ghost.slamPreRollS before the ORB HIT, so the observer sees
+// the whole power-up play. Clicking the throw's log line replays the
+// samples with 50%-alpha ghosts on the court. Replaying data (not
+// re-simulating) guarantees the recording looks EXACTLY like the original:
+// the physics integrator is frame-timing dependent, so a re-simulation
+// could resolve differently.
 //
 // The aim indicator is never recorded, so it never appears in a replay.
 
-export interface PlayerSample {
-  t: number; //  seconds since recording start
-  x: number; //  court meters
-  d: number;
-  airH: number;
-  yOff: number; // walk-bob / aim-crouch pixel offset (pre-baked)
-  flipX: boolean;
-  angle: number;
-}
+import {
+  lerpBall,
+  lerpFrame,
+  sampleAt,
+  type FrameSample,
+  type ThrowRecording,
+} from "./ghostData";
 
-export interface BallSample {
-  t: number;
-  x: number;
-  d: number;
-  h: number;
-}
-
-export interface ThrowRecording {
-  name: string;
-  playerSamples: PlayerSample[];
-  ballSamples: BallSample[];
-  outcomeT?: number; //  when the hit/miss happened (recording time)
-  made?: boolean;
-  duration?: number; //  outcomeT + postRollS, set when finalized
-  done: boolean;
-  evicted: boolean; //   samples dropped to bound memory — unplayable
-}
-
-/** Linear interpolation over a time-sorted sample array. */
-function sampleAt<S extends { t: number }>(
-  arr: S[],
-  t: number,
-  lerp: (a: S, b: S, f: number) => S,
-): S | null {
-  if (arr.length === 0 || t < arr[0].t) return null;
-  if (t >= arr[arr.length - 1].t) return arr[arr.length - 1];
-  // arrays are a few hundred entries; a scan is fine at 60fps
-  let i = 0;
-  while (arr[i + 1].t < t) i++;
-  const a = arr[i];
-  const b = arr[i + 1];
-  const f = b.t === a.t ? 0 : (t - a.t) / (b.t - a.t);
-  return lerp(a, b, f);
-}
-
-const lerpP = (a: PlayerSample, b: PlayerSample, f: number): PlayerSample => ({
-  t: 0,
-  x: Phaser.Math.Linear(a.x, b.x, f),
-  d: Phaser.Math.Linear(a.d, b.d, f),
-  airH: Phaser.Math.Linear(a.airH, b.airH, f),
-  yOff: Phaser.Math.Linear(a.yOff, b.yOff, f),
-  flipX: f < 0.5 ? a.flipX : b.flipX,
-  angle: Phaser.Math.Linear(a.angle, b.angle, f),
-});
-
-const lerpB = (a: BallSample, b: BallSample, f: number): BallSample => ({
-  t: 0,
-  x: Phaser.Math.Linear(a.x, b.x, f),
-  d: Phaser.Math.Linear(a.d, b.d, f),
-  h: Phaser.Math.Linear(a.h, b.h, f),
-});
+// data types + interpolation live in ghostData.ts (pure, unit-testable);
+// re-exported so consumers keep one import site
+export * from "./ghostData";
 
 interface Ghosts {
   rec: ThrowRecording;
@@ -82,8 +36,13 @@ interface Ghosts {
   pShadow: Phaser.GameObjects.Ellipse;
   ball: Phaser.GameObjects.Image;
   bShadow: Phaser.GameObjects.Ellipse;
+  orbGlow: Phaser.GameObjects.Arc;
+  orbCore: Phaser.GameObjects.Arc;
+  bubble: Phaser.GameObjects.Container | null;
+  bubbleText: string | null;
   ballShown: boolean;
   outcomeFired: boolean;
+  zapFired: boolean;
   fading: boolean;
 }
 
@@ -117,7 +76,7 @@ export class GhostPlayback {
       .setAlpha(a * 0.65)
       .setResolution(2);
     const pShadow = this.scene.add.ellipse(0, 0, 26, 8, 0x000000, a * 0.2);
-    const diaPx = T.throw.ballRadiusM * 2 * 32;
+    const diaPx = T.throw.ballRadiusM * 2 * M;
     const ball = this.scene.add
       .image(0, 0, "ball")
       .setOrigin(0.5)
@@ -126,6 +85,14 @@ export class GhostPlayback {
     ball.setDisplaySize(diaPx, diaPx);
     const bShadow = this.scene.add
       .ellipse(0, 0, diaPx * 1.2, diaPx * 0.4, 0x000000, 0)
+      .setVisible(false);
+    // half-transparent rendition of the teleport orb (shown when recorded)
+    const orbR = T.tp.radiusM * M;
+    const orbGlow = this.scene.add
+      .circle(0, 0, orbR * 2.1, 0x9fd0ff, 0.3 * a)
+      .setVisible(false);
+    const orbCore = this.scene.add
+      .circle(0, 0, orbR, 0x2e7bff, 0.95 * a)
       .setVisible(false);
 
     // pop in
@@ -148,8 +115,13 @@ export class GhostPlayback {
       pShadow,
       ball,
       bShadow,
+      orbGlow,
+      orbCore,
+      bubble: null,
+      bubbleText: null,
       ballShown: false,
       outcomeFired: false,
+      zapFired: false,
       fading: false,
     };
     this.update(0); // position immediately
@@ -159,7 +131,10 @@ export class GhostPlayback {
   stop(instant: boolean) {
     const g = this.g;
     if (!g) return;
-    const objs = [g.player, g.label, g.pShadow, g.ball, g.bShadow];
+    const objs: (
+      | Phaser.GameObjects.GameObject & { alpha?: number }
+    )[] = [g.player, g.label, g.pShadow, g.ball, g.bShadow, g.orbGlow, g.orbCore];
+    if (g.bubble) objs.push(g.bubble);
     if (instant) {
       for (const o of objs) o.destroy();
       this.g = null;
@@ -185,8 +160,8 @@ export class GhostPlayback {
     g.t += dt;
     const rec = g.rec;
 
-    // player ghost
-    const ps = sampleAt(rec.playerSamples, g.t, lerpP);
+    // player ghost (plus the orb and speech bubble they saw)
+    const ps = sampleAt(rec.playerSamples, g.t, lerpFrame);
     if (ps) {
       const { sx, sy } = toScreen(ps.x, ps.d, ps.airH);
       g.player.setPosition(sx, sy + ps.yOff);
@@ -199,13 +174,15 @@ export class GhostPlayback {
       g.pShadow.setPosition(sx, floorY(ps.d));
       g.pShadow.setScale(hFrac);
       g.pShadow.setDepth(sortDepth(ps.d) - 1);
+      this.updateOrb(g, ps);
+      this.updateBubble(g, ps, sx, sy);
     }
 
     // ball ghost — exists only across its recorded flight window
     const bArr = rec.ballSamples;
     if (bArr.length > 0 && g.t >= bArr[0].t) {
       if (g.t <= bArr[bArr.length - 1].t) {
-        const bs = sampleAt(bArr, g.t, lerpB)!;
+        const bs = sampleAt(bArr, g.t, lerpBall)!;
         if (!g.ballShown) {
           g.ballShown = true;
           g.ball.setVisible(true).setAlpha(T.ghost.alpha);
@@ -222,7 +199,7 @@ export class GhostPlayback {
         const prevSX = g.ball.x;
         const { sx, sy } = toScreen(bs.x, bs.d, bs.h);
         g.ball.setPosition(sx, sy);
-        g.ball.rotation += ((sx - prevSX) / 32) * T.throw.spinRadPerM;
+        g.ball.rotation += ((sx - prevSX) / M) * T.throw.spinRadPerM;
         g.ball.setDepth(sortDepth(bs.d) + 1);
         const hFrac = Phaser.Math.Clamp(1 - bs.h / 6, 0.25, 1);
         g.bShadow.setPosition(sx, floorY(bs.d));
@@ -236,6 +213,13 @@ export class GhostPlayback {
       }
     }
 
+    // the recorded teleport moment: replay the zapp at both ends
+    if (!g.zapFired && rec.teleportT !== undefined && g.t >= rec.teleportT) {
+      g.zapFired = true;
+      if (rec.teleportFrom) this.zap(rec.teleportFrom);
+      if (rec.teleportTo) this.zap(rec.teleportTo);
+    }
+
     // the recorded hit moment: let the scene snap the real net
     if (!g.outcomeFired && rec.outcomeT !== undefined && g.t >= rec.outcomeT) {
       g.outcomeFired = true;
@@ -246,5 +230,84 @@ export class GhostPlayback {
     if (rec.done && rec.duration !== undefined && g.t >= rec.duration) {
       this.stop(false);
     }
+  }
+
+  private updateOrb(g: Ghosts, ps: FrameSample) {
+    if (ps.orb) {
+      const o = ps.orb;
+      const { sx, sy } = toScreen(o.x, o.d, o.h);
+      const pulse = 1 + 0.12 * Math.sin(o.age * Math.PI * 2 * T.tp.pulseHz);
+      const depth = sortDepth(o.d);
+      g.orbGlow
+        .setVisible(true)
+        .setPosition(sx, sy)
+        .setScale(pulse * 1.15)
+        .setDepth(depth - 1);
+      g.orbCore.setVisible(true).setPosition(sx, sy).setScale(pulse).setDepth(depth);
+    } else {
+      g.orbGlow.setVisible(false);
+      g.orbCore.setVisible(false);
+    }
+  }
+
+  private updateBubble(g: Ghosts, ps: FrameSample, sx: number, sy: number) {
+    const text = ps.bubble?.text ?? null;
+    if (text !== g.bubbleText) {
+      g.bubble?.destroy();
+      g.bubble = null;
+      g.bubbleText = text;
+      if (text !== null) {
+        g.bubble = buildBubble(this.scene, text);
+        g.bubble.setAlpha(T.ghost.alpha);
+        if ((ps.bubble?.age ?? 1) < 0.3) {
+          // freshly said in the recording — replay the pop
+          g.bubble.setScale(0.3);
+          this.scene.tweens.add({
+            targets: g.bubble,
+            scale: 1,
+            duration: T.speech.appearMs,
+            ease: "Back.easeOut",
+          });
+        }
+      }
+    }
+    if (g.bubble && ps.bubble) {
+      const s = T.speech;
+      const age = ps.bubble.age;
+      g.bubble.x = sx;
+      g.bubble.y =
+        sy - s.gapAbovePx + Math.sin(age * Math.PI * 2 * s.bobHz) * s.bobPx;
+      g.bubble.rotation = Math.sin(age * Math.PI * 2 * s.bobHz * 0.8) * s.swayRad;
+      g.bubble.setDepth(sortDepth(ps.d) + 2);
+    }
+  }
+
+  /** Half-strength blue zapp burst — the ghost of the teleport effect. */
+  private zap(at: { x: number; d: number; h: number }) {
+    const { sx, sy } = toScreen(at.x, at.d, at.h + 1);
+    const ring = this.scene.add
+      .circle(sx, sy, 26, 0x9fd0ff, 0.35)
+      .setDepth(1400);
+    this.scene.tweens.add({
+      targets: ring,
+      scale: 1.8,
+      alpha: 0,
+      duration: 300,
+      ease: "Cubic.easeOut",
+      onComplete: () => ring.destroy(),
+    });
+    const em = this.scene.add
+      .particles(sx, sy, "px", {
+        speed: { min: 80, max: 220 },
+        angle: { min: 0, max: 360 },
+        lifespan: 400,
+        scale: { start: 1.1, end: 0 },
+        alpha: { start: T.ghost.alpha, end: 0 },
+        tint: [0x2e7bff, 0x9fd0ff, 0xffffff],
+        emitting: false,
+      })
+      .setDepth(1400);
+    em.explode(14);
+    this.scene.time.delayedCall(600, () => em.destroy());
   }
 }

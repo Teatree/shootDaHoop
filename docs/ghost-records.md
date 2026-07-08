@@ -16,11 +16,19 @@ lines in `src/hud.ts` + `src/style.css`. Knobs in `T.ghost` (`src/tuning.ts`).
   player who threw, with their name tag and shadow, at wherever they were
   **2 seconds before the throw** (`ghost.preRollS`). The ghost walks/aims/
   levitates exactly as the original did.
+- **Teleport slams rewind further:** the recording starts **4 seconds before
+  the orb was hit** (`ghost.slamPreRollS`), so the observer sees the whole
+  power-up play — the orb hanging there (rendered half-transparent, pulsing),
+  the lob that hit it, the **zapp effect at both ends of the jump**, the
+  levitation, and the slam.
+- **Speech bubbles replay too:** any bubble the player had up during the
+  recorded window appears above the ghost at half transparency, with the same
+  pop-in and idle bob.
 - At the throw moment the ghost ball pops in and flies the **exact original
   path** — rim rattles, board bounces, wall bounces, everything.
 - At the recorded hit moment the real net snaps and a small flash fires, so a
   made shot still *reads* as a make. (No score is added, nothing is logged.)
-- The recording continues **3 seconds past the hit/miss** (`ghost.postRollS`)
+- The recording continues **2 seconds past the hit/miss** (`ghost.postRollS`)
   — enough aftermath to see where the ball ended up — then the ghosts
   **fade out** and are gone.
 - Clicking a different log line while one is playing **switches instantly** to
@@ -48,13 +56,17 @@ delta = 0.0px).
 
 ## How recording works
 
-1. **Rolling history.** Every frame, the scene samples the player's full
-   visual state — `(x, d, airH)`, walk-bob/crouch offset, facing, sprite angle
-   (`Player.visualState()`) — into a buffer trimmed to the last ~2.5s.
+1. **Rolling history.** Every frame, the scene samples a `FrameSample` — the
+   player's full visual state (`(x, d, airH)`, walk-bob/crouch offset, facing,
+   sprite angle via `Player.visualState()`) **plus the teleport orb's
+   position/pulse-age and the current speech bubble's text/age** — into a
+   buffer trimmed to the last ~8s (long enough for a slam's rewind).
 2. **On throw** (`CourtScene.throwBall`), a `ThrowRecording` is created and
-   seeded with the history's last 2 seconds (rebased to t=0). From then on the
-   recorder appends the player sample *and* the thrown ball's position every
-   frame.
+   seeded from the history — the last 2 seconds for a normal throw, or
+   everything since **4 seconds before the orb hit** for a slam (the teleport
+   moment and both jump endpoints are stamped on the recording so the zapp
+   can replay). From then on the recorder appends the frame sample *and* the
+   thrown ball's position every frame.
 3. **On hit/miss**, the ball's outcome callback stamps `outcomeT`/`made` on the
    recording, and the log line is created with an `onClick` that plays it.
 4. Recording continues until `outcomeT + postRollS`, then finalizes. If the
@@ -77,7 +89,10 @@ Notes:
 - One playback at a time; `play()` instantly destroys any current ghosts.
 - Ghost objects: player sprite (alpha 0.5), name label, floor shadow, ball
   (display-sized like the real one, spin derived from horizontal motion), ball
-  shadow. Positions come from linear interpolation between samples.
+  shadow, **half-alpha orb (glow + pulsing core)**, and a **half-alpha speech
+  bubble** (built by the same `buildBubble` the live chat uses). Positions
+  come from linear interpolation between samples; the zapp replays as a blue
+  ring + particle burst at both recorded jump endpoints.
 - Appear = pop (scale from 0, back-ease). End of recording = fade out
   (`ghost.fadeMs`) then destroy.
 - Replays are silent (no sfx) and don't shake the camera — they're
@@ -88,7 +103,8 @@ Notes:
 | Knob | Default | Meaning |
 |---|---|---|
 | `preRollS` | 2 | seconds of context before the throw |
-| `postRollS` | 3 | seconds of aftermath after the hit/miss |
+| `slamPreRollS` | 4 | slams rewind to this long before the ORB HIT |
+| `postRollS` | 2 | seconds of aftermath after the hit/miss |
 | `alpha` | 0.5 | ghost transparency |
 | `popMs` / `fadeMs` | 220 / 450 | appear / disappear animations |
 | `maxStored` | 25 | recordings kept before oldest are evicted |

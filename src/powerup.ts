@@ -44,6 +44,12 @@ export class TeleportOrb {
     if (!o.fading && o.age >= T.tp.lifeS) this.expire();
   }
 
+  /** What's on screen right now — sampled by ghost recordings. */
+  sample(): { x: number; d: number; h: number; age: number } | null {
+    const o = this.orb;
+    return o && !o.fading ? { x: o.x, d: o.d, h: o.h, age: o.age } : null;
+  }
+
   /**
    * Ball overlap test. Consumes the orb and returns its position when hit;
    * null otherwise.

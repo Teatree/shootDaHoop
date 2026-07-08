@@ -157,7 +157,8 @@ export const T = {
   // ── Ghost records (click a log throw → replay it on the court) ────
   ghost: {
     preRollS: 2, //          recording starts this long before the throw
-    postRollS: 3, //         and runs this long past the hit/miss
+    slamPreRollS: 4, //      …but slams start this long before the ORB HIT
+    postRollS: 2, //         and runs this long past the hit/miss
     alpha: 0.5, //           ghost transparency
     popMs: 220, //           ghost appear animation
     fadeMs: 450, //          ghost disappear fade

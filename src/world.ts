@@ -1,5 +1,7 @@
-import Phaser from "phaser";
 import { T } from "./tuning";
+
+// NOTE: this module is intentionally Phaser-free (pure math) so unit tests
+// can import it without booting the engine.
 
 // World model: a point on the court is (x, d, h) in METERS —
 //   x: distance along the court, 0 = left baseline, grows toward the hoop
@@ -54,9 +56,13 @@ export function floorDistToRim(x: number, d: number): number {
   return Math.sqrt(dx * dx + dd * dd);
 }
 
+export function clamp(v: number, lo: number, hi: number): number {
+  return v < lo ? lo : v > hi ? hi : v;
+}
+
 export function clampToCourt(x: number, d: number) {
   return {
-    x: Phaser.Math.Clamp(x, T.move.minXM, RIM.x - T.move.hoopStandoffM),
-    d: Phaser.Math.Clamp(d, 0, T.court.depthM),
+    x: clamp(x, T.move.minXM, RIM.x - T.move.hoopStandoffM),
+    d: clamp(d, 0, T.court.depthM),
   };
 }
