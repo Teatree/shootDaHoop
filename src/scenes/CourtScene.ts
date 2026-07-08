@@ -156,6 +156,12 @@ export class CourtScene extends Phaser.Scene {
       else this.remotes.get(e.id)?.bubbles.say(e.text);
       playSfx(this, "sfx_chat", 0.5);
     });
+    this.backend.on("tierUnlocked", (e) => {
+      this.hud.log(
+        "presence",
+        `The court reached tier ${e.tierId} — the hoop evolves!`,
+      );
+    });
     this.backend.on("snapshot", (e) => {
       this.hud.setScore(e.world.sharedScore);
       for (const p of e.players) {

@@ -28,11 +28,22 @@ export class Room {
   private world: WorldState = { sharedScore: 0, tierId: 1 };
   /** outcomes scheduled to fire when the ball "lands" (resolvedAtS) */
   private pending = new Set<{ timer: NodeJS.Timeout; fire: () => void }>();
+  /** full-ish snapshots: late joiners and dropped packets self-heal */
+  private snapshotTimer: NodeJS.Timeout | null = null;
 
   constructor(
     readonly lobby: string,
     private readonly onEmpty: () => void,
-  ) {}
+  ) {
+    this.snapshotTimer = setInterval(() => {
+      if (this.occupants.size === 0) return;
+      this.broadcast({
+        t: "snapshot",
+        players: [...this.occupants.values()].map((o) => ({ ...o.info })),
+        world: { ...this.world },
+      });
+    }, BALANCE.lobby.snapshotIntervalS * 1000);
+  }
 
   get size(): number {
     return this.occupants.size;
@@ -94,6 +105,7 @@ export class Room {
         p.fire();
       }
       this.pending.clear();
+      if (this.snapshotTimer) clearInterval(this.snapshotTimer);
       this.onEmpty();
     }
   }
