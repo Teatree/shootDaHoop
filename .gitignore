@@ -7,3 +7,6 @@ dist/
 
 # per-machine Claude Code permissions
 .claude/settings.local.json
+
+# server persistence (local dev JSON storage)
+data/

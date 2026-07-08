@@ -19,9 +19,24 @@ const SHIRT_COLOURS = [
   0xd96a6a, 0x6a9ad9, 0x6ac48a, 0xd9b56a, 0xa97ad9, 0xd97ab0, 0x7ac4c4,
 ];
 
-/** Random shirt colour, chosen once per session (spec: that's the identity). */
-export const SESSION_SHIRT =
-  SHIRT_COLOURS[Math.floor(Math.random() * SHIRT_COLOURS.length)];
+/**
+ * The player's shirt colour — their visual identity. Rolled once, then
+ * persistent per browser so what teammates see matches every session
+ * (the server profile stores the same colour).
+ */
+function persistentShirt(): number {
+  const KEY = "shootDaHoop.shirt";
+  const stored = localStorage.getItem(KEY);
+  if (stored) {
+    const n = parseInt(stored, 16);
+    if (SHIRT_COLOURS.includes(n)) return n;
+  }
+  const c = SHIRT_COLOURS[Math.floor(Math.random() * SHIRT_COLOURS.length)];
+  localStorage.setItem(KEY, c.toString(16));
+  return c;
+}
+
+export const SESSION_SHIRT = persistentShirt();
 
 export function ensurePlaceholderTextures(scene: Phaser.Scene) {
   const tex = scene.textures;

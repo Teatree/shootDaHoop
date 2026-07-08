@@ -5,11 +5,13 @@ import { resolveThrow } from "../src/shared/simulate";
 import { tierForScore } from "../src/shared/tiers";
 import type {
   ClientMsg,
+  HistoryEntry,
   PlayerInfo,
   ServerMsg,
   ThrowLaunch,
   WorldState,
 } from "../src/shared/messages";
+import type { PlayerProfile, Storage } from "./storage";
 
 // One live world. Holds who's connected (presence — ephemeral) and the
 // shared world state. Presence dies with the socket; world state and
@@ -21,20 +23,26 @@ import type {
 interface Occupant {
   info: PlayerInfo;
   ws: WebSocket;
+  profile: PlayerProfile;
 }
 
 export class Room {
   private occupants = new Map<string, Occupant>();
   private world: WorldState = { sharedScore: 0, tierId: 1 };
+  private history: HistoryEntry[] = [];
   /** outcomes scheduled to fire when the ball "lands" (resolvedAtS) */
   private pending = new Set<{ timer: NodeJS.Timeout; fire: () => void }>();
   /** full-ish snapshots: late joiners and dropped packets self-heal */
   private snapshotTimer: NodeJS.Timeout | null = null;
+  /** resolves once the world bundle is hydrated — join() waits on this */
+  readonly ready: Promise<void>;
 
   constructor(
     readonly lobby: string,
+    private readonly storage: Storage,
     private readonly onEmpty: () => void,
   ) {
+    this.ready = this.hydrate();
     this.snapshotTimer = setInterval(() => {
       if (this.occupants.size === 0) return;
       this.broadcast({
@@ -45,20 +53,43 @@ export class Room {
     }, BALANCE.lobby.snapshotIntervalS * 1000);
   }
 
+  private async hydrate() {
+    const bundle = await this.storage.loadWorld(this.lobby);
+    if (bundle) {
+      this.world = bundle.world;
+      this.history = bundle.history ?? [];
+    }
+  }
+
   get size(): number {
     return this.occupants.size;
   }
 
   /** Returns true if the join was accepted (welcome sent). */
-  join(
+  async join(
     ws: WebSocket,
     identity: { id: string; name: string; shirtColor: number },
-  ): boolean {
+  ): Promise<boolean> {
+    await this.ready;
     const existing = this.occupants.get(identity.id);
     if (!existing && this.occupants.size >= BALANCE.lobby.maxPlayers) {
       send(ws, { t: "join-rejected", reason: "full" });
       return false;
     }
+
+    // profile is persistent and travels across worlds
+    const profile: PlayerProfile = (await this.storage.loadProfile(
+      identity.id,
+    )) ?? {
+      id: identity.id,
+      name: identity.name,
+      shirtColor: identity.shirtColor,
+      throwsUsedToday: 0,
+      lastThrowDayUTC: "",
+    };
+    profile.name = identity.name;
+    profile.shirtColor = identity.shirtColor;
+    void this.storage.saveProfile(profile).catch(logSaveError);
 
     if (existing) {
       // reconnect: replace the zombie socket, keep the avatar where it was
@@ -69,6 +100,7 @@ export class Room {
       }
       existing.ws = ws;
       existing.info.name = identity.name;
+      existing.profile = profile;
     } else {
       const spawn = clampToCourt(FREE_THROW_X, RIM.d);
       const info: PlayerInfo = {
@@ -78,8 +110,9 @@ export class Room {
         x: spawn.x,
         d: spawn.d,
       };
-      this.occupants.set(identity.id, { info, ws });
+      this.occupants.set(identity.id, { info, ws, profile });
       this.broadcast({ t: "player-joined", player: info }, ws);
+      this.record({ kind: "presence", name: identity.name, joined: true });
     }
 
     send(ws, {
@@ -88,7 +121,7 @@ export class Room {
       players: [...this.occupants.values()].map((o) => o.info),
       world: { ...this.world },
       throwsRemaining: BALANCE.budget.throwsPerDay, // budget lands in step 7
-      history: [], //                                  persistence lands in step 5
+      history: this.history.slice(0, -1), // minus our own join, logged live
     });
     return true;
   }
@@ -98,6 +131,7 @@ export class Room {
     if (!occ || occ.ws !== ws) return; // stale socket from a reconnect
     this.occupants.delete(playerId);
     this.broadcast({ t: "player-left", id: playerId, name: occ.info.name });
+    this.record({ kind: "presence", name: occ.info.name, joined: false });
     if (this.occupants.size === 0) {
       // flush in-flight outcomes so the world state stays consistent
       for (const p of this.pending) {
@@ -108,6 +142,20 @@ export class Room {
       if (this.snapshotTimer) clearInterval(this.snapshotTimer);
       this.onEmpty();
     }
+  }
+
+  /** Append to the wall history and persist the bundle — save on event. */
+  private record(entry: HistoryEntry) {
+    this.history.push(entry);
+    if (this.history.length > BALANCE.lobby.historyKept)
+      this.history = this.history.slice(-BALANCE.lobby.historyKept);
+    void this.storage
+      .saveWorld({
+        lobby: this.lobby,
+        world: { ...this.world },
+        history: this.history,
+      })
+      .catch(logSaveError);
   }
 
   handle(playerId: string, msg: ClientMsg) {
@@ -141,8 +189,9 @@ export class Room {
         // authoritative resolution NOW; the outcome fires when the ball
         // "lands" so score juice lines up with the visual flight
         const res = resolveThrow(msg.launch);
+        const playerName = occ.info.name; // captured — they may leave mid-flight
         const fire = () =>
-          this.applyOutcome(playerId, msg.throwId, msg.launch.slam, res);
+          this.applyOutcome(playerId, playerName, msg.throwId, msg.launch.slam, res);
         const entry = {
           timer: setTimeout(() => {
             this.pending.delete(entry);
@@ -162,6 +211,7 @@ export class Room {
 
   private applyOutcome(
     playerId: string,
+    playerName: string,
     throwId: string,
     slam: boolean,
     res: ReturnType<typeof resolveThrow>,
@@ -184,6 +234,15 @@ export class Room {
         world: { ...this.world },
       },
     });
+    this.record({
+      kind: "outcome",
+      name: playerName,
+      made: res.made,
+      swish: res.swish,
+      slam,
+      distM: res.distM,
+      points: res.points,
+    });
     if (this.world.tierId !== prevTier) {
       this.broadcast({
         t: "tier-unlock",
@@ -204,6 +263,10 @@ export class Room {
 
 function send(ws: WebSocket, msg: ServerMsg) {
   if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(msg));
+}
+
+function logSaveError(err: unknown) {
+  console.error("persist failed (state kept in memory):", err);
 }
 
 /** Never trust the client: sanity-check every launch before resolving. */
