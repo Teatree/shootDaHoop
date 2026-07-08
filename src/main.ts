@@ -3,6 +3,8 @@ import { CourtScene } from "./scenes/CourtScene";
 import { initHUD } from "./hud";
 import { AUDIO_MANIFEST, IMAGE_MANIFEST } from "./assets";
 import { askPlayerName, getStoredName } from "./playerName";
+import { LocalBackend } from "./backend/local";
+import { SESSION_SHIRT } from "./placeholders";
 
 // Probe which user-provided assets actually exist (the dev server answers
 // missing files with the index.html fallback, which Phaser can't decode).
@@ -45,7 +47,16 @@ async function boot() {
       mode: Phaser.Scale.RESIZE,
       autoCenter: Phaser.Scale.CENTER_BOTH,
     },
-    scene: [new CourtScene(hud, { images, audio }, playerName)],
+    scene: [
+      new CourtScene(
+        hud,
+        { images, audio },
+        playerName,
+        // the whole single-player game runs through the same Backend seam
+        // that live multiplayer will use (SocketBackend, Stage 2)
+        new LocalBackend({ name: playerName, shirtColor: SESSION_SHIRT }),
+      ),
+    ],
   });
 }
 

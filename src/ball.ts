@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { T } from "./tuning";
 import { M, WALL_LEFT_X, WALL_RIGHT_X, floorY, sortDepth, toScreen } from "./world";
-import { type BallState, createBallState, stepBall } from "./physics";
+import { type BallState, createBallState, stepBall } from "./shared/physics";
 import { ballExplode } from "./juice";
 import { playSfx } from "./sfx";
 import { shadowShift, type LightDir } from "./sky";
@@ -59,20 +59,20 @@ export class Ball {
     const baseScale = this.sprite.scaleX;
 
     // release "pop" — tween back to baseScale, NOT 1, or it undoes the sizing
-    this.sprite.setScale(baseScale * T.throw.releasePopScale);
+    this.sprite.setScale(baseScale * T.throwFx.releasePopScale);
     scene.tweens.add({
       targets: this.sprite,
       scale: baseScale,
-      duration: T.throw.releasePopMs,
+      duration: T.throwFx.releasePopMs,
       ease: "Cubic.easeOut",
     });
 
     // subtle motion trail
     this.trail = scene.add.particles(0, 0, "px", {
       follow: this.sprite,
-      frequency: T.throw.trail.frequencyMs,
-      lifespan: T.throw.trail.lifespanMs,
-      alpha: { start: T.throw.trail.alpha, end: 0 },
+      frequency: T.throwFx.trail.frequencyMs,
+      lifespan: T.throwFx.trail.lifespanMs,
+      alpha: { start: T.throwFx.trail.alpha, end: 0 },
       scale: { start: 2.2, end: 0.3 },
       tint: 0xf0955a,
       speed: 4,

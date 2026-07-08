@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { T } from "./tuning";
-import { pointsForDistance } from "./scoring";
+import { pointsForDistance } from "./shared/scoring";
 
 describe("pointsForDistance", () => {
   it("scores insidePts anywhere inside the 3pt line", () => {

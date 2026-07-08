@@ -1,51 +1,18 @@
 // ════════════════════════════════════════════════════════════════════
-//  TUNING — every feel knob in the prototype lives in this file.
+//  TUNING — every CLIENT-SIDE feel knob lives in this file.
 //  Edit + save → Vite hot-reloads. Expect to spend most time here.
+//
+//  The SHARED balance (court, hoop, physics, scoring, walls, movement,
+//  throw budget — everything the server also needs) lives in
+//  src/shared/config.ts and is spread into `T` below, so `T.court…`,
+//  `T.throw…` etc. keep working everywhere on the client.
 //  Units: meters (m), seconds (s), meters/second (m/s) unless noted px.
 // ════════════════════════════════════════════════════════════════════
 
+import { BALANCE } from "./shared/config";
+
 export const T = {
-  // ── Court & coordinate system ─────────────────────────────────────
-  court: {
-    meterPx: 32, //          world pixels per meter (character is 2m → 64px tall)
-    lengthM: 28, //          full court, left baseline → right baseline
-    depthM: 6, //            playable depth band (far ↔ near sideline)
-    depthPxPerM: 16, //      vertical px per depth meter (side-view foreshortening)
-    floorBaseY: 420, //      world-px Y of the floor's FAR edge (depth = 0)
-    rimFromBaselineM: 1.575, // rim center distance from the right baseline
-    threePtM: 6.75, //       3-point line distance from the rim (floor)
-    freeThrowM: 4.225, //    free-throw (spawn) spot distance from the rim
-  },
-
-  // ── Hoop geometry & materials ─────────────────────────────────────
-  hoop: {
-    rimHeightM: 5.55, //     regulation 3.05 + 2.5 (80 px) — sky hoop
-    rimRadiusM: 0.69, //     rim opening half-width (scaled with the 3× ball)
-    boardGapM: 0.25, //      gap between back rim and backboard face
-    boardBottomM: 5.1, //    backboard vertical extent (tracks the raised rim)
-    boardTopM: 8.0,
-    rimRestitution: 0.55, // bounciness off the rim (let it rattle)
-    boardRestitution: 0.65,
-    laneDepthM: 0.45, //     |d − rim lane| where the ball interacts with the hoop
-    scoreDepthM: 0.3, //     tighter depth window to actually count the bucket
-  },
-
-  // ── Boundary walls — physical scene edges past both baselines ─────
-  // (NOT the log wall: the log panel is a screen-space DOM element.)
-  wall: {
-    offsetPx: 300, //      distance past each baseline, world px
-    restitution: 0.6, //   horizontal energy kept when the ball hits a wall
-  },
-
-  // ── Movement ──────────────────────────────────────────────────────
-  move: {
-    speedM: 4.5, //          walk speed, m/s
-    minXM: 0.4, //           left clamp (far baseline — one court length from hoop)
-    hoopStandoffM: 6.25, //  keep-out radius around the hoop (200 world px)
-    zoneShowDistPx: 20, //   keep-out visual fades in this close to its line
-    zoneFadeLerp: 6, //      fade in/out speed (1/s)
-    arriveEps: 0.08, //      "close enough" to the click target, m
-  },
+  ...BALANCE,
 
   // ── Camera rig ────────────────────────────────────────────────────
   camera: {
@@ -64,9 +31,9 @@ export const T = {
   aim: {
     maxDragPx: 240, //       screen-px drag from the press point = full power
     deadzonePx: 10, //       drags shorter than this (screen px) cancel the throw
-    powerExponent: 1.8, //   >1 = fine control at the low end (eased, non-linear)
-    minPowerM: 3.0, //       launch speed at the softest throw
-    maxPowerM: 19.0, //      launch speed at full aim (enough for full-court)
+    powerExponent: BALANCE.power.powerExponent,
+    minPowerM: BALANCE.power.minPowerM,
+    maxPowerM: BALANCE.power.maxPowerM,
     // The preview line IS the power meter: longer + hotter = harder throw.
     previewMinLenM: 1.95, // arc length shown at the softest throw…
     previewMaxLenM: 6.3, //  …growing to this at full power
@@ -78,16 +45,8 @@ export const T = {
     previewCapRingPx: 9, //  pulsing ring at the line's end when power = 100%
   },
 
-  // ── Ball flight & physics ─────────────────────────────────────────
-  throw: {
-    gravityM: 13.0, //       m/s² downward. Lower = floatier (real = 9.8)
-    releaseHeightM: 2.2, //  hands-above-head release point (clears the big ball)
-    releaseForwardM: 0.5, // ball spawns this far toward the hoop
-    depthEaseRate: 2.2, //   how fast depth converges on the rim lane (1/s)
-    spinRadPerM: 2.6, //     ball spin ∝ horizontal speed
-    ballRadiusM: 0.36, //    3× the real ball — reads as a basketball, not a baseball
-    substepTravelFrac: 0.5, // max travel per physics substep, in ball radii (CCD-ish)
-    maxSubsteps: 10,
+  // ── Ball flight presentation (physics itself is shared) ──────────
+  throwFx: {
     releasePopScale: 1.45, //scale "pop" on release
     releasePopMs: 140,
     trail: {
@@ -97,22 +56,10 @@ export const T = {
     },
   },
 
-  // ── Dead-ball ground behaviour ────────────────────────────────────
-  ground: {
-    restitution: 0.55, //    bounce energy kept per ground hit
-    slideFriction: 0.75, //  horizontal speed kept per ground hit
-    restSpeedM: 0.6, //      below this after a bounce → coming to rest
-    restDelayS: 0.45, //     pause after settling before the explode
-    maxLifeS: 15, //         hard despawn safety net
-  },
-
-  // ── Scoring ───────────────────────────────────────────────────────
-  score: {
-    insidePts: 100, //       inside the 3pt line
-    threePts: 250, //        at the line
-    perMeterPts: 10, //      per meter beyond the line
-    capPts: 500, //          hard limit
-    bigScorePts: 300, //     per-shot points above this = rainbow log + big juice
+  // ── Keep-out zone reveal ──────────────────────────────────────────
+  zone: {
+    showDistPx: 20, //       keep-out visual fades in this close to its line
+    fadeLerp: 6, //          fade in/out speed (1/s)
   },
 
   // ── Sky: the sun procession over the desert ───────────────────────
@@ -151,7 +98,6 @@ export const T = {
     lieS: 5, //              face-down time after landing
     getUpMs: 350, //         stand-back-up animation
     weakThrowVh: 4.5, //     auto-throw (straight up) if time runs out mid-aim
-    slamPts: 500, //         a made basket while levitating
   },
 
   // ── Ghost records (click a log throw → replay it on the court) ────

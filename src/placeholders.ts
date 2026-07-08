@@ -202,7 +202,7 @@ export function drawCourt(scene: Phaser.Scene) {
 
 /**
  * The hoop's keep-out zone: red tint + diagonal hatching. Starts invisible;
- * CourtScene fades it in when the player walks up close (T.move.zoneShowDistPx).
+ * CourtScene fades it in when the player walks up close (T.zone.showDistPx).
  */
 export function createKeepOutZone(scene: Phaser.Scene): Phaser.GameObjects.Graphics {
   const x1 = T.court.lengthM * M;

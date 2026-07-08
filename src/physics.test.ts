@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { T } from "./tuning";
 import { RIM, WALL_LEFT_X, WALL_RIGHT_X } from "./world";
-import { createBallState, stepBall, type BallEvent, type BallState } from "./physics";
+import { createBallState, stepBall, type BallEvent, type BallState } from "./shared/physics";
 
 // These tests drive the pure stepper with a FIXED dt, which makes them
 // deterministic. Live play feeds variable frame times on purpose (design

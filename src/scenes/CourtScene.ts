@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { T } from "../tuning";
-import { M, RIM, floorDistToRim } from "../world";
+import { M, RIM, floorDistToRim, screenToFloor } from "../world";
 import { SunSystem, shadowShift } from "../sky";
 import { SpeechBubbles } from "../speech";
 import type { HUD } from "../hud";
@@ -17,11 +17,12 @@ import {
 import { Player } from "../player";
 import { CameraRig } from "../cameraRig";
 import { AimController, type Shot } from "../aiming";
-import { Ball, type ShotOutcome } from "../ball";
-import { pointsForDistance } from "../scoring";
+import { Ball } from "../ball";
 import { playSfx } from "../sfx";
 import type { AvailableAssets } from "../assets";
 import type { ThrowRecording } from "../ghostData";
+import type { ThrowLaunch, ThrowOutcome } from "../shared/messages";
+import type { Backend } from "../backend/types";
 import { TeleportSystem } from "../systems/teleport";
 import { RecordingSystem } from "../systems/recording";
 import {
@@ -35,7 +36,9 @@ import {
 //   systems/teleport.ts     the orb power-up + levitation state machine
 //   systems/recording.ts    ghost record capture + playback
 //   systems/shotFeedback.ts score/miss juice + the court-wall log lines
-// and the ball's physics is the pure stepper in physics.ts.
+// the ball's physics is the pure stepper in shared/physics.ts, and ALL
+// gameplay intents/outcomes flow through the Backend seam — the scene
+// never touches a transport (LocalBackend today, SocketBackend later).
 export class CourtScene extends Phaser.Scene {
   private player!: Player;
   private rig!: CameraRig;
@@ -47,12 +50,15 @@ export class CourtScene extends Phaser.Scene {
   private teleport!: TeleportSystem;
   private recording!: RecordingSystem;
   private balls: Ball[] = [];
-  private score = 0;
+  private selfId = "";
+  private throwSeq = 0;
+  private recsByThrowId = new Map<string, ThrowRecording>();
 
   constructor(
     private readonly hud: HUD,
     private readonly assets: AvailableAssets,
     private readonly playerName: string,
+    private readonly backend: Backend,
   ) {
     super("court");
   }
@@ -78,13 +84,13 @@ export class CourtScene extends Phaser.Scene {
     this.aim = new AimController(
       this,
       this.player,
-      (shot) => this.throwBall(shot),
-      (sx, sy) => this.clickRipple(sx, sy),
+      (shot) => this.sendThrow(shot, false),
+      (sx, sy) => this.walkClick(sx, sy),
     );
     this.teleport = new TeleportSystem(this, this.player, {
       aim: this.aim,
       throwWeak: () =>
-        this.throwBall({ vx: 0, vh: T.tp.weakThrowVh, power: 0 }, true),
+        this.sendThrow({ vx: 0, vh: T.tp.weakThrowVh, power: 0 }, true),
       onTeleport: (from, to) => this.recording.noteTeleport(from, to),
     });
     this.recording = new RecordingSystem(
@@ -97,15 +103,28 @@ export class CourtScene extends Phaser.Scene {
     // dev console handle for poking at feel state while tuning
     (window as unknown as Record<string, unknown>).__court = this;
 
-    this.hud.log("presence", `${esc(this.playerName)} joined the court.`);
-    this.hud.onChat((msg) => {
+    // ── backend wiring: intents out, events in ─────────────────────
+    this.backend.on("welcome", (e) => {
+      this.selfId = e.selfId;
+      this.hud.log("presence", `${esc(this.playerName)} joined the court.`);
+      this.hud.setScore(e.world.sharedScore);
+    });
+    this.backend.on("throwStarted", (e) => {
+      if (e.id === this.selfId) this.spawnBall(e.throwId, e.launch);
+      // remote players' throws spawn their own balls in Stage 2
+    });
+    this.backend.on("outcome", (e) => this.presentOutcome(e));
+    this.backend.on("chatMessage", (e) => {
       this.hud.log(
         "chat",
-        `<span class="who">${esc(this.playerName)}:</span> ${esc(msg)}`,
+        `<span class="who">${esc(e.name)}:</span> ${esc(e.text)}`,
       );
-      this.speech.say(msg);
+      if (e.id === this.selfId) this.speech.say(e.text);
       playSfx(this, "sfx_chat", 0.5);
     });
+
+    this.hud.onChat((msg) => this.backend.chat(msg));
+    this.backend.connect();
   }
 
   update(_time: number, deltaMs: number) {
@@ -124,8 +143,8 @@ export class CourtScene extends Phaser.Scene {
 
     // keep-out zone fades in only when the player is pressed up close
     const zoneX = (RIM.x - T.move.hoopStandoffM) * M;
-    const near = zoneX - this.player.x * M <= T.move.zoneShowDistPx;
-    const kz = 1 - Math.exp(-T.move.zoneFadeLerp * dt);
+    const near = zoneX - this.player.x * M <= T.zone.showDistPx;
+    const kz = 1 - Math.exp(-T.zone.fadeLerp * dt);
     this.keepOutZone.alpha += ((near ? 1 : 0) - this.keepOutZone.alpha) * kz;
 
     // hoop drop shadow tracks the sun (caster ≈ mid-rim height)
@@ -140,65 +159,90 @@ export class CourtScene extends Phaser.Scene {
     );
   }
 
-  // ── shooting ───────────────────────────────────────────────────────
+  // ── shooting: intent → backend → throwStarted → live ball ─────────
 
-  private throwBall(shot: Shot, slam = false) {
+  /** Package the aim result as a launch intent and send it upstream. */
+  private sendThrow(shot: Shot, slam: boolean) {
     const rp = this.player.releasePoint();
-    const distM = floorDistToRim(this.player.x, this.player.d);
-    const isSlam = slam || this.teleport.isLevitating;
-
-    // the recorder is created right after the ball; callbacks fire only
-    // from later update ticks, so `rec` is always assigned by then
-    let rec!: ThrowRecording;
-    const ball = new Ball(this, {
+    const launch: ThrowLaunch = {
+      shotX: this.player.x,
+      shotD: this.player.d,
       x: rp.x,
       d: rp.d,
       h: rp.h,
       vx: shot.vx,
       vh: shot.vh,
-      shotDistM: distM,
+      slam: slam || this.teleport.isLevitating,
+    };
+    const throwId = `t${++this.throwSeq}`;
+    this.backend.requestThrow(throwId, launch);
+    // the levitation throw is the last act up there — falling starts now
+    this.teleport.onThrowReleased();
+  }
+
+  /** A confirmed throw: spawn the live feel-simulation ball + recorder. */
+  private spawnBall(throwId: string, launch: ThrowLaunch) {
+    // the recorder is created right after the ball; callbacks fire only
+    // from later update ticks, so `rec` is always assigned by then
+    let rec!: ThrowRecording;
+    const ball = new Ball(this, {
+      x: launch.x,
+      d: launch.d,
+      h: launch.h,
+      vx: launch.vx,
+      vh: launch.vh,
+      shotDistM: floorDistToRim(launch.shotX, launch.shotD),
       onScore: (o) => {
         this.recording.stampOutcome(rec, true);
-        this.onScore(o, isSlam, rec);
+        this.backend.reportOutcome(throwId, {
+          made: true,
+          swish: o.swish,
+          slam: launch.slam,
+          distM: o.distM,
+        });
       },
       onMiss: (o) => {
         this.recording.stampOutcome(rec, false);
-        this.onMiss(o, isSlam, rec);
+        this.backend.reportOutcome(throwId, {
+          made: false,
+          swish: false,
+          slam: launch.slam,
+          distM: o.distM,
+        });
       },
       onDone: () => {
         /* filtered out in update() via .done */
       },
     });
-    rec = this.recording.beginThrow(ball, isSlam, this.playerName);
+    rec = this.recording.beginThrow(ball, launch.slam, this.playerName);
+    this.recsByThrowId.set(throwId, rec);
     this.balls.push(ball);
-
-    // the levitation throw is the last act up there — falling starts now
-    this.teleport.onThrowReleased();
   }
 
-  private onScore(o: ShotOutcome, slam: boolean, rec: ThrowRecording) {
-    const pts = slam ? T.tp.slamPts : pointsForDistance(o.distM);
-    this.score += pts;
-    this.hud.setScore(this.score);
-    presentScore(
-      { scene: this, hud: this.hud, hoop: this.hoop, who: this.playerName },
-      o,
-      pts,
-      slam,
-      () => this.recording.play(rec),
-    );
+  /** The authoritative result came back — score display + juice + log. */
+  private presentOutcome(e: ThrowOutcome) {
+    this.hud.setScore(e.world.sharedScore);
+    const rec = this.recsByThrowId.get(e.throwId);
+    this.recsByThrowId.delete(e.throwId);
+    const onReplay = rec ? () => this.recording.play(rec) : undefined;
+    const ctx = {
+      scene: this,
+      hud: this.hud,
+      hoop: this.hoop,
+      who: this.playerName,
+    };
+    const o = { made: e.made, swish: e.swish, distM: e.distM };
+    if (e.made) presentScore(ctx, o, e.points, e.slam, onReplay);
+    else presentMiss(ctx, o, e.slam, onReplay);
   }
 
-  private onMiss(o: ShotOutcome, slam: boolean, rec: ThrowRecording) {
-    presentMiss(
-      { scene: this, hud: this.hud, hoop: this.hoop, who: this.playerName },
-      o,
-      slam,
-      () => this.recording.play(rec),
-    );
-  }
+  // ── movement: animate immediately, broadcast the intent ───────────
 
-  // ── small move-order feedback ──────────────────────────────────────
+  private walkClick(sx: number, sy: number) {
+    const { x, d } = screenToFloor(sx, sy);
+    this.backend.moveTo(x, d);
+    this.clickRipple(sx, sy);
+  }
 
   private clickRipple(sx: number, sy: number) {
     const c = this.add.circle(sx, sy, 6, 0xfff3d6, 0).setDepth(50);

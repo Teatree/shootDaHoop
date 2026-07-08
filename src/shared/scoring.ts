@@ -1,4 +1,4 @@
-import { T } from "./tuning";
+import { BALANCE as T } from "./config";
 
 /**
  * Points for a MADE basket shot from `distM` court-meters (floor distance).

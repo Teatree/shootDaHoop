@@ -1,8 +1,9 @@
-import { T } from "./tuning";
-import { RIM, WALL_LEFT_X, WALL_RIGHT_X, clamp } from "./world";
+import { BALANCE as T } from "./config";
+import { RIM, WALL_LEFT_X, WALL_RIGHT_X, clamp } from "./court";
 
-// Pure ball physics — no Phaser, no rendering, no sound. Ball (ball.ts)
-// owns the sprites and feeds this stepper; unit tests drive it directly.
+// Pure ball physics — no Phaser, no DOM, no Node. Shared by the client
+// (Ball in ball.ts owns the sprites and feeds this stepper) and the server
+// (resolveThrow in simulate.ts); unit tests drive it directly.
 //
 // The integration is substepped so travel per step never exceeds a
 // fraction of the ball radius, and every plane interaction (scoring,
