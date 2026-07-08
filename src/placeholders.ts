@@ -55,40 +55,58 @@ export function ensurePlaceholderTextures(scene: Phaser.Scene) {
     g.destroy();
   }
 
-  // Character — 34×66, simple cozy figure with a 1px black outline,
-  // session shirt colour baked in
+  // Character — the local player's texture, session shirt colour baked in.
+  // Remote avatars get their own colour via ensurePlayerTexture below.
   if (!tex.exists("player")) {
-    const g = scene.make.graphics({ x: 0, y: 0 }, false);
-    const skin = 0xe8b88a;
-    const shorts = 0x4a4a5a;
-    const shoes = 0x8a5a3a;
-    // every body rect; mono=true paints them all black for the outline pass
-    const figure = (ox: number, oy: number, mono: boolean) => {
-      const c = (col: number) => (mono ? 0x000000 : col);
-      // head + hair
-      g.fillStyle(c(skin)).fillRect(ox + 10, oy + 2, 12, 12);
-      g.fillStyle(c(0x5a3d28)).fillRect(ox + 10, oy + 0, 12, 4);
-      // shirt + arms
-      g.fillStyle(c(SESSION_SHIRT)).fillRect(ox + 8, oy + 14, 16, 20);
-      g.fillStyle(c(skin)).fillRect(ox + 4, oy + 14, 4, 14);
-      g.fillStyle(c(skin)).fillRect(ox + 24, oy + 14, 4, 14);
-      // shorts + legs + shoes
-      g.fillStyle(c(shorts)).fillRect(ox + 8, oy + 34, 16, 10);
-      g.fillStyle(c(skin)).fillRect(ox + 10, oy + 44, 5, 14);
-      g.fillStyle(c(skin)).fillRect(ox + 17, oy + 44, 5, 14);
-      g.fillStyle(c(shoes)).fillRect(ox + 9, oy + 58, 7, 6);
-      g.fillStyle(c(shoes)).fillRect(ox + 16, oy + 58, 7, 6);
-    };
-    // black silhouette at 4 offsets = 1px outline, then the figure on top
-    figure(0, 1, true);
-    figure(2, 1, true);
-    figure(1, 0, true);
-    figure(1, 2, true);
-    figure(1, 1, false);
-    g.fillStyle(0x2b2b2b).fillRect(1 + 18, 1 + 6, 2, 2); // eye (faces right)
-    g.generateTexture("player", 34, 66);
-    g.destroy();
+    drawPlayerTexture(scene, "player", SESSION_SHIRT);
   }
+}
+
+/**
+ * A player texture for any shirt colour (remote avatars) — generated once
+ * per colour and cached in the texture manager. Returns the texture key.
+ */
+export function ensurePlayerTexture(
+  scene: Phaser.Scene,
+  shirtColor: number,
+): string {
+  const key = `player-${shirtColor.toString(16).padStart(6, "0")}`;
+  if (!scene.textures.exists(key)) drawPlayerTexture(scene, key, shirtColor);
+  return key;
+}
+
+/** 34×66 cozy figure with a 1px black outline and the given shirt colour. */
+function drawPlayerTexture(scene: Phaser.Scene, key: string, shirt: number) {
+  const g = scene.make.graphics({ x: 0, y: 0 }, false);
+  const skin = 0xe8b88a;
+  const shorts = 0x4a4a5a;
+  const shoes = 0x8a5a3a;
+  // every body rect; mono=true paints them all black for the outline pass
+  const figure = (ox: number, oy: number, mono: boolean) => {
+    const c = (col: number) => (mono ? 0x000000 : col);
+    // head + hair
+    g.fillStyle(c(skin)).fillRect(ox + 10, oy + 2, 12, 12);
+    g.fillStyle(c(0x5a3d28)).fillRect(ox + 10, oy + 0, 12, 4);
+    // shirt + arms
+    g.fillStyle(c(shirt)).fillRect(ox + 8, oy + 14, 16, 20);
+    g.fillStyle(c(skin)).fillRect(ox + 4, oy + 14, 4, 14);
+    g.fillStyle(c(skin)).fillRect(ox + 24, oy + 14, 4, 14);
+    // shorts + legs + shoes
+    g.fillStyle(c(shorts)).fillRect(ox + 8, oy + 34, 16, 10);
+    g.fillStyle(c(skin)).fillRect(ox + 10, oy + 44, 5, 14);
+    g.fillStyle(c(skin)).fillRect(ox + 17, oy + 44, 5, 14);
+    g.fillStyle(c(shoes)).fillRect(ox + 9, oy + 58, 7, 6);
+    g.fillStyle(c(shoes)).fillRect(ox + 16, oy + 58, 7, 6);
+  };
+  // black silhouette at 4 offsets = 1px outline, then the figure on top
+  figure(0, 1, true);
+  figure(2, 1, true);
+  figure(1, 0, true);
+  figure(1, 2, true);
+  figure(1, 1, false);
+  g.fillStyle(0x2b2b2b).fillRect(1 + 18, 1 + 6, 2, 2); // eye (faces right)
+  g.generateTexture(key, 34, 66);
+  g.destroy();
 }
 
 /** Desert backdrop: banded sky over rolling dunes. Suns live in sky.ts. */

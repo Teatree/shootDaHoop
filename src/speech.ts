@@ -1,7 +1,13 @@
 import Phaser from "phaser";
 import { T } from "./tuning";
 import { sortDepth, toScreen } from "./world";
-import type { Player } from "./player";
+
+/** Anything a bubble can hang above — the local Player or a RemoteAvatar. */
+export interface BubbleAnchor {
+  x: number;
+  d: number;
+  airH: number;
+}
 
 // Chat speech bubbles: one at a time above the player (over the name),
 // sized to the text, popping in, hanging with a gentle idle bob for
@@ -57,7 +63,7 @@ export class SpeechBubbles {
 
   constructor(
     private readonly scene: Phaser.Scene,
-    private readonly player: Player,
+    private readonly player: BubbleAnchor,
   ) {}
 
   say(text: string) {

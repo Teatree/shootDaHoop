@@ -21,8 +21,14 @@ import { Ball } from "../ball";
 import { playSfx } from "../sfx";
 import type { AvailableAssets } from "../assets";
 import type { ThrowRecording } from "../ghostData";
-import type { ThrowLaunch, ThrowOutcome } from "../shared/messages";
+import type {
+  HistoryEntry,
+  PlayerInfo,
+  ThrowLaunch,
+  ThrowOutcome,
+} from "../shared/messages";
 import type { Backend } from "../backend/types";
+import { RemoteAvatar } from "../remoteAvatar";
 import { TeleportSystem } from "../systems/teleport";
 import { RecordingSystem } from "../systems/recording";
 import {
@@ -53,6 +59,10 @@ export class CourtScene extends Phaser.Scene {
   private selfId = "";
   private throwSeq = 0;
   private recsByThrowId = new Map<string, ThrowRecording>();
+  private remotes = new Map<
+    string,
+    { avatar: RemoteAvatar; bubbles: SpeechBubbles }
+  >();
 
   constructor(
     private readonly hud: HUD,
@@ -106,25 +116,105 @@ export class CourtScene extends Phaser.Scene {
     // ── backend wiring: intents out, events in ─────────────────────
     this.backend.on("welcome", (e) => {
       this.selfId = e.selfId;
+      this.renderHistory(e.history);
       this.hud.log("presence", `${esc(this.playerName)} joined the court.`);
       this.hud.setScore(e.world.sharedScore);
+      for (const p of e.players)
+        if (p.id !== e.selfId) this.addRemote(p);
+    });
+    this.backend.on("joinRejected", () => {
+      this.hud.log("presence", "This court is full — try again later.");
+    });
+    this.backend.on("disconnected", () => {
+      this.hud.log("presence", "Connection to the court lost.");
+    });
+    this.backend.on("playerJoined", (e) => {
+      this.addRemote(e.player);
+      this.hud.log("presence", `${esc(e.player.name)} joined the court.`);
+    });
+    this.backend.on("playerLeft", (e) => {
+      this.removeRemote(e.id);
+      this.hud.log("presence", `${esc(e.name)} left the court.`);
+    });
+    this.backend.on("playerMoved", (e) => {
+      if (e.id !== this.selfId) this.remotes.get(e.id)?.avatar.walkTo(e.x, e.d);
     });
     this.backend.on("throwStarted", (e) => {
       if (e.id === this.selfId) this.spawnBall(e.throwId, e.launch);
-      // remote players' throws spawn their own balls in Stage 2
+      else this.spawnRemoteBall(e.launch);
     });
     this.backend.on("outcome", (e) => this.presentOutcome(e));
+    this.backend.on("throwRejected", () => {
+      this.hud.log("presence", "Out of throws for today — come back tomorrow!");
+    });
     this.backend.on("chatMessage", (e) => {
       this.hud.log(
         "chat",
         `<span class="who">${esc(e.name)}:</span> ${esc(e.text)}`,
       );
       if (e.id === this.selfId) this.speech.say(e.text);
+      else this.remotes.get(e.id)?.bubbles.say(e.text);
       playSfx(this, "sfx_chat", 0.5);
+    });
+    this.backend.on("snapshot", (e) => {
+      this.hud.setScore(e.world.sharedScore);
+      for (const p of e.players) {
+        if (p.id === this.selfId) continue;
+        const r = this.remotes.get(p.id);
+        if (r) r.avatar.setPos(p.x, p.d);
+        else this.addRemote(p); // self-heal: we somehow missed the join
+      }
+      for (const [id, r] of this.remotes) {
+        if (!e.players.some((p) => p.id === id)) {
+          r.avatar.destroy();
+          this.remotes.delete(id);
+        }
+      }
     });
 
     this.hud.onChat((msg) => this.backend.chat(msg));
     this.backend.connect();
+  }
+
+  private addRemote(p: PlayerInfo) {
+    if (this.remotes.has(p.id)) return;
+    const avatar = new RemoteAvatar(this, p);
+    this.remotes.set(p.id, { avatar, bubbles: new SpeechBubbles(this, avatar) });
+  }
+
+  private removeRemote(id: string) {
+    const r = this.remotes.get(id);
+    if (!r) return;
+    r.avatar.destroy();
+    this.remotes.delete(id);
+  }
+
+  /** The persistent court wall: lines that happened before we joined. */
+  private renderHistory(entries: HistoryEntry[]) {
+    for (const h of entries) {
+      if (h.kind === "chat") {
+        this.hud.log(
+          "chat",
+          `<span class="who">${esc(h.name)}:</span> ${esc(h.text)}`,
+        );
+      } else if (h.kind === "presence") {
+        this.hud.log(
+          "presence",
+          `${esc(h.name)} ${h.joined ? "joined" : "left"} the court.`,
+        );
+      } else {
+        const d = h.distM.toFixed(1);
+        const who = esc(h.name);
+        this.hud.log(
+          "throw",
+          h.made
+            ? `${who} — ${d}m ${h.slam ? "teleport slam! " : ""}${h.swish ? "SWISH! " : "hit "}<span class="pts">+${h.points}</span>`
+            : h.slam
+              ? `${who} — teleport slam failed!`
+              : `${who} — ${d}m miss`,
+        );
+      }
+    }
   }
 
   update(_time: number, deltaMs: number) {
@@ -133,6 +223,10 @@ export class CourtScene extends Phaser.Scene {
     const light = this.sky.lightDir();
     this.player.update(dt, light);
     this.speech.update(dt);
+    for (const r of this.remotes.values()) {
+      r.avatar.update(dt, light);
+      r.bubbles.update(dt);
+    }
     this.aim.update();
     for (const b of this.balls) b.update(dt, light);
     this.teleport.update(dt, this.balls);
@@ -219,18 +313,35 @@ export class CourtScene extends Phaser.Scene {
     this.balls.push(ball);
   }
 
+  /** A remote player's throw — animate it from the launch params. */
+  private spawnRemoteBall(launch: ThrowLaunch) {
+    this.balls.push(
+      new Ball(this, {
+        x: launch.x,
+        d: launch.d,
+        h: launch.h,
+        vx: launch.vx,
+        vh: launch.vh,
+        shotDistM: floorDistToRim(launch.shotX, launch.shotD),
+        // cosmetic: the server's outcome event carries the result
+        onScore: () => {},
+        onMiss: () => {},
+        onDone: () => {},
+      }),
+    );
+  }
+
   /** The authoritative result came back — score display + juice + log. */
   private presentOutcome(e: ThrowOutcome) {
     this.hud.setScore(e.world.sharedScore);
     const rec = this.recsByThrowId.get(e.throwId);
     this.recsByThrowId.delete(e.throwId);
     const onReplay = rec ? () => this.recording.play(rec) : undefined;
-    const ctx = {
-      scene: this,
-      hud: this.hud,
-      hoop: this.hoop,
-      who: this.playerName,
-    };
+    const who =
+      e.playerId === this.selfId
+        ? this.playerName
+        : (this.remotes.get(e.playerId)?.avatar.name ?? "Someone");
+    const ctx = { scene: this, hud: this.hud, hoop: this.hoop, who };
     const o = { made: e.made, swish: e.swish, distM: e.distM };
     if (e.made) presentScore(ctx, o, e.points, e.slam, onReplay);
     else presentMiss(ctx, o, e.slam, onReplay);

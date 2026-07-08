@@ -41,6 +41,7 @@ export class LocalBackend implements Backend {
       // local play is unlimited — the budget is a SERVER rule (Stage 2);
       // report the full daily allowance for display purposes
       throwsRemaining: BALANCE.budget.throwsPerDay,
+      history: [],
     });
   }
 

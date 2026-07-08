@@ -4,7 +4,33 @@ import { initHUD } from "./hud";
 import { AUDIO_MANIFEST, IMAGE_MANIFEST } from "./assets";
 import { askPlayerName, getStoredName } from "./playerName";
 import { LocalBackend } from "./backend/local";
+import { SocketBackend } from "./backend/socket";
+import type { Backend } from "./backend/types";
 import { SESSION_SHIRT } from "./placeholders";
+
+/** Stable per-browser identity for dev; the bot platform id replaces this. */
+function devIdentity(): string {
+  const KEY = "shootDaHoop.pid";
+  let pid = localStorage.getItem(KEY);
+  if (!pid) {
+    pid = `p-${Math.random().toString(36).slice(2, 10)}`;
+    localStorage.setItem(KEY, pid);
+  }
+  return pid;
+}
+
+/** ?lobby=<id> joins that live world; no param plays offline. */
+function chooseBackend(playerName: string): Backend {
+  const params = new URLSearchParams(location.search);
+  const lobby = params.get("lobby");
+  const identity = { name: playerName, shirtColor: SESSION_SHIRT };
+  if (!lobby) return new LocalBackend(identity);
+  return new SocketBackend({
+    url: params.get("server") ?? `ws://${location.hostname}:8787`,
+    lobby,
+    identity: { id: params.get("pid") ?? devIdentity(), ...identity },
+  });
+}
 
 // Probe which user-provided assets actually exist (the dev server answers
 // missing files with the index.html fallback, which Phaser can't decode).
@@ -48,14 +74,7 @@ async function boot() {
       autoCenter: Phaser.Scale.CENTER_BOTH,
     },
     scene: [
-      new CourtScene(
-        hud,
-        { images, audio },
-        playerName,
-        // the whole single-player game runs through the same Backend seam
-        // that live multiplayer will use (SocketBackend, Stage 2)
-        new LocalBackend({ name: playerName, shirtColor: SESSION_SHIRT }),
-      ),
+      new CourtScene(hud, { images, audio }, playerName, chooseBackend(playerName)),
     ],
   });
 }

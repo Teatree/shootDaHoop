@@ -95,4 +95,11 @@ export const BALANCE = {
   budget: {
     throwsPerDay: 5,
   },
+
+  // ── Lobby limits (server-enforced) ────────────────────────────────
+  lobby: {
+    maxPlayers: 8, //      DECIDE default: small worlds; overflow is rejected
+    snapshotIntervalS: 5,
+    historyKept: 50, //    wall lines persisted + replayed to late joiners
+  },
 } as const;

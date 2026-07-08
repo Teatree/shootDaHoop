@@ -1,4 +1,5 @@
 import type {
+  HistoryEntry,
   PlayerInfo,
   ThrowLaunch,
   ThrowOutcome,
@@ -17,7 +18,11 @@ export interface BackendEvents {
     players: PlayerInfo[];
     world: WorldState;
     throwsRemaining: number;
+    history: HistoryEntry[];
   }) => void;
+  joinRejected: (e: { reason: "full" }) => void;
+  /** the connection dropped (socket backends only) */
+  disconnected: (e: { reason?: string }) => void;
   playerJoined: (e: { player: PlayerInfo }) => void;
   playerLeft: (e: { id: string; name: string }) => void;
   /** a movement intent — every client animates the walk locally */

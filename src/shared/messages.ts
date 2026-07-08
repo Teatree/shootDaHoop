@@ -44,6 +44,20 @@ export interface ThrowOutcome {
   world: WorldState; // shared state after this outcome
 }
 
+/** A line of the persistent court wall, replayed to late joiners. */
+export type HistoryEntry =
+  | {
+      kind: "outcome";
+      name: string;
+      made: boolean;
+      swish: boolean;
+      slam: boolean;
+      distM: number;
+      points: number;
+    }
+  | { kind: "chat"; name: string; text: string }
+  | { kind: "presence"; name: string; joined: boolean };
+
 // ── client → server ───────────────────────────────────────────────────
 
 export type ClientMsg =
@@ -61,7 +75,9 @@ export type ServerMsg =
       players: PlayerInfo[];
       world: WorldState;
       throwsRemaining: number;
+      history: HistoryEntry[];
     }
+  | { t: "join-rejected"; reason: "full" }
   | { t: "player-joined"; player: PlayerInfo }
   | { t: "player-left"; id: string; name: string }
   | { t: "move-to"; id: string; x: number; d: number }
