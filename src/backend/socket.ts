@@ -108,6 +108,15 @@ export class SocketBackend implements Backend {
 
   requestThrow(throwId: string, launch: ThrowLaunch): void {
     this.send({ t: "throw", throwId, launch });
+    // optimistic: spawn our ball NOW (zero-latency feel, exactly like the
+    // prototype) — the server relays the throw to everyone else and owns
+    // the outcome. If it rejects (budget/invalid), the flight was cosmetic
+    // and a throw-rejected notice follows; no score can come from it.
+    this.emitter.emit("throwStarted", {
+      id: this.opts.identity.id,
+      throwId,
+      launch,
+    });
   }
 
   /** The server is the authority — the local ball's opinion is cosmetic. */
