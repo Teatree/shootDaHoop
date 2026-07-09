@@ -200,8 +200,8 @@ are not the same thing."* The log is UI; the walls are world.
 7. **Background tabs lie during automation.** Chrome throttles rAF in
    unfocused tabs; the game loop crawls ~100× slow and physics assertions
    silently pass/fail wrong. `page.bringToFront()` before every timing-based
-   check. (The scene is exposed as `window.__court`; `__court.throwBall({vx,
-   vh, power})` gives deterministic scripted shots for regression sweeps.)
+   check. (The scene is exposed as `window.__court`; `__court.sendThrow({vx,
+   vh, power}, slam)` gives scripted shots for regression sweeps.)
 8. **Outline pixel sprites with a 4-offset silhouette stamp** (draw the figure
    all-black at ±1px offsets, then the colored figure on top) — cheap, clean,
    no shaders.
@@ -215,64 +215,92 @@ are not the same thing."* The log is UI; the walls are world.
 
 ---
 
-## 8. Architecture & file map (post-foundations refactor)
+## 8. Architecture & file map (post-multiplayer)
 
-Two layers, split when the project graduated from prototype to "serious
-work" (2026-07-09):
+Three layers. The split happened in two moves: the foundations refactor
+(pure logic out of Phaser) and multiplayer Stage 1 (the shared module +
+Backend seam). `MULTIPLAYER.md` in the repo root is the multiplayer spec
+and live working doc.
 
-**Pure logic (no Phaser — unit-testable, and reusable server-side later):**
-
-| File | Owns |
-|---|---|
-| `src/tuning.ts` | every feel knob, grouped and commented |
-| `src/world.ts` | meters→px mapping, RIM/landmarks, wall X positions, clamps |
-| `src/physics.ts` | `stepBall(state, dt) → events`: substepped flight, rim/board/wall/ground collisions, swept scoring |
-| `src/scoring.ts` | distance → points table |
-| `src/ghostData.ts` | ghost record sample types + interpolation (doubles as a future replication format) |
-
-**Phaser layer:**
+**Shared simulation & rules — `src/shared/`, dependency-free (no
+Phaser/DOM/Node), imported by client AND server:**
 
 | File | Owns |
 |---|---|
+| `shared/config.ts` | `BALANCE` — the single balance surface: court, hoop, throw physics, power curve, scoring (incl. slam points), walls, movement, ground, throw budget, lobby limits |
+| `shared/court.ts` | landmarks, walls, clamps, distances — all in meters |
+| `shared/physics.ts` | `stepBall(state, dt) → events`: substepped flight, rim/board/wall/ground collisions, swept scoring |
+| `shared/scoring.ts` | distance → points table |
+| `shared/simulate.ts` | `resolveThrow(launch)` — the server-side authority (fixed dt: one launch, one outcome) |
+| `shared/tiers.ts` | data-driven hoop tiers + `tierForScore` |
+| `shared/balls.ts` | data-driven ball types |
+| `shared/messages.ts` | the typed client↔server protocol (`ClientMsg`/`ServerMsg`, `ThrowLaunch`, `ThrowOutcome`, history entries) |
+
+**Client — Phaser + DOM, above the Backend seam:**
+
+| File | Owns |
+|---|---|
+| `src/backend/types.ts` | the `Backend` interface + typed events — the scene never touches a transport |
+| `src/backend/local.ts` | `LocalBackend`: single player, in-process echo, the live ball is the authority |
+| `src/backend/socket.ts` | `SocketBackend`: live multiplayer over WebSocket; optimistic own-throw spawn; server outcomes |
+| `src/tuning.ts` | every client FEEL knob (spreads `BALANCE` so `T.*` works everywhere) |
+| `src/world.ts` | meters→px render mapping (re-exports `shared/court`) |
 | `src/ball.ts` | Phaser face over the physics stepper: sprite/trail/shadow/sfx, outcome callbacks, consume/pos |
 | `src/aiming.ts` | right-click aim: direction at cursor, power by drag; power-meter preview |
 | `src/player.ts` | walking, stance, `airH`/`control`, name label, outlined sprite, sun shadow |
+| `src/remoteAvatar.ts` | other players: walk-intent animation, per-shirt textures, name tag |
 | `src/powerup.ts` | the orb object itself (see teleport-orb.md) |
-| `src/ghost.ts` | ghost playback rendering (see ghost-records.md) |
+| `src/ghost.ts` + `src/ghostData.ts` | ghost playback rendering + pure sample types/interp (see ghost-records.md) |
 | `src/sky.ts` | sun procession + smoothed light direction for all shadows |
-| `src/speech.ts` | speech bubble queue + animations (+ shared `buildBubble`) |
+| `src/speech.ts` | speech bubble queue + animations (`buildBubble` shared with ghosts; bubbles anchor to Player or RemoteAvatar) |
 | `src/systems/teleport.ts` | orb lifecycle + hit check + zapp + levitate/fall/down state machine |
 | `src/systems/recording.ts` | ghost record capture: rolling history, per-throw recorders, playback wiring |
 | `src/systems/shotFeedback.ts` | score/miss juice + attributed log lines |
-| `src/scenes/CourtScene.ts` | world construction, system wiring, frame order — orchestration only |
-| `src/placeholders.ts` | generated textures, backdrop, court, walls, hoop, keep-out zone |
-| `src/hud.ts` | DOM HUD: score, log, chat, emoji picker, send |
+| `src/scenes/CourtScene.ts` | world construction, system wiring, backend event handling, frame order |
+| `src/placeholders.ts` | generated textures (per-shirt via `ensurePlayerTexture`), backdrop, court, walls, hoop, keep-out zone |
+| `src/hud.ts` | DOM HUD: score, log, chat, emoji picker, send, throw-budget slots |
 | `src/playerName.ts` | first-visit name overlay + localStorage |
+| `src/main.ts` | backend selection: `?lobby=` → SocketBackend, else LocalBackend |
 | `src/juice.ts`, `src/sfx.ts`, `src/cameraRig.ts` | effects, sound, framing (camera tracks `airH`) |
+
+**Server — Node + `ws` (`npm run server`):**
+
+| File | Owns |
+|---|---|
+| `server/index.ts` | socket accept loop, one `Room` per lobby, created on demand / torn down when empty |
+| `server/room.ts` | presence, move-to relay, throw validation + authoritative resolution (outcome scheduled for when the ball lands), chat, snapshots, wall history |
+| `server/budget.ts` | the daily throw budget (pure, unit-tested; UTC-midnight reset) |
+| `server/storage.ts` | `Storage` interface (Postgres/DO swap point) + `JsonFileStorage` (local dev, `data/`) |
 
 ## 9. Testing
 
-- `npm test` — vitest over the pure layer (`src/*.test.ts`): swept scoring
-  (make/swish/rim-graze/depth-gate + the far-catch regression), backboard
-  swept crossing (the board-teleport regression), both wall bounces, ground
-  miss/bounce/rest, the points table, coordinate mappings/clamps, and ghost
-  sample interpolation.
+- `npm test` — vitest, 38 tests: swept scoring (make/swish/rim-graze/
+  depth-gate + the far-catch regression), backboard swept crossing (the
+  board-teleport regression), both wall bounces, ground miss/bounce/rest,
+  the points table, coordinate mappings/clamps, ghost sample interpolation,
+  `resolveThrow` (made/miss/slam/determinism), and the daily budget
+  (countdown, exhaustion, UTC-midnight reset, no read-consumes).
 - Tests drive the stepper with a FIXED dt, so they are deterministic even
   though live play (variable frame times) deliberately is not — a design
   decision: the game should never feel "solved". Tests assert invariants
   and event outcomes, not exact trajectories.
 - Browser smoke: the scene is exposed as `window.__court`
-  (`__court.throwBall({vx, vh, power})`, `__court.teleport.state`,
-  `__court.recording.store`, …). Foreground the tab first — background-tab
-  rAF throttling breaks all timing.
+  (`__court.sendThrow({vx, vh, power}, slam)`, `__court.teleport.state`,
+  `__court.recording.store`, `__court.remotes`, …). Foreground the tab
+  first — background-tab rAF throttling breaks all timing. Two tabs in one
+  browser share localStorage; use `?pid=` to give them distinct identities.
+- Multiplayer end-to-end: see the README's "Testing multiplayer" section.
 
 ## 10. Project direction (owner decisions, 2026-07-09)
 
-- **Multiplayer: yes** — dedicated prompt to come; architecture should
-  assume client-side physics + state replication (ghost sample format).
+- **Multiplayer: BUILT** (Stage 1 + Stage 2 of `MULTIPLAYER.md`, all build
+  steps two-browser verified). Remaining: Render/Postgres deploy, the
+  Telegram/Discord bot processes, moving the teleport orb server-side.
 - **Physics stays non-deterministic on purpose** — no fixed-timestep
-  refactor, ever: variable frame timing keeps outcomes organic and the game
-  un-solvable. Replays are data; multiplayer will replicate state.
-- **Persistent world** — no sessions/rounds; players come and go; lobbies
-  later. **Score is shared between players.**
+  refactor for live play: variable frame timing keeps outcomes organic and
+  the game un-solvable. Replays are data. The one deliberate exception:
+  the server's `resolveThrow` uses a fixed internal dt so one launch has
+  one authoritative outcome; live balls remain cosmetic.
+- **Persistent world** — no sessions/rounds; players come and go; worlds
+  and profiles survive restarts. **Score is shared between players.**
 - Touch/mobile input, art/audio pipeline, session design: deferred.

@@ -3,9 +3,17 @@
 Click any throw line in the court-wall log (hit **or** miss) and that event
 plays back on the court itself as a translucent "ghost" recording.
 
-Implementation: `src/ghost.ts` (recording types + `GhostPlayback`), capture
-wiring in `src/scenes/CourtScene.ts` (`recordFrame`, `throwBall`), clickable
-lines in `src/hud.ts` + `src/style.css`. Knobs in `T.ghost` (`src/tuning.ts`).
+Implementation: `src/ghostData.ts` (pure sample types + interpolation),
+`src/ghost.ts` (`GhostPlayback` rendering), capture in
+`src/systems/recording.ts` (rolling history, per-throw recorders, outcome
+stamps), clickable lines in `src/hud.ts` + `src/style.css`. Knobs in
+`T.ghost` (`src/tuning.ts`).
+
+> **Multiplayer note:** recordings are captured for YOUR throws only —
+> remote players' outcome lines (and history lines replayed on join) are
+> not clickable. Replaying others' throws needs remote-avatar history
+> capture; the sample format already supports it (deferred, tracked in
+> `MULTIPLAYER.md`).
 
 ---
 
@@ -61,7 +69,8 @@ delta = 0.0px).
    sprite angle via `Player.visualState()`) **plus the teleport orb's
    position/pulse-age and the current speech bubble's text/age** — into a
    buffer trimmed to the last ~8s (long enough for a slam's rewind).
-2. **On throw** (`CourtScene.throwBall`), a `ThrowRecording` is created and
+2. **On throw** (`RecordingSystem.beginThrow`, called when the scene spawns
+   your ball), a `ThrowRecording` is created and
    seeded from the history — the last 2 seconds for a normal throw, or
    everything since **4 seconds before the orb hit** for a slam (the teleport
    moment and both jump endpoints are stamped on the recording so the zapp

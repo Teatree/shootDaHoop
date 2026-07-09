@@ -4,9 +4,17 @@ The game's first power-up: a pulsing blue orb that hangs in the air near the
 hoop. Hit it with a thrown ball and the player is zapped up to its position for
 a brief, high-value aerial shot — the **teleport slam**.
 
-Implementation: `src/powerup.ts` (orb lifecycle) + the `tpState` state machine
-in `src/scenes/CourtScene.ts`. All numbers live in the `T.tp` block of
-`src/tuning.ts`.
+Implementation: `src/powerup.ts` (the orb object) + `src/systems/teleport.ts`
+(hit check, zapp, and the levitate/fall/face-down state machine — moved out
+of CourtScene in the systems split). Cosmetic numbers live in the `T.tp`
+block of `src/tuning.ts`; the slam's point value is a scoring rule and lives
+in `BALANCE.score.slamPts` (`src/shared/config.ts`).
+
+> **Multiplayer caveat:** the orb is currently CLIENT-LOCAL — each player
+> sees their own orbs, and the `slam` flag on a throw is trusted by the
+> server when paying out. Moving the orb server-side (spawn + hit detection
+> in the Room) is the top follow-up in `MULTIPLAYER.md` before strangers
+> share worlds.
 
 ---
 
