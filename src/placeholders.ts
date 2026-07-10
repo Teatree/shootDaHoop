@@ -20,25 +20,26 @@ const SHIRT_COLOURS = [
 ];
 
 /**
- * The player's shirt colour — their visual identity. Rolled once, then
- * persistent per browser so what teammates see matches every session
- * (the server profile stores the same colour).
+ * The player's shirt colour — their visual identity, rolled once and then
+ * persistent under the given localStorage key. OFFLINE that key is global
+ * to the browser; in a LOBBY main.ts passes a per-lobby key, so each lobby
+ * remembers its own colour (rolled the first time you enter it).
  */
-function persistentShirt(): number {
-  const KEY = "shootDaHoop.shirt";
-  const stored = localStorage.getItem(KEY);
+export function persistentShirt(storageKey = "shootDaHoop.shirt"): number {
+  const stored = localStorage.getItem(storageKey);
   if (stored) {
     const n = parseInt(stored, 16);
     if (SHIRT_COLOURS.includes(n)) return n;
   }
   const c = SHIRT_COLOURS[Math.floor(Math.random() * SHIRT_COLOURS.length)];
-  localStorage.setItem(KEY, c.toString(16));
+  localStorage.setItem(storageKey, c.toString(16));
   return c;
 }
 
-export const SESSION_SHIRT = persistentShirt();
-
-export function ensurePlaceholderTextures(scene: Phaser.Scene) {
+export function ensurePlaceholderTextures(
+  scene: Phaser.Scene,
+  localShirt: number,
+) {
   const tex = scene.textures;
 
   // 3×3 white square — particle building block
@@ -70,10 +71,10 @@ export function ensurePlaceholderTextures(scene: Phaser.Scene) {
     g.destroy();
   }
 
-  // Character — the local player's texture, session shirt colour baked in.
-  // Remote avatars get their own colour via ensurePlayerTexture below.
+  // Character — the local player's texture, resolved shirt colour baked
+  // in. Remote avatars get their own colour via ensurePlayerTexture below.
   if (!tex.exists("player")) {
-    drawPlayerTexture(scene, "player", SESSION_SHIRT);
+    drawPlayerTexture(scene, "player", localShirt);
   }
 }
 

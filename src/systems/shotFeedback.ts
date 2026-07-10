@@ -84,7 +84,7 @@ export function presentMiss(
     slam
       ? `${esc(ctx.who)} — teleport slam failed!`
       : `${esc(ctx.who)} — ${o.distM.toFixed(1)}m miss`,
-    undefined,
+    "miss", // the wall's filter dropdown can hide miss lines
     onReplay,
   );
 }

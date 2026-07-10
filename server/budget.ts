@@ -40,3 +40,13 @@ export function consumeThrow(p: BudgetFields, now: Date): boolean {
   p.throwsUsedToday += 1;
   return true;
 }
+
+/**
+ * Give one throw back — a ball that hit the teleport orb is "the same
+ * ball" (the slam is a free throw). No-op if the UTC day rolled over
+ * since the throw (the new day already granted a fresh budget).
+ */
+export function refundThrow(p: BudgetFields, now: Date) {
+  if (p.lastThrowDayUTC !== utcDay(now)) return;
+  p.throwsUsedToday = Math.max(0, p.throwsUsedToday - 1);
+}

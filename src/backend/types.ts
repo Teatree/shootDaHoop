@@ -1,5 +1,6 @@
 import type {
   HistoryEntry,
+  OrbState,
   PlayerInfo,
   ThrowLaunch,
   ThrowOutcome,
@@ -17,6 +18,7 @@ export interface BackendEvents {
     selfId: string;
     players: PlayerInfo[];
     world: WorldState;
+    orb: OrbState | null;
     throwsRemaining: number;
     history: HistoryEntry[];
   }) => void;
@@ -35,7 +37,25 @@ export interface BackendEvents {
   chatMessage: (e: { id: string; name: string; text: string }) => void;
   tierUnlocked: (e: { tierId: number; world: WorldState }) => void;
   budget: (e: { throwsRemaining: number }) => void;
-  snapshot: (e: { players: PlayerInfo[]; world: WorldState }) => void;
+  /** someone joined with a ?reset link — the shared score was wiped */
+  worldReset: (e: { name: string; world: WorldState }) => void;
+  // ── server-authoritative world objects (the orb) ──────────────────
+  orbSpawned: (e: { orb: OrbState }) => void;
+  /** byId present = consumed by that player's ball; absent = expired */
+  orbRemoved: (e: { seq: number; byId?: string }) => void;
+  /** the authority ruled a player's ball hit the orb — they zap up */
+  teleported: (e: {
+    id: string;
+    throwId?: string; // the consumed ball, so every client can pop it
+    x: number;
+    d: number;
+    h: number;
+  }) => void;
+  snapshot: (e: {
+    players: PlayerInfo[];
+    world: WorldState;
+    orb: OrbState | null;
+  }) => void;
 }
 
 export interface Backend {
@@ -57,6 +77,14 @@ export interface Backend {
     throwId: string,
     o: { made: boolean; swish: boolean; slam: boolean; distM: number },
   ): void;
+
+  /**
+   * The client's live ball touched orb `seq` (its optimistic zap already
+   * played). LocalBackend treats this as authoritative and echoes the
+   * orbRemoved/teleported events; SocketBackend ignores it — the server
+   * simulates the same arc and broadcasts its own ruling.
+   */
+  reportOrbHit(seq: number): void;
 
   on<K extends keyof BackendEvents>(event: K, fn: BackendEvents[K]): void;
 

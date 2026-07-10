@@ -8,9 +8,11 @@ import type { Player } from "../player";
 import type { AimController } from "../aiming";
 import type { Ball } from "../ball";
 
-// The teleport power-up, end to end: the orb's lifecycle, the ball-hit
-// check, the zapp, and the player's levitate → fall → face-down → get-up
-// state machine. CourtScene just ticks it and asks isLevitating.
+// The teleport power-up, local-player side: renders the (authority-owned)
+// orb via TeleportOrb, checks OUR OWN balls against it — never remote
+// players' balls; their hits are the authority's ruling, delivered as a
+// `teleported` event — and runs the levitate → fall → face-down → get-up
+// state machine. CourtScene ticks it and asks isLevitating.
 
 const ZAP = [0x2e7bff, 0x9fd0ff, 0xffffff] as const;
 
@@ -26,6 +28,8 @@ export interface TeleportDeps {
   throwWeak: () => void;
   /** teleport happened — recording system anchors slam replays on this */
   onTeleport: (from: Xyz, to: Xyz) => void;
+  /** our ball took orb `seq` — report it upstream (Backend.reportOrbHit) */
+  onOrbHit: (seq: number) => void;
 }
 
 export class TeleportSystem {
@@ -48,17 +52,22 @@ export class TeleportSystem {
     return this.state === "levitate";
   }
 
-  /** Tick the orb, check ball hits, run the player state machine. */
+  /** Tick the orb, check OUR ball hits, run the player state machine. */
   update(dt: number, balls: Ball[]) {
     this.orb.update(dt);
 
     if (this.state === "none") {
       for (const b of balls) {
-        if (b.done) continue;
+        if (b.done || !b.own) continue;
         const p = b.pos;
-        const hit = this.orb.tryHit(p.x, p.d, p.h);
+        const hit = this.orb.hitTest(p.x, p.d, p.h);
         if (hit) {
-          this.teleportTo(hit, b);
+          // optimistic: zap NOW for the prototype feel; the authority's
+          // confirmation (orbRemoved + teleported) dedupes by seq/state
+          this.orb.removeBySeq(hit.seq, true);
+          this.deps.onOrbHit(hit.seq);
+          b.consume();
+          this.teleportTo(hit);
           break;
         }
       }
@@ -118,9 +127,18 @@ export class TeleportSystem {
     if (this.state === "levitate") this.startFall();
   }
 
-  private teleportTo(dest: Xyz, ball: Ball) {
-    ball.consume();
+  /**
+   * The authority ruled that OUR ball hit the orb. Usually we predicted
+   * it (already levitating) — then this is a no-op. If our variable-dt
+   * ball narrowly missed where the fixed-dt ruling hit, honor the ruling
+   * and zap late.
+   */
+  confirmTeleport(to: Xyz) {
+    if (this.state !== "none") return;
+    this.teleportTo(to);
+  }
 
+  private teleportTo(dest: Xyz) {
     const from: Xyz = {
       x: this.player.x,
       d: this.player.d,
@@ -140,7 +158,7 @@ export class TeleportSystem {
     this.player.airH = dest.h;
     this.player.control = "throwOnly";
     this.state = "levitate";
-    this.timer = T.tp.levitateS;
+    this.timer = T.orb.levitateS;
 
     // …zapp in
     const ts = toScreen(dest.x, dest.d, dest.h + 1);

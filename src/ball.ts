@@ -19,6 +19,8 @@ interface BallOpts {
   vx: number;
   vh: number;
   shotDistM: number;
+  /** thrown by the local player (remote balls never trigger local power-ups) */
+  own: boolean;
   onScore: (o: ShotOutcome) => void;
   onMiss: (o: ShotOutcome) => void;
   onDone: (ball: Ball) => void;
@@ -86,6 +88,11 @@ export class Ball {
   /** True once fully cleaned up — the scene drops it from its list. */
   get done(): boolean {
     return this.dead;
+  }
+
+  /** Thrown by the local player? Remote balls are cosmetic here. */
+  get own(): boolean {
+    return this.opts.own;
   }
 
   /** Current court position (meters) — for power-up overlap checks. */

@@ -82,18 +82,13 @@ export const T = {
     shadowStretchMax: 1.7, //horizontal ellipse stretch at low sun
   },
 
-  // ── Teleport orb power-up ──────────────────────────────────────────
+  // ── Teleport orb power-up: client FEEL only ───────────────────────
+  // The orb's gameplay rules (cadence, lifetime, size, spawn zone,
+  // levitation window) are server-authoritative — see BALANCE.orb.
   tp: {
-    cadenceS: 5, //          seconds after one orb ends before the next appears
-    lifeS: 5, //             how long an orb stays before fading out
-    radiusM: 0.55, //        orb size (hit when ball center is within r+ballR)
-    aboveHoopPx: 100, //     spawn height: rim top + this…
-    rangeHPx: 50, //         …plus 0..this, randomly
-    rangeXPx: 100, //        spawn x: 0..this px left of the keep-out line
     popMs: 220, //           appear animation
     fadeMs: 400, //          disappear animation
     pulseHz: 1.4, //         idle pulse speed
-    levitateS: 3, //         suspended this long after teleporting
     sinkSpeedM: 0.35, //     slow descent while levitating, m/s
     lieS: 5, //              face-down time after landing
     getUpMs: 350, //         stand-back-up animation

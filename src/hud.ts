@@ -1,13 +1,27 @@
 // DOM-side HUD: score (top-center), the court-wall log (right 30%),
 // and the MMORPG chat input (bottom-center).
 //
-// Log event types — all three are styled and ready for multiplayer,
-// but in this prototype only local throws + your own chat will fire:
+// Log event types:
 //   'throw'    — shot outcomes (distance, miss/hit/swish, points)
 //   'chat'     — player chat lines (styled more prominently)
-//   'presence' — join / leave / idle
+//   'presence' — connection events: join / leave / errors / rejections
+//   'world'    — shared-world moments: score resets, tier unlocks
+//
+// The wall header has a filter dropdown. Only two categories can be
+// hidden — misses ('throw' lines carrying the 'miss' class) and
+// connection events ('presence') — everything else always shows.
+// Hiding is pure CSS (a class on the feed), so it applies retroactively
+// and lines keep arriving underneath while filtered out.
 
-export type LogType = "throw" | "chat" | "presence";
+export type LogType = "throw" | "chat" | "presence" | "world";
+
+const FILTER_STORE = "shootDaHoop.logFilters";
+
+// checkbox id → the feed class that hides that category
+const FILTERS = [
+  { box: "filter-miss", hide: "hide-miss", key: "miss" },
+  { box: "filter-presence", hide: "hide-presence", key: "presence" },
+] as const;
 
 export interface HUD {
   setScore(n: number): void;
@@ -76,6 +90,36 @@ export function initHUD(): HUD {
   });
 
   sendEl.addEventListener("click", sendMsg);
+
+  // ── log filter dropdown ────────────────────────────────────────────
+  const filterBtn = el<HTMLButtonElement>("log-filter-btn");
+  const filterPop = el<HTMLDivElement>("log-filter-pop");
+
+  // shown-state per category, everything visible by default
+  let shown: Record<string, boolean> = { miss: true, presence: true };
+  try {
+    shown = { ...shown, ...JSON.parse(localStorage.getItem(FILTER_STORE) ?? "{}") };
+  } catch {
+    /* corrupt store → defaults */
+  }
+  for (const f of FILTERS) {
+    const box = el<HTMLInputElement>(f.box);
+    box.checked = shown[f.key] !== false;
+    feedEl.classList.toggle(f.hide, !box.checked);
+    box.addEventListener("change", () => {
+      shown[f.key] = box.checked;
+      feedEl.classList.toggle(f.hide, !box.checked);
+      localStorage.setItem(FILTER_STORE, JSON.stringify(shown));
+    });
+  }
+  filterBtn.addEventListener("click", () => {
+    filterPop.hidden = !filterPop.hidden;
+  });
+  window.addEventListener("mousedown", (ev) => {
+    const t = ev.target as Node;
+    if (!filterPop.hidden && !filterPop.contains(t) && t !== filterBtn)
+      filterPop.hidden = true;
+  });
 
   // Enter (anywhere) focuses chat; Enter (in chat) sends; Esc blurs.
   window.addEventListener("keydown", (e) => {

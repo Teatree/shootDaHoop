@@ -1,15 +1,18 @@
 import { BALANCE } from "../shared/config";
 import { pointsForDistance } from "../shared/scoring";
 import { tierForScore } from "../shared/tiers";
-import { clampToCourt, FREE_THROW_X, RIM } from "../shared/court";
+import { clampToCourt, rollSpawn } from "../shared/court";
+import { rollOrbSpawn, type OrbState } from "../shared/orb";
 import type { PlayerInfo, ThrowLaunch, WorldState } from "../shared/messages";
 import { BackendEmitter, type Backend, type BackendEvents } from "./types";
 
 // Single-player: the whole "server" runs in-process and echoes
 // synchronously, so the game plays EXACTLY as the prototype did. The
-// client's live ball is the authority here (reportOutcome) — its
-// frame-time-fed simulation is the feel we're preserving. In multiplayer
-// the SocketBackend ignores reports and the server resolves instead.
+// client's live ball is the authority here (reportOutcome, reportOrbHit)
+// — its frame-time-fed simulation is the feel we're preserving. In
+// multiplayer the SocketBackend ignores reports and the server resolves
+// instead. The teleport orb lifecycle mirrors server/orb.ts: spawn after
+// cadenceS, expire after lifeS, respawn cadenceS after it's gone.
 
 export interface LocalIdentity {
   name: string;
@@ -21,9 +24,12 @@ export class LocalBackend implements Backend {
   private readonly self: PlayerInfo;
   private world: WorldState = { sharedScore: 0, tierId: 1 };
   private pendingThrows = new Map<string, ThrowLaunch>();
+  private orb: OrbState | null = null;
+  private orbSeq = 0;
+  private orbTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(identity: LocalIdentity) {
-    const spawn = clampToCourt(FREE_THROW_X, RIM.d);
+    const spawn = rollSpawn(); // random spot beside the keep-out zone
     this.self = {
       id: "local",
       name: identity.name,
@@ -38,11 +44,44 @@ export class LocalBackend implements Backend {
       selfId: this.self.id,
       players: [this.self],
       world: { ...this.world },
+      orb: null,
       // local play is unlimited — the budget is a SERVER rule (Stage 2);
       // report the full daily allowance for display purposes
       throwsRemaining: BALANCE.budget.throwsPerDay,
       history: [],
     });
+    this.scheduleOrbSpawn();
+  }
+
+  // ── orb lifecycle (this IS the authority offline) ──────────────────
+
+  private scheduleOrbSpawn() {
+    this.orbTimer = setTimeout(() => {
+      this.orb = rollOrbSpawn(++this.orbSeq);
+      this.emitter.emit("orbSpawned", { orb: this.orb });
+      this.scheduleOrbExpiry();
+    }, BALANCE.orb.cadenceS * 1000);
+  }
+
+  private scheduleOrbExpiry() {
+    this.orbTimer = setTimeout(() => {
+      const o = this.orb;
+      if (!o) return;
+      this.orb = null;
+      this.emitter.emit("orbRemoved", { seq: o.seq });
+      this.scheduleOrbSpawn();
+    }, BALANCE.orb.lifeS * 1000);
+  }
+
+  /** The live ball touched the orb — authoritative in single player. */
+  reportOrbHit(seq: number): void {
+    const o = this.orb;
+    if (!o || o.seq !== seq) return; // expired first — nothing to take
+    this.orb = null;
+    if (this.orbTimer) clearTimeout(this.orbTimer);
+    this.emitter.emit("orbRemoved", { seq: o.seq, byId: this.self.id });
+    this.emitter.emit("teleported", { id: this.self.id, x: o.x, d: o.d, h: o.h });
+    this.scheduleOrbSpawn();
   }
 
   moveTo(x: number, d: number): void {
@@ -104,6 +143,7 @@ export class LocalBackend implements Backend {
   }
 
   dispose(): void {
+    if (this.orbTimer) clearTimeout(this.orbTimer);
     this.emitter.clear();
   }
 }

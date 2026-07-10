@@ -32,6 +32,25 @@ export function ballExplode(scene: Phaser.Scene, x: number, y: number) {
   burst(scene, x, y, T.juice.explodeParticles, BALL_BITS, 160);
 }
 
+const PUFF_TINTS = [0xfff3d6, 0xf3e2c0, 0xe8d5b5];
+
+/** A small dust puff — a character appearing on the court. */
+export function puff(scene: Phaser.Scene, x: number, y: number) {
+  const em = scene.add.particles(x, y - 20, "px", {
+    speed: { min: 15, max: 55 },
+    angle: { min: 0, max: 360 },
+    lifespan: { min: 300, max: 650 },
+    scale: { start: 2.2, end: 0 },
+    alpha: { start: 0.8, end: 0 },
+    gravityY: -30, // smoke drifts up, not confetti-down
+    tint: PUFF_TINTS as number[],
+    emitting: false,
+  });
+  em.setDepth(1400);
+  em.explode(14);
+  scene.time.delayedCall(900, () => em.destroy());
+}
+
 export function floatText(
   scene: Phaser.Scene,
   x: number,

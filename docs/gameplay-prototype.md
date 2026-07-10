@@ -66,7 +66,7 @@ the dotted line itself communicates everything:
 **Other controls:**
 
 - **Left-click:** walk to the clicked floor point (click ripple feedback).
-  Walking is clamped: never within 200px of the hoop (see §6) and never off the
+  Walking is clamped: never within 160px of the hoop (see §6) and never off the
   court band.
 - **Enter:** focus chat; Enter again sends; Esc blurs. A **Send button** and an
   **emoji picker** (closes after picking one, like Discord) round out the chat
@@ -119,6 +119,13 @@ the dotted line itself communicates everything:
   the court with 50%-alpha ghosts — 2s before the throw to 3s after the
   outcome, aim indicator excluded, instant switching between recordings. See
   [ghost-records.md](ghost-records.md).
+- **Filters (2026-07-11):** the header's ▾ dropdown holds two checkboxes,
+  both on by default (persisted in `shootDaHoop.logFilters`): *Ball misses*
+  and *Connection events*. Only those two are filterable — chat, made shots,
+  and world moments (resets, tier unlocks; log type `world`) always show.
+  Hiding is a CSS class on the feed, so it's retroactive and reversible.
+  Server-side, every wall entry is also appended (with a timestamp) to a
+  permanent per-lobby archive: `data/logs/<lobby>.jsonl`, never trimmed.
 
 Important clarification learned mid-build: at one point the in-scene boundary
 wall was styled like the log's brickwork, and the owner corrected it — *"they
@@ -156,11 +163,14 @@ are not the same thing."* The log is UI; the walls are world.
   dominant sun, stretch and fade when it's low, tighten underfoot at apex. The
   reported light direction is **exponentially smoothed** (`sky.lightLerp`)
   because instant switching between suns made shadows "jerky".
-- **Keep-out zone:** players can't walk within 200px of the hoop
-  (`move.hoopStandoffM = 6.25`). The zone is a red-tinted, diagonally hatched
-  floor area — but it's only visible when relevant: it **fades in when the
-  player is within 20px** of its line and fades back out (owner asked for
-  exactly this proximity reveal).
+- **Keep-out zone:** players can't walk within 160px of the hoop
+  (`move.hoopStandoffM = 5.0`; was 6.25/200px, −20% on 2026-07-10). The zone is
+  a red-tinted, diagonally hatched floor area — but it's only visible when
+  relevant: it **fades in when the player is within 20px** of its line and
+  fades back out (owner asked for exactly this proximity reveal).
+- **Spawn:** players appear at a random spot inside a 100×100px square just
+  outside the keep-out zone (`rollSpawn` in `shared/court.ts`, rolled by the
+  authority so every client agrees), with a dust-puff VFX everyone sees.
 - **Ball slots:** 5 cosmetic slots, bottom-left (visual only by explicit
   choice — no ammo system yet).
 

@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { T } from "../tuning";
-import { M, RIM, floorDistToRim, screenToFloor } from "../world";
+import { M, RIM, floorDistToRim, screenToFloor, toScreen } from "../world";
+import { puff } from "../juice";
 import { SunSystem, shadowShift } from "../sky";
 import { SpeechBubbles } from "../speech";
 import type { HUD } from "../hud";
@@ -58,7 +59,11 @@ export class CourtScene extends Phaser.Scene {
   private balls: Ball[] = [];
   private selfId = "";
   private throwSeq = 0;
+  /** server-reported daily budget; null until known (local = unlimited) */
+  private throwsRemaining: number | null = null;
   private recsByThrowId = new Map<string, ThrowRecording>();
+  /** live balls by throwId (own + remote) — popped on rejection/orb hit */
+  private ballsByThrowId = new Map<string, Ball>();
   private remotes = new Map<
     string,
     { avatar: RemoteAvatar; bubbles: SpeechBubbles }
@@ -67,10 +72,15 @@ export class CourtScene extends Phaser.Scene {
   constructor(
     private readonly hud: HUD,
     private readonly assets: AvailableAssets,
-    private readonly playerName: string,
+    /** per-lobby name + shirt colour, resolved by main.ts */
+    private readonly identity: { name: string; shirtColor: number },
     private readonly backend: Backend,
   ) {
     super("court");
+  }
+
+  private get playerName(): string {
+    return this.identity.name;
   }
 
   preload() {
@@ -82,7 +92,7 @@ export class CourtScene extends Phaser.Scene {
   }
 
   create() {
-    ensurePlaceholderTextures(this);
+    ensurePlaceholderTextures(this, this.identity.shirtColor);
     drawBackdrop(this);
     drawCourt(this);
     drawWall(this);
@@ -102,6 +112,7 @@ export class CourtScene extends Phaser.Scene {
       throwWeak: () =>
         this.sendThrow({ vx: 0, vh: T.tp.weakThrowVh, power: 0 }, true),
       onTeleport: (from, to) => this.recording.noteTeleport(from, to),
+      onOrbHit: (seq) => this.backend.reportOrbHit(seq),
     });
     this.recording = new RecordingSystem(
       this,
@@ -120,10 +131,26 @@ export class CourtScene extends Phaser.Scene {
       this.hud.log("presence", `${esc(this.playerName)} joined the court.`);
       this.hud.setScore(e.world.sharedScore);
       this.hud.setThrowsRemaining(e.throwsRemaining);
-      for (const p of e.players)
-        if (p.id !== e.selfId) this.addRemote(p);
+      // gates immediately if we rejoin with 0 left; harmless offline —
+      // LocalBackend reports the full allowance and never decrements it
+      this.throwsRemaining = e.throwsRemaining;
+      if (e.orb) this.teleport.orb.show(e.orb);
+      for (const p of e.players) {
+        if (p.id !== e.selfId) {
+          this.addRemote(p);
+        } else {
+          // the AUTHORITY rolled our spawn spot — stand where everyone
+          // else will see us, and puff in
+          this.player.stop();
+          this.player.x = p.x;
+          this.player.d = p.d;
+          this.spawnPuff(p.x, p.d);
+        }
+      }
     });
     this.backend.on("budget", (e) => {
+      // only the server sends these — from here on the count gates throws
+      this.throwsRemaining = e.throwsRemaining;
       this.hud.setThrowsRemaining(e.throwsRemaining);
     });
     this.backend.on("joinRejected", () => {
@@ -134,6 +161,7 @@ export class CourtScene extends Phaser.Scene {
     });
     this.backend.on("playerJoined", (e) => {
       this.addRemote(e.player);
+      this.spawnPuff(e.player.x, e.player.d); // a new character appears
       this.hud.log("presence", `${esc(e.player.name)} joined the court.`);
     });
     this.backend.on("playerLeft", (e) => {
@@ -144,12 +172,39 @@ export class CourtScene extends Phaser.Scene {
       if (e.id !== this.selfId) this.remotes.get(e.id)?.avatar.walkTo(e.x, e.d);
     });
     this.backend.on("throwStarted", (e) => {
-      if (e.id === this.selfId) this.spawnBall(e.throwId, e.launch);
-      else this.spawnRemoteBall(e.launch);
+      if (e.id === this.selfId) {
+        this.spawnBall(e.throwId, e.launch);
+      } else {
+        this.spawnRemoteBall(e.throwId, e.launch);
+        // if they were levitating, this throw is their last act up there
+        this.remotes.get(e.id)?.avatar.onThrowReleased();
+      }
     });
     this.backend.on("outcome", (e) => this.presentOutcome(e));
-    this.backend.on("throwRejected", () => {
-      this.hud.log("presence", "Out of throws for today — come back tomorrow!");
+    this.backend.on("throwRejected", (e) => {
+      // the optimistic ball was cosmetic — pop it, nothing can come of it
+      this.ballsByThrowId.get(e.throwId)?.consume();
+      this.hud.log(
+        "presence",
+        e.reason === "budget"
+          ? "Out of throws for today — come back tomorrow!"
+          : "The court rejected that throw.",
+      );
+    });
+    // ── the orb is a server-authoritative world object ──────────────
+    this.backend.on("orbSpawned", (e) => this.teleport.orb.show(e.orb));
+    this.backend.on("orbRemoved", (e) => {
+      this.teleport.orb.removeBySeq(e.seq, e.byId !== undefined);
+    });
+    this.backend.on("teleported", (e) => {
+      // the ball that hit the orb is spent, on every screen
+      if (e.throwId) this.ballsByThrowId.get(e.throwId)?.consume();
+      if (e.id === this.selfId) {
+        // usually we predicted this locally — then it's a no-op
+        this.teleport.confirmTeleport({ x: e.x, d: e.d, h: e.h });
+      } else {
+        this.remotes.get(e.id)?.avatar.teleportTo(e.x, e.d, e.h);
+      }
     });
     this.backend.on("chatMessage", (e) => {
       this.hud.log(
@@ -160,14 +215,21 @@ export class CourtScene extends Phaser.Scene {
       else this.remotes.get(e.id)?.bubbles.say(e.text);
       playSfx(this, "sfx_chat", 0.5);
     });
+    this.backend.on("worldReset", (e) => {
+      this.hud.setScore(e.world.sharedScore);
+      this.hud.log("world", `${esc(e.name)} reset the court score.`);
+    });
     this.backend.on("tierUnlocked", (e) => {
       this.hud.log(
-        "presence",
+        "world",
         `The court reached tier ${e.tierId} — the hoop evolves!`,
       );
     });
     this.backend.on("snapshot", (e) => {
       this.hud.setScore(e.world.sharedScore);
+      // orb self-heal is adopt-only: removal has its own ordered event,
+      // and show() ignores seqs we already removed locally
+      if (e.orb) this.teleport.orb.show(e.orb);
       for (const p of e.players) {
         if (p.id === this.selfId) continue;
         const r = this.remotes.get(p.id);
@@ -192,6 +254,12 @@ export class CourtScene extends Phaser.Scene {
     this.remotes.set(p.id, { avatar, bubbles: new SpeechBubbles(this, avatar) });
   }
 
+  /** Appear-VFX at a floor spot (character mid-height). */
+  private spawnPuff(x: number, d: number) {
+    const { sx, sy } = toScreen(x, d, 0);
+    puff(this, sx, sy);
+  }
+
   private removeRemote(id: string) {
     const r = this.remotes.get(id);
     if (!r) return;
@@ -212,6 +280,8 @@ export class CourtScene extends Phaser.Scene {
           "presence",
           `${esc(h.name)} ${h.joined ? "joined" : "left"} the court.`,
         );
+      } else if (h.kind === "reset") {
+        this.hud.log("world", `${esc(h.name)} reset the court score.`);
       } else {
         const d = h.distM.toFixed(1);
         const who = esc(h.name);
@@ -222,6 +292,7 @@ export class CourtScene extends Phaser.Scene {
             : h.slam
               ? `${who} — teleport slam failed!`
               : `${who} — ${d}m miss`,
+          h.made ? undefined : "miss",
         );
       }
     }
@@ -267,6 +338,13 @@ export class CourtScene extends Phaser.Scene {
 
   /** Package the aim result as a launch intent and send it upstream. */
   private sendThrow(shot: Shot, slam: boolean) {
+    if (this.throwsRemaining !== null && this.throwsRemaining <= 0) {
+      // the server would reject it and nobody else would see it — don't
+      // fake a flight that doesn't exist for the rest of the court
+      this.hud.log("presence", "Out of throws for today — come back tomorrow!");
+      this.teleport.onThrowReleased(); // a blocked slam still ends the levitation
+      return;
+    }
     const rp = this.player.releasePoint();
     const launch: ThrowLaunch = {
       shotX: this.player.x,
@@ -278,7 +356,9 @@ export class CourtScene extends Phaser.Scene {
       vh: shot.vh,
       slam: slam || this.teleport.isLevitating,
     };
-    const throwId = `t${++this.throwSeq}`;
+    // random suffix: throwIds must not collide ACROSS clients — everyone
+    // sees everyone's ids (outcomes, orb-consumed balls)
+    const throwId = `t${++this.throwSeq}-${Math.random().toString(36).slice(2, 8)}`;
     this.backend.requestThrow(throwId, launch);
     // the levitation throw is the last act up there — falling starts now
     this.teleport.onThrowReleased();
@@ -296,6 +376,7 @@ export class CourtScene extends Phaser.Scene {
       vx: launch.vx,
       vh: launch.vh,
       shotDistM: floorDistToRim(launch.shotX, launch.shotD),
+      own: true,
       onScore: (o) => {
         this.recording.stampOutcome(rec, true);
         this.backend.reportOutcome(throwId, {
@@ -315,36 +396,42 @@ export class CourtScene extends Phaser.Scene {
         });
       },
       onDone: () => {
-        /* filtered out in update() via .done */
+        this.ballsByThrowId.delete(throwId);
       },
     });
     rec = this.recording.beginThrow(ball, launch.slam, this.playerName);
     this.recsByThrowId.set(throwId, rec);
+    this.ballsByThrowId.set(throwId, ball);
     this.balls.push(ball);
   }
 
   /** A remote player's throw — animate it from the launch params. */
-  private spawnRemoteBall(launch: ThrowLaunch) {
-    this.balls.push(
-      new Ball(this, {
-        x: launch.x,
-        d: launch.d,
-        h: launch.h,
-        vx: launch.vx,
-        vh: launch.vh,
-        shotDistM: floorDistToRim(launch.shotX, launch.shotD),
-        // cosmetic: the server's outcome event carries the result
-        onScore: () => {},
-        onMiss: () => {},
-        onDone: () => {},
-      }),
-    );
+  private spawnRemoteBall(throwId: string, launch: ThrowLaunch) {
+    const ball = new Ball(this, {
+      x: launch.x,
+      d: launch.d,
+      h: launch.h,
+      vx: launch.vx,
+      vh: launch.vh,
+      shotDistM: floorDistToRim(launch.shotX, launch.shotD),
+      own: false, // never triggers OUR power-ups; the server rules theirs
+      // cosmetic: the server's outcome event carries the result
+      onScore: () => {},
+      onMiss: () => {},
+      onDone: () => {
+        this.ballsByThrowId.delete(throwId);
+      },
+    });
+    this.ballsByThrowId.set(throwId, ball);
+    this.balls.push(ball);
   }
 
   /** The authoritative result came back — score display + juice + log. */
   private presentOutcome(e: ThrowOutcome) {
     this.hud.setScore(e.world.sharedScore);
-    const rec = this.recsByThrowId.get(e.throwId);
+    // recordings exist only for OWN throws — never match a remote outcome
+    const rec =
+      e.playerId === this.selfId ? this.recsByThrowId.get(e.throwId) : undefined;
     this.recsByThrowId.delete(e.throwId);
     const onReplay = rec ? () => this.recording.play(rec) : undefined;
     const who =

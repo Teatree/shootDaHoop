@@ -59,7 +59,16 @@ npm test
 
    Useful dev parameters: `?pid=<id>` forces a player identity (handy for two
    tabs in the same window, which otherwise share one), and `?server=<ws-url>`
-   points at a non-default game server.
+   points at a non-default game server. Adding `&reset=1` **wipes the lobby's
+   shared score** on join (one-shot: the param is removed from the address bar
+   so a refresh doesn't wipe again; the reset is credited on the court wall).
+
+   Your **name and shirt colour are per-lobby**: the first time you enter a
+   lobby you're asked for a name and a colour is rolled; that lobby then
+   always shows you that way. Another lobby asks again and remembers its own
+   pair. (Stored per browser: `shootDaHoop.name.<lobby>` /
+   `shootDaHoop.shirt.<lobby>` — so two tabs in one window share them even
+   with different `?pid=`s.) Offline play keeps one browser-global name.
 
 3. What to check:
    - Both windows show both avatars; walking in one window animates in the other.

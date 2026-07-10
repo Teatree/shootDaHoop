@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { T } from "./tuning";
+import { rollSpawn } from "./shared/court";
 import {
   M,
   RIM,
@@ -51,6 +52,18 @@ describe("court clamps", () => {
     expect(clamp(5, 0, 10)).toBe(5);
     expect(clamp(-1, 0, 10)).toBe(0);
     expect(clamp(11, 0, 10)).toBe(10);
+  });
+
+  it("rollSpawn lands in the spawn square beside the keep-out zone", () => {
+    const zoneEdge = RIM.x - T.move.hoopStandoffM;
+    for (const r of [0, 0.3, 0.7, 0.999]) {
+      const s = rollSpawn(() => r);
+      expect(s.x).toBeLessThanOrEqual(zoneEdge);
+      expect(s.x).toBeGreaterThanOrEqual(zoneEdge - T.move.spawnAreaM);
+      expect(s.d).toBeGreaterThanOrEqual(0);
+      expect(s.d).toBeLessThanOrEqual(T.court.depthM);
+      expect(Math.abs(s.d - RIM.d)).toBeLessThanOrEqual(T.move.spawnAreaM / 2);
+    }
   });
 });
 

@@ -48,8 +48,9 @@ export const BALANCE = {
   move: {
     speedM: 4.5, //          walk speed, m/s
     minXM: 0.4, //           left clamp (far baseline — one court length from hoop)
-    hoopStandoffM: 6.25, //  keep-out radius around the hoop (200 world px)
+    hoopStandoffM: 5.0, //   keep-out radius around the hoop (160 world px; was 6.25, -20% 2026-07-10)
     arriveEps: 0.08, //      "close enough" to the click target, m
+    spawnAreaM: 3.125, //    players spawn in this square (100 px) just outside the keep-out zone
   },
 
   // ── Ball flight & physics ─────────────────────────────────────────
@@ -89,6 +90,22 @@ export const BALANCE = {
     capPts: 500, //          hard limit
     bigScorePts: 300, //     per-shot points above this = rainbow log + big juice
     slamPts: 500, //         a made basket while teleport-levitating
+  },
+
+  // ── Teleport orb (server-authoritative world object) ─────────────
+  // The authority (server Room, or LocalBackend offline) owns spawn
+  // timing, position, expiry and consumption; clients only render it.
+  // Client-side FEEL knobs (pop/fade/pulse, the levitation fall) stay
+  // in src/tuning.ts `tp`.
+  orb: {
+    cadenceS: 5, //         seconds after one orb ends before the next appears
+    lifeS: 5, //            how long an orb stays before fading out
+    radiusM: 0.3575, //     orb size (hit when ball center is within r+ballR; was 0.55, -35% 2026-07-10)
+    aboveHoopM: 3.125, //   spawn height: rim height + this… (was 100 px)
+    rangeHM: 1.5625, //     …plus 0..this, randomly (was 50 px)
+    rangeXM: 3.125, //      spawn x: 0..this left of the keep-out line (was 100 px)
+    hitDepthM: 0.6, //      |ball d − orb d| window for a hit
+    levitateS: 3, //        suspended this long after teleporting (slam window)
   },
 
   // ── Throw budget (server-authoritative; local play is unlimited) ──

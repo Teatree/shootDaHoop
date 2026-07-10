@@ -22,6 +22,8 @@ export class SocketBackend implements Backend {
       url: string;
       lobby: string;
       identity: SocketIdentity;
+      /** ?reset link: ask the server to wipe the shared score on join */
+      reset?: boolean;
     },
   ) {}
 
@@ -33,6 +35,7 @@ export class SocketBackend implements Backend {
         t: "join",
         lobby: this.opts.lobby,
         identity: this.opts.identity,
+        reset: this.opts.reset,
       });
     ws.onmessage = (ev) => {
       try {
@@ -51,6 +54,7 @@ export class SocketBackend implements Backend {
           selfId: m.selfId,
           players: m.players,
           world: m.world,
+          orb: m.orb,
           throwsRemaining: m.throwsRemaining,
           history: m.history,
         });
@@ -96,8 +100,30 @@ export class SocketBackend implements Backend {
       case "budget":
         this.emitter.emit("budget", { throwsRemaining: m.throwsRemaining });
         break;
+      case "world-reset":
+        this.emitter.emit("worldReset", { name: m.name, world: m.world });
+        break;
+      case "orb-spawned":
+        this.emitter.emit("orbSpawned", { orb: m.orb });
+        break;
+      case "orb-removed":
+        this.emitter.emit("orbRemoved", { seq: m.seq, byId: m.byId });
+        break;
+      case "teleported":
+        this.emitter.emit("teleported", {
+          id: m.id,
+          throwId: m.throwId,
+          x: m.x,
+          d: m.d,
+          h: m.h,
+        });
+        break;
       case "snapshot":
-        this.emitter.emit("snapshot", { players: m.players, world: m.world });
+        this.emitter.emit("snapshot", {
+          players: m.players,
+          world: m.world,
+          orb: m.orb,
+        });
         break;
     }
   }
@@ -121,6 +147,11 @@ export class SocketBackend implements Backend {
 
   /** The server is the authority — the local ball's opinion is cosmetic. */
   reportOutcome(): void {
+    /* intentionally ignored */
+  }
+
+  /** Same for orb hits: the server simulates the arc and rules. */
+  reportOrbHit(): void {
     /* intentionally ignored */
   }
 

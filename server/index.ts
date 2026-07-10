@@ -7,7 +7,7 @@ import type { ClientMsg } from "../src/shared/messages";
 // are created on demand (keyed by the ?lobby= id from the invite link) and
 // torn down when the last player leaves.
 
-const PORT = Number(process.env.PORT ?? 8787);
+const PORT = Number(process.env.PORT ?? 9999);
 
 // Storage is the swap point: JSON files for local dev, Postgres on Render.
 const storage = new JsonFileStorage(process.env.DATA_DIR ?? "data");
@@ -30,6 +30,17 @@ function roomFor(lobby: string): Room {
 
 const wss = new WebSocketServer({ port: PORT });
 
+wss.on("error", (err: NodeJS.ErrnoException) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(
+      `Port ${PORT} is already taken — another game server is running.\n` +
+        `Stop it first, or run with a different port: PORT=xxxx npm run server`,
+    );
+    process.exit(1);
+  }
+  console.error("server error:", err);
+});
+
 wss.on("connection", (ws: WebSocket) => {
   let room: Room | null = null;
   let playerId: string | null = null;
@@ -41,7 +52,7 @@ wss.on("connection", (ws: WebSocket) => {
       if (msg.t === "join") {
         const lobby = String(msg.lobby).slice(0, 64) || "court";
         const r = roomFor(lobby);
-        if (await r.join(ws, msg.identity)) {
+        if (await r.join(ws, msg.identity, msg.reset === true)) {
           room = r;
           playerId = msg.identity.id;
           console.log(
@@ -67,4 +78,6 @@ wss.on("connection", (ws: WebSocket) => {
   ws.on("error", (err) => console.error("socket error:", err));
 });
 
-console.log(`shootDaHoop server listening on ws://localhost:${PORT}`);
+wss.on("listening", () =>
+  console.log(`shootDaHoop server listening on ws://localhost:${PORT}`),
+);

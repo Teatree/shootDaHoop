@@ -87,7 +87,7 @@ export class GhostPlayback {
       .ellipse(0, 0, diaPx * 1.2, diaPx * 0.4, 0x000000, 0)
       .setVisible(false);
     // half-transparent rendition of the teleport orb (shown when recorded)
-    const orbR = T.tp.radiusM * M;
+    const orbR = T.orb.radiusM * M;
     const orbGlow = this.scene.add
       .circle(0, 0, orbR * 2.1, 0x9fd0ff, 0.3 * a)
       .setVisible(false);

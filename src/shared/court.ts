@@ -41,3 +41,18 @@ export function clampToCourt(x: number, d: number) {
     d: clamp(d, 0, BALANCE.court.depthM),
   };
 }
+
+/**
+ * Where a joining player appears: a random spot inside a spawnAreaM
+ * square sitting just outside the hoop's keep-out zone, centered on the
+ * rim lane. Rolled by the AUTHORITY (server Room / LocalBackend) so every
+ * client sees the player in the same place. `rand` injected for tests.
+ */
+export function rollSpawn(rand: () => number = Math.random) {
+  const zoneEdge = RIM.x - BALANCE.move.hoopStandoffM;
+  const size = BALANCE.move.spawnAreaM;
+  return clampToCourt(
+    zoneEdge - rand() * size,
+    RIM.d - size / 2 + rand() * size,
+  );
+}

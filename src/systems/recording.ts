@@ -109,7 +109,7 @@ export class RecordingSystem {
     this.history.push({ t: this.timeS, ...frame });
     // slam recordings rewind to slamPreRollS before the ORB HIT, which can
     // itself be a full levitation before the throw — keep enough history
-    const keepFrom = this.timeS - (T.ghost.slamPreRollS + T.tp.levitateS + 1);
+    const keepFrom = this.timeS - (T.ghost.slamPreRollS + T.orb.levitateS + 1);
     while (this.history.length && this.history[0].t < keepFrom)
       this.history.shift();
 

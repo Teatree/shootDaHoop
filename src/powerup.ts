@@ -1,17 +1,17 @@
 import Phaser from "phaser";
 import { T } from "./tuning";
-import { M, RIM, sortDepth, toScreen } from "./world";
+import { M, sortDepth, toScreen } from "./world";
+import { orbHitTest, type OrbState } from "./shared/orb";
 
-// The teleport orb: a pulsing blue circle that hangs in the air near the
-// hoop. Hit it with a thrown ball and the player teleports up to it
-// (CourtScene runs the levitate → fall → face-down state machine).
-// One orb at a time; each lives T.tp.lifeS seconds, and the next appears
-// T.tp.cadenceS after the previous one is gone.
+// The teleport orb, RENDER side only: a pulsing blue circle that hangs in
+// the air near the hoop. The orb is a server-authoritative world object —
+// the authority (server Room, or LocalBackend offline) decides when one
+// spawns, expires, or is consumed; this class just draws the state it is
+// told and answers overlap queries for the local player's own balls
+// (optimistic feel — the authority's ruling still wins).
 
-interface Orb {
-  x: number; //  meters
-  d: number;
-  h: number;
+interface OrbView {
+  state: OrbState;
   age: number;
   fading: boolean;
   glow: Phaser.GameObjects.Arc;
@@ -20,19 +20,20 @@ interface Orb {
 }
 
 export class TeleportOrb {
-  private orb: Orb | null = null;
-  private cooldown = T.tp.cadenceS;
+  private orb: OrbView | null = null;
+  /** highest seq already removed here — dedupes echo/snapshot races */
+  private removedSeq = 0;
 
   constructor(private readonly scene: Phaser.Scene) {}
 
-  update(dt: number) {
-    if (!this.orb) {
-      this.cooldown -= dt;
-      if (this.cooldown <= 0) this.spawn();
-      return;
-    }
+  /** The orb currently rendered (null between orbs). */
+  get current(): OrbState | null {
+    return this.orb && !this.orb.fading ? this.orb.state : null;
+  }
 
+  update(dt: number) {
     const o = this.orb;
+    if (!o) return;
     o.age += dt;
 
     // idle: pulse the core, breathe the light behind it
@@ -40,42 +41,31 @@ export class TeleportOrb {
     o.core.setScale(pulse);
     o.glow.setScale(pulse * (1.15 + 0.1 * Math.sin(o.age * 5)));
     o.glow.setAlpha(0.3 + 0.12 * Math.sin(o.age * Math.PI * 2 * T.tp.pulseHz));
-
-    if (!o.fading && o.age >= T.tp.lifeS) this.expire();
   }
 
   /** What's on screen right now — sampled by ghost recordings. */
   sample(): { x: number; d: number; h: number; age: number } | null {
     const o = this.orb;
-    return o && !o.fading ? { x: o.x, d: o.d, h: o.h, age: o.age } : null;
+    return o && !o.fading
+      ? { x: o.state.x, d: o.state.d, h: o.state.h, age: o.age }
+      : null;
   }
 
-  /**
-   * Ball overlap test. Consumes the orb and returns its position when hit;
-   * null otherwise.
-   */
-  tryHit(bx: number, bd: number, bh: number): { x: number; d: number; h: number } | null {
-    const o = this.orb;
-    if (!o || o.fading) return null;
-    const hitR = T.tp.radiusM + T.throw.ballRadiusM;
-    if (Math.abs(bd - o.d) > 0.6) return null;
-    if (Math.hypot(bx - o.x, bh - o.h) > hitR) return null;
-    const pos = { x: o.x, d: o.d, h: o.h };
-    this.destroyOrb(); // consumed — no fade, the zap replaces it
-    return pos;
+  /** Ball overlap test (does NOT remove — the caller reports the hit). */
+  hitTest(bx: number, bd: number, bh: number): OrbState | null {
+    const o = this.current;
+    return o && orbHitTest(o, bx, bd, bh) ? o : null;
   }
 
-  private spawn() {
-    const zoneEdgeM = RIM.x - T.move.hoopStandoffM;
-    const x = zoneEdgeM - (Math.random() * T.tp.rangeXPx) / M;
-    const h =
-      T.hoop.rimHeightM +
-      (T.tp.aboveHoopPx + Math.random() * T.tp.rangeHPx) / M;
-    const d = RIM.d;
+  /** The authority spawned an orb (or a snapshot is self-healing one in). */
+  show(orb: OrbState) {
+    if (orb.seq <= this.removedSeq) return; // already removed locally
+    if (this.orb?.state.seq === orb.seq) return; // already showing it
+    this.destroyOrb();
 
-    const { sx, sy } = toScreen(x, d, h);
-    const r = T.tp.radiusM * M;
-    const depth = sortDepth(d);
+    const { sx, sy } = toScreen(orb.x, orb.d, orb.h);
+    const r = T.orb.radiusM * M;
+    const depth = sortDepth(orb.d);
     const glow = this.scene.add
       .circle(sx, sy, r * 2.1, 0x9fd0ff, 0.3)
       .setDepth(depth - 1);
@@ -95,19 +85,31 @@ export class TeleportOrb {
       ease: "Back.easeOut",
     });
 
-    this.orb = { x, d, h, age: 0, fading: false, glow, core, shine };
+    this.orb = { state: orb, age: 0, fading: false, glow, core, shine };
   }
 
-  private expire() {
+  /**
+   * The orb is gone: consumed (instant — a zap replaces it) or expired
+   * (fade out). Idempotent per seq, so the authority's confirmation of a
+   * locally-predicted hit is a no-op.
+   */
+  removeBySeq(seq: number, consumed: boolean) {
+    if (seq > this.removedSeq) this.removedSeq = seq;
     const o = this.orb;
-    if (!o) return;
+    if (!o || o.state.seq !== seq || o.fading) return;
+    if (consumed) {
+      this.destroyOrb();
+      return;
+    }
     o.fading = true;
     this.scene.tweens.add({
       targets: [o.glow, o.core, o.shine],
       alpha: 0,
       duration: T.tp.fadeMs,
       ease: "Cubic.easeIn",
-      onComplete: () => this.destroyOrb(),
+      onComplete: () => {
+        if (this.orb === o) this.destroyOrb();
+      },
     });
   }
 
@@ -118,6 +120,5 @@ export class TeleportOrb {
     o.core.destroy();
     o.shine.destroy();
     this.orb = null;
-    this.cooldown = T.tp.cadenceS;
   }
 }

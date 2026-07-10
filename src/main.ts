@@ -6,7 +6,7 @@ import { askPlayerName, getStoredName } from "./playerName";
 import { LocalBackend } from "./backend/local";
 import { SocketBackend } from "./backend/socket";
 import type { Backend } from "./backend/types";
-import { SESSION_SHIRT } from "./placeholders";
+import { persistentShirt } from "./placeholders";
 
 /** Stable per-browser identity for dev; the bot platform id replaces this. */
 function devIdentity(): string {
@@ -19,16 +19,41 @@ function devIdentity(): string {
   return pid;
 }
 
+/**
+ * Who you are HERE. Name and shirt colour are PER-LOBBY: the first time
+ * you enter a lobby you're asked a name and a colour is rolled; from then
+ * on that lobby — and only that lobby — always shows you that way.
+ * Offline keeps one browser-global name/colour (the original behaviour).
+ */
+async function resolveIdentity(
+  lobby: string | null,
+): Promise<{ name: string; shirtColor: number }> {
+  if (!lobby) {
+    return {
+      name: getStoredName() ?? (await askPlayerName()),
+      shirtColor: persistentShirt(),
+    };
+  }
+  const nameKey = `shootDaHoop.name.${lobby}`;
+  return {
+    name: getStoredName(nameKey) ?? (await askPlayerName(nameKey)),
+    shirtColor: persistentShirt(`shootDaHoop.shirt.${lobby}`),
+  };
+}
+
 /** ?lobby=<id> joins that live world; no param plays offline. */
-function chooseBackend(playerName: string): Backend {
-  const params = new URLSearchParams(location.search);
-  const lobby = params.get("lobby");
-  const identity = { name: playerName, shirtColor: SESSION_SHIRT };
+function chooseBackend(
+  params: URLSearchParams,
+  lobby: string | null,
+  identity: { name: string; shirtColor: number },
+): Backend {
   if (!lobby) return new LocalBackend(identity);
   return new SocketBackend({
-    url: params.get("server") ?? `ws://${location.hostname}:8787`,
+    url: params.get("server") ?? `ws://${location.hostname}:9999`,
     lobby,
     identity: { id: params.get("pid") ?? devIdentity(), ...identity },
+    // ?reset wipes the lobby's shared score on join (dev/owner tool)
+    reset: params.has("reset"),
   });
 }
 
@@ -47,8 +72,20 @@ async function exists(url: string): Promise<boolean> {
 async function boot() {
   const hud = initHUD();
 
-  // first visit asks; afterwards the court knows you
-  const playerName = getStoredName() ?? (await askPlayerName());
+  const params = new URLSearchParams(location.search);
+  const lobby = params.get("lobby");
+
+  // first visit (per lobby) asks; afterwards that court knows you
+  const identity = await resolveIdentity(lobby);
+
+  // one-shot: drop ?reset from the address bar so a refresh or a shared
+  // link doesn't wipe the score again
+  if (params.has("reset")) {
+    const clean = new URLSearchParams(params);
+    clean.delete("reset");
+    const qs = clean.toString();
+    history.replaceState(null, "", location.pathname + (qs ? `?${qs}` : ""));
+  }
 
   const images: string[] = [];
   const audio: string[] = [];
@@ -74,7 +111,12 @@ async function boot() {
       autoCenter: Phaser.Scale.CENTER_BOTH,
     },
     scene: [
-      new CourtScene(hud, { images, audio }, playerName, chooseBackend(playerName)),
+      new CourtScene(
+        hud,
+        { images, audio },
+        identity,
+        chooseBackend(params, lobby, identity),
+      ),
     ],
   });
 }

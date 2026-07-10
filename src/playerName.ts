@@ -1,18 +1,20 @@
-// Player identity: asked once via a DOM overlay on first visit, then
-// remembered in localStorage. The name shows above the character and in
-// every court-wall log line.
+// Player identity: asked via a DOM overlay, then remembered in
+// localStorage. OFFLINE the name is global to the browser; in a LOBBY the
+// name is per-lobby (asked again the first time you enter each lobby, then
+// fixed for that lobby — main.ts passes the per-lobby storage key). The
+// name shows above the character and in every court-wall log line.
 
 const NAME_KEY = "shootDaHoop.playerName";
 const MAX_LEN = 16;
 
-export function getStoredName(): string | null {
-  const raw = localStorage.getItem(NAME_KEY);
+export function getStoredName(storageKey: string = NAME_KEY): string | null {
+  const raw = localStorage.getItem(storageKey);
   const name = raw?.trim().slice(0, MAX_LEN);
   return name ? name : null;
 }
 
 /** Full-viewport overlay asking for a name; resolves once confirmed. */
-export function askPlayerName(): Promise<string> {
+export function askPlayerName(storageKey: string = NAME_KEY): Promise<string> {
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
     overlay.id = "name-overlay";
@@ -32,7 +34,7 @@ export function askPlayerName(): Promise<string> {
 
     const confirm = () => {
       const name = input.value.trim().slice(0, MAX_LEN) || "Player";
-      localStorage.setItem(NAME_KEY, name);
+      localStorage.setItem(storageKey, name);
       overlay.remove();
       resolve(name);
     };

@@ -2,6 +2,7 @@ import { BALANCE } from "./config";
 import { createBallState, stepBall } from "./physics";
 import { pointsForDistance } from "./scoring";
 import { floorDistToRim } from "./court";
+import { orbHitTest, type OrbState } from "./orb";
 import type { ThrowLaunch } from "./messages";
 
 // The server-side throw resolver: runs the SAME stepBall the client's live
@@ -22,11 +23,20 @@ export interface ThrowResolution {
   points: number; // 0 when missed
   /** seconds from launch until the outcome was decided */
   resolvedAtS: number;
+  /**
+   * Set when the arc passed through the given orb BEFORE resolving: the
+   * ball is consumed at this time — no score, the thrower teleports.
+   * (The authority must still confirm the orb is alive at that moment.)
+   */
+  orbHitAtS?: number;
 }
 
 const FIXED_DT = 1 / 120;
 
-export function resolveThrow(launch: ThrowLaunch): ThrowResolution {
+export function resolveThrow(
+  launch: ThrowLaunch,
+  orb?: OrbState | null,
+): ThrowResolution {
   const s = createBallState(launch.x, launch.d, launch.h, launch.vx, launch.vh);
   const distM = floorDistToRim(launch.shotX, launch.shotD);
 
@@ -34,6 +44,17 @@ export function resolveThrow(launch: ThrowLaunch): ThrowResolution {
   while (!s.resolved && t < BALANCE.ground.maxLifeS) {
     stepBall(s, FIXED_DT);
     t += FIXED_DT;
+    if (orb && orbHitTest(orb, s.x, s.d, s.h)) {
+      // consumed by the orb — the throw ends here, unscored
+      return {
+        made: false,
+        swish: false,
+        distM,
+        points: 0,
+        resolvedAtS: t,
+        orbHitAtS: t,
+      };
+    }
   }
 
   const made = s.scored;

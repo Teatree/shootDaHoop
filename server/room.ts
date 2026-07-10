@@ -1,6 +1,6 @@
 import type { WebSocket } from "ws";
 import { BALANCE } from "../src/shared/config";
-import { clampToCourt, FREE_THROW_X, RIM } from "../src/shared/court";
+import { clampToCourt, rollSpawn } from "../src/shared/court";
 import { resolveThrow } from "../src/shared/simulate";
 import { tierForScore } from "../src/shared/tiers";
 import type {
@@ -12,7 +12,8 @@ import type {
   WorldState,
 } from "../src/shared/messages";
 import type { PlayerProfile, Storage } from "./storage";
-import { consumeThrow, remainingThrows } from "./budget";
+import { consumeThrow, refundThrow, remainingThrows } from "./budget";
+import { OrbAuthority } from "./orb";
 
 // One live world. Holds who's connected (presence — ephemeral) and the
 // shared world state. Presence dies with the socket; world state and
@@ -25,6 +26,8 @@ interface Occupant {
   info: PlayerInfo;
   ws: WebSocket;
   profile: PlayerProfile;
+  /** epoch ms until which a slam throw is legitimate (set on teleport) */
+  levitatingUntil: number;
 }
 
 export class Room {
@@ -35,6 +38,8 @@ export class Room {
   private pending = new Set<{ timer: NodeJS.Timeout; fire: () => void }>();
   /** full-ish snapshots: late joiners and dropped packets self-heal */
   private snapshotTimer: NodeJS.Timeout | null = null;
+  /** the teleport orb — a server-authoritative world object (see orb.ts) */
+  private readonly orb: OrbAuthority;
   /** resolves once the world bundle is hydrated — join() waits on this */
   readonly ready: Promise<void>;
 
@@ -44,12 +49,17 @@ export class Room {
     private readonly onEmpty: () => void,
   ) {
     this.ready = this.hydrate();
+    this.orb = new OrbAuthority({
+      onSpawn: (orb) => this.broadcast({ t: "orb-spawned", orb }),
+      onExpire: (seq) => this.broadcast({ t: "orb-removed", seq }),
+    });
     this.snapshotTimer = setInterval(() => {
       if (this.occupants.size === 0) return;
       this.broadcast({
         t: "snapshot",
         players: [...this.occupants.values()].map((o) => ({ ...o.info })),
         world: { ...this.world },
+        orb: this.orb.current,
       });
     }, BALANCE.lobby.snapshotIntervalS * 1000);
   }
@@ -70,12 +80,25 @@ export class Room {
   async join(
     ws: WebSocket,
     identity: { id: string; name: string; shirtColor: number },
+    reset = false,
   ): Promise<boolean> {
     await this.ready;
     const existing = this.occupants.get(identity.id);
     if (!existing && this.occupants.size >= BALANCE.lobby.maxPlayers) {
       send(ws, { t: "join-rejected", reason: "full" });
       return false;
+    }
+
+    if (reset) {
+      // the ?reset link: wipe the world's shared score (the communal
+      // progression), keep the wall + everyone's daily budgets
+      this.world = { sharedScore: 0, tierId: 1 };
+      this.record({ kind: "reset", name: identity.name }); // also persists
+      this.broadcast({
+        t: "world-reset",
+        name: identity.name,
+        world: { ...this.world },
+      }); // the joiner learns via its own welcome below
     }
 
     // profile is persistent and travels across worlds
@@ -103,7 +126,7 @@ export class Room {
       existing.info.name = identity.name;
       existing.profile = profile;
     } else {
-      const spawn = clampToCourt(FREE_THROW_X, RIM.d);
+      const spawn = rollSpawn(); // random spot beside the keep-out zone
       const info: PlayerInfo = {
         id: identity.id,
         name: identity.name,
@@ -111,7 +134,7 @@ export class Room {
         x: spawn.x,
         d: spawn.d,
       };
-      this.occupants.set(identity.id, { info, ws, profile });
+      this.occupants.set(identity.id, { info, ws, profile, levitatingUntil: 0 });
       this.broadcast({ t: "player-joined", player: info }, ws);
       this.record({ kind: "presence", name: identity.name, joined: true });
     }
@@ -121,6 +144,7 @@ export class Room {
       selfId: identity.id,
       players: [...this.occupants.values()].map((o) => o.info),
       world: { ...this.world },
+      orb: this.orb.current,
       throwsRemaining: remainingThrows(profile, new Date()),
       history: this.history.slice(0, -1), // minus our own join, logged live
     });
@@ -141,12 +165,18 @@ export class Room {
       }
       this.pending.clear();
       if (this.snapshotTimer) clearInterval(this.snapshotTimer);
+      this.orb.stop();
       this.onEmpty();
     }
   }
 
   /** Append to the wall history and persist the bundle — save on event. */
   private record(entry: HistoryEntry) {
+    // the permanent archive gets EVERY entry, forever, per lobby —
+    // the in-memory wall below stays capped for welcome replay
+    void this.storage
+      .appendLog(this.lobby, { at: Date.now(), ...entry })
+      .catch(logSaveError);
     this.history.push(entry);
     if (this.history.length > BALANCE.lobby.historyKept)
       this.history = this.history.slice(-BALANCE.lobby.historyKept);
@@ -195,25 +225,42 @@ export class Room {
           t: "budget",
           throwsRemaining: remainingThrows(occ.profile, new Date()),
         });
+        // never trust the client: a slam only counts if WE teleported
+        // this player moments ago (the orb is server-side now)
+        const slam = msg.launch.slam && Date.now() < occ.levitatingUntil;
+        const launch: ThrowLaunch = { ...msg.launch, slam };
         // the thrower already animates locally — relay to everyone else
         this.broadcast(
-          { t: "throw", id: playerId, throwId: msg.throwId, launch: msg.launch },
+          { t: "throw", id: playerId, throwId: msg.throwId, launch },
           occ.ws,
         );
         // authoritative resolution NOW; the outcome fires when the ball
         // "lands" so score juice lines up with the visual flight
-        const res = resolveThrow(msg.launch);
+        const orb = this.orb.current;
+        const res = resolveThrow(launch, orb);
         const playerName = occ.info.name; // captured — they may leave mid-flight
-        const fire = () =>
-          this.applyOutcome(playerId, playerName, msg.throwId, msg.launch.slam, res);
-        const entry = {
-          timer: setTimeout(() => {
-            this.pending.delete(entry);
-            fire();
-          }, Math.max(200, res.resolvedAtS * 1000)),
-          fire,
-        };
-        this.pending.add(entry);
+        if (res.orbHitAtS !== undefined && orb) {
+          // ruled to hit the orb — confirm when the ball visually gets
+          // there; if the orb is gone by then (expired / another ball
+          // took it), the throw plays out as a plain arc instead
+          const orbSeq = orb.seq;
+          const plain = resolveThrow(launch);
+          const hitAtS = res.orbHitAtS;
+          this.schedule(
+            () =>
+              this.resolveOrbHit(playerId, playerName, msg.throwId, orbSeq, {
+                plain,
+                hitAtS,
+                slam,
+              }),
+            hitAtS * 1000,
+          );
+        } else {
+          this.schedule(
+            () => this.applyOutcome(playerId, playerName, msg.throwId, slam, res),
+            Math.max(200, res.resolvedAtS * 1000),
+          );
+        }
         break;
       }
       case "chat": {
@@ -232,6 +279,63 @@ export class Room {
       case "join":
         break; // already joined; ignore
     }
+  }
+
+  /** Track a delayed resolution so an emptying room can flush it. */
+  private schedule(fire: () => void, delayMs: number) {
+    const entry = {
+      timer: setTimeout(() => {
+        this.pending.delete(entry);
+        fire();
+      }, delayMs),
+      fire,
+    };
+    this.pending.add(entry);
+  }
+
+  /**
+   * A throw ruled to hit the orb just reached it. If the orb survived
+   * until now, consume it and teleport the thrower (broadcast to all —
+   * clients that predicted it locally dedupe by seq). Otherwise fall
+   * back to the plain-arc outcome, waiting out the rest of the flight.
+   */
+  private resolveOrbHit(
+    playerId: string,
+    playerName: string,
+    throwId: string,
+    orbSeq: number,
+    opts: { plain: ReturnType<typeof resolveThrow>; hitAtS: number; slam: boolean },
+  ) {
+    const taken = this.orb.consume(orbSeq);
+    if (taken) {
+      const occ = this.occupants.get(playerId);
+      if (occ) {
+        occ.levitatingUntil =
+          Date.now() + (BALANCE.orb.levitateS + 1.5) * 1000;
+        occ.info.x = taken.x; // snapshots self-heal to the landing spot
+        // hitting the orb keeps the ball — the slam is a FREE throw
+        refundThrow(occ.profile, new Date());
+        void this.storage.saveProfile(occ.profile).catch(logSaveError);
+        send(occ.ws, {
+          t: "budget",
+          throwsRemaining: remainingThrows(occ.profile, new Date()),
+        });
+      }
+      this.broadcast({ t: "orb-removed", seq: orbSeq, byId: playerId });
+      this.broadcast({
+        t: "teleported",
+        id: playerId,
+        throwId,
+        x: taken.x,
+        d: taken.d,
+        h: taken.h,
+      });
+      return;
+    }
+    this.schedule(
+      () => this.applyOutcome(playerId, playerName, throwId, opts.slam, opts.plain),
+      Math.max(0, (opts.plain.resolvedAtS - opts.hitAtS) * 1000),
+    );
   }
 
   private applyOutcome(

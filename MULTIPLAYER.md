@@ -1,11 +1,16 @@
 # Multiplayer — Reference & Working Doc
 
 > **Status (2026-07-09):** Stage 1 (modularity refactor) AND Stage 2
-> (multiplayer, build steps 2–7) DONE. Two-browser verified at every step:
-> presence + cross-client walking, server-authoritative throws/scoring,
-> snapshots, persistence across room teardown, chat/bubbles, and the
-> server-side daily budget (survives reconnect). Single-player unchanged
-> through `LocalBackend` (re-verified). 38 unit tests. `npm run server` +
+> (multiplayer, build steps 2–7) DONE, **plus step 8: the teleport orb is
+> now a server-authoritative world object** (spawn/expiry/consumption in the
+> Room, hit ruled by the shared resolver, slam flag validated server-side —
+> see "Server-authoritative world objects" below). Two-browser verified at
+> every step: presence + cross-client walking, server-authoritative
+> throws/scoring, snapshots, persistence across room teardown, chat/bubbles,
+> the server-side daily budget (survives reconnect), and synced orb +
+> cross-client teleports. Out-of-budget throws are now blocked client-side
+> too (no phantom local balls others can't see). Single-player unchanged
+> through `LocalBackend` (re-verified). 45 unit tests. `npm run server` +
 > `npm run dev`, then two windows at `?lobby=<id>` — see README.
 > Not yet done: Render/Postgres deploy, bot integration, hoop tiers 2+.
 
@@ -90,9 +95,17 @@ link opens the game with `?lobby=<id>` and joins that world.
 
 Player **identity comes from the bot platform** (Telegram/Discord user ID),
 passed through the invite link — so there is **no auth to build**. A profile is
-keyed to that identity and is **persistent**: individual ball progression,
-cosmetic (shirt colour), and daily throw budget travel with the player across
-worlds.
+keyed to that identity and is **persistent**: individual ball progression and
+the daily throw budget travel with the player across worlds.
+
+**UPDATED (2026-07-09, owner decision): name + shirt colour are PER-LOBBY,
+not global.** The first time a player enters a lobby they're asked for a
+name and a colour is rolled; from then on that lobby — and only that lobby —
+always shows them that way. Stored client-side per lobby
+(`shootDaHoop.name.<lobby>` / `shootDaHoop.shirt.<lobby>`; consistent with
+the dev-interim per-browser `pid`). Offline play keeps the original
+browser-global name/colour. The server profile still mirrors the
+last-joined name/shirt but nothing reads it back.
 
 - One chat = one lobby = one persistent world.
 - The **game server and the bots are separate processes that share the
@@ -139,6 +152,9 @@ is local.**
 - **Presence** — join / leave / idle.
 - **Chat** — relayed to the log ("wall").
 - **Character appearance** — shirt colour etc., sent on join.
+- **The teleport orb** — a server-authoritative world object:
+  `orb-spawned` / `orb-removed` / `teleported` events, current orb in
+  welcome + snapshots. See the dedicated section below.
 
 **Not synced (local only):**
 
@@ -171,8 +187,60 @@ is local.**
   tested). Simple, identical for every world, explainable in five words.
   Rolling-24h rejected (opaque to players); per-world local time rejected (no
   timezone source until the bot platform provides one).
+- **Shared-score reset (owner tool, 2026-07-09):** joining with `&reset=1`
+  in the link wipes the world's shared score + tier (budgets and the wall
+  history are kept), persists the wipe, broadcasts `world-reset` to everyone
+  connected, and records a `reset` wall line crediting the resetter. The
+  client strips the param from the address bar after use so refreshes don't
+  re-wipe. Anyone with the link can reset — fine among friends; gate it on
+  the bot-platform admin role when the bots land.
 
 ---
+
+## Server-authoritative world objects — the pattern (added 2026-07-09)
+
+Some things exist in the WORLD, not on any client: the server decides when
+they appear, disappear, and who they affect; clients only render what
+they're told. The shared score/tier (`WorldState`) was already one such
+object; the **teleport orb** is now the second. The pattern, for anything
+future (amenities, moving hoops, pickups):
+
+1. **State shape + pure rules in `src/shared/`** — `shared/orb.ts` has
+   `OrbState {seq,x,d,h}`, `rollOrbSpawn` and `orbHitTest`; the gameplay
+   knobs sit in `BALANCE.orb`. `seq` increments per world so removal /
+   snapshot races dedupe cleanly.
+2. **Lifecycle in a server module** — `server/orb.ts` (`OrbAuthority`)
+   owns the spawn/expire/respawn clock; the Room broadcasts the events and
+   includes the current state in `welcome` and every snapshot (self-heal).
+3. **Decisions via the shared resolver** — a throw is ruled against the
+   live orb inside `resolveThrow(launch, orb)` (same fixed-dt arc as
+   scoring). On a ruled hit the Room waits until the ball visually arrives,
+   re-checks the orb still exists (`consume(seq)` — expiry or another ball
+   may have won), then broadcasts `orb-removed {seq, byId}` +
+   `teleported {id, throwId, to}`; if the orb is gone, the throw falls
+   back to its plain-arc outcome. The teleported player's
+   `levitatingUntil` is stamped so the follow-up slam flag can be
+   **validated, not trusted**.
+4. **Rendering is dumb** — client `TeleportOrb` (`src/powerup.ts`) only
+   draws told state. The local player's OWN balls still hit-test locally
+   for the zero-latency zap (optimistic, deduped by seq when the ruling
+   arrives); remote balls never trigger local teleports — remote teleports
+   arrive as events and replay the zap/levitate/fall arc on the
+   `RemoteAvatar`.
+5. **`LocalBackend` is the offline authority** — same lifecycle, same
+   shared rules, in-process; single-player feel is unchanged and the
+   client's live-ball hit report is trusted there (`Backend.reportOrbHit`,
+   a no-op on `SocketBackend`).
+
+Known accepted edges (fine among friends, revisit for strangers):
+- Both players' balls converging on one orb inside the same ~200ms window:
+  each may zap optimistically; the server confirms exactly one — the
+  loser's slam flag is invalidated so no illegitimate 500 can result.
+- A client-side optimistic hit whose fixed-dt ruling narrowly disagrees
+  leaves that client orb-less until the next spawn (cosmetic only).
+- ✅ DECIDED (2026-07-10): **the orb-hit throw is REFUNDED** when the server
+  confirms the hit (the player "keeps the ball"; the slam is a free throw) —
+  `refundThrow` in `server/budget.ts`, corrected count pushed to the thrower.
 
 ## Shared progression — hoop tiers (build data-driven)
 
@@ -267,9 +335,8 @@ chat+bubble, walk, teleport slam, ghost replays) all green.
   `requestThrow` → `throwStarted` → `outcome` (and ghost recordings).
 - `ThrowLaunch` includes `shotX/shotD` (where the shooter stood) because the
   points table is keyed to the *shot spot*, not the release point. It also
-  carries `slam` — the server will need to validate slam legitimacy
-  server-side when the orb moves server-side (currently the orb power-up is
-  client-local; flagged as a Stage-2+ follow-up).
+  carries `slam` — ✅ now VALIDATED server-side (the Room only honors it
+  within `levitatingUntil` after its own teleport ruling; step 8).
 - The throw **budget constant** lives in `BALANCE.budget.throwsPerDay`;
   `LocalBackend` deliberately does NOT enforce it (single-player practice is
   unlimited) — enforcement is the server's job (build step 7).
@@ -298,7 +365,7 @@ chat+bubble, walk, teleport slam, ghost replays) all green.
 1. ✅ **Refactor** prototype behind the Backend seam; move throw + scoring into
    `src/shared/`; extract balance/data. No behaviour change — still plays
    identically via `LocalBackend`. *(Done — see Stage-1 notes above.)*
-2. ✅ **Server + presence:** Node + `ws` (`npm run server`, port 8787); one Room
+2. ✅ **Server + presence:** Node + `ws` (`npm run server`, port 9999); one Room
    per `?lobby=` id, created on demand, torn down when empty; presence +
    `move-to` intents (clamped server-side, relayed to others); two browsers see
    each other walk. Client: `SocketBackend` + `RemoteAvatar` (per-shirt-colour
@@ -322,6 +389,35 @@ chat+bubble, walk, teleport slam, ghost replays) all green.
    acceptance, persisted in the profile (survives reconnect — verified), UTC
    midnight reset; ball slots double as the remaining-throws display; local
    play stays unlimited.
+8. ✅ **Server-side orb:** the teleport orb became a server-authoritative
+   world object (see the pattern section above); slam flags validated;
+   out-of-budget throws blocked client-side so nobody animates balls the
+   world never saw; throwIds got a random suffix (cross-client uniqueness).
+9. ✅ **Spawn + balance pass (2026-07-10):** joins spawn at a random spot in a
+   100×100px square beside the keep-out zone (`rollSpawn` in
+   `shared/court.ts`, rolled by the authority — the client positions its own
+   Player from `welcome`, so all screens agree) with a dust-puff VFX on every
+   client; keep-out zone −20% (`hoopStandoffM` 6.25→5.0); orb −35%
+   (`orb.radiusM` 0.55→0.3575); orb-hit throws refunded (free slam).
+10. ✅ **Wall filters + permanent log archive (2026-07-11):**
+    - Client: the wall header grew a filter dropdown (▾) with two
+      checkboxes, both ON by default and persisted in
+      `shootDaHoop.logFilters`: **Ball misses** (throw lines carrying the
+      `miss` class) and **Connection events** (the `presence` type — joins,
+      leaves, disconnects, rejections, out-of-budget notices). Nothing else
+      is filterable by design: chat, made shots, and the new `world` log
+      type (score resets, tier unlocks — split out of `presence` so they
+      can't be hidden) always show. Hiding is pure CSS
+      (`#log-feed.hide-*` classes), so toggling applies retroactively to
+      lines already on the wall and filtered lines keep accumulating
+      underneath.
+    - Server: `Storage.appendLog` writes **every** wall entry, stamped
+      with `at` (epoch ms), to a per-lobby append-only archive
+      (`data/logs/<lobby>.jsonl`) — kept forever, never trimmed. The
+      in-memory/bundle wall stays capped at `lobby.historyKept` (50) for
+      welcome replay; the archive is the unabridged record. Nothing reads
+      it at runtime yet (future: bot admin tools, moderation, stats).
+      Unit-tested in `server/storage.test.ts`.
 
 ---
 
@@ -344,10 +440,21 @@ chat+bubble, walk, teleport slam, ghost replays) all green.
   Knife-edge rim rattles can rarely LOOK different from the ruling. Watch for it
   in playtests; the fix (animating the server's sampled arc) is available if it
   ever grates.
-- **The teleport orb is still client-local.** A slam flag rides on the launch
-  and the server pays `slamPts` for it without being able to validate the
-  levitation. Fine among friends; the orb must move server-side (spawn + hit
-  detection in the Room) before strangers share worlds. **Top follow-up.**
+- ✅ **The teleport orb moved server-side** (was the top follow-up): spawn +
+  hit detection + slam validation live in the Room; see "Server-authoritative
+  world objects" above. The old bugs — desynced per-client orbs, and a remote
+  ball teleporting the WRONG (local) player — are fixed and two-browser
+  verified.
+- **Out-of-budget throws are gated client-side** (`CourtScene.sendThrow`):
+  at 0 remaining the throw isn't sent and no optimistic ball spawns —
+  previously the thrower saw phantom flights nobody else could see. A
+  server rejection (e.g. a race) now also pops the optimistic ball.
+- **Testing trick (no slow-mo feature needed):** automated tabs are
+  `document.hidden`, so drive frames manually via
+  `__court.game.loop.step(loop.now + 30)` — deterministic frame stepping —
+  while WS events land in real time; attach listeners via
+  `__court.backend.on(...)` to log the event streams on both clients and
+  diff them.
 - **Ghost records are recorded only for your own throws** — remote outcome log
   lines are not clickable. Replaying others' throws would need remote-avatar
   history capture; deferred (the sample format already supports it).
