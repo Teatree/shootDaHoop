@@ -1,7 +1,9 @@
-import { BALANCE } from "../src/shared/config";
+import { BALANCE } from "./config";
 
-// The daily throw budget — SERVER-authoritative. The client may display
-// the remaining count; it never decides it.
+// The daily throw budget. In multiplayer it is SERVER-authoritative — the
+// client may display the remaining count; it never decides it. Offline the
+// LocalBackend enforces the same rule against a localStorage-persisted
+// counter, so practice and live play spend balls identically.
 //
 // DECIDE (recorded): the budget resets at UTC MIDNIGHT — simple, identical
 // for every world, trivially explainable ("resets at midnight UTC") and

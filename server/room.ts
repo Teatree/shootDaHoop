@@ -14,7 +14,11 @@ import type {
   WorldState,
 } from "../src/shared/messages";
 import type { PlayerProfile, Storage } from "./storage";
-import { consumeThrow, refundThrow, remainingThrows } from "./budget";
+import {
+  consumeThrow,
+  refundThrow,
+  remainingThrows,
+} from "../src/shared/budget";
 import { OrbAuthority } from "./orb";
 
 // One live world. Holds who's connected (presence — ephemeral) and the

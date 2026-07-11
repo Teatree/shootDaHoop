@@ -108,7 +108,8 @@ export const BALANCE = {
     levitateS: 3, //        suspended this long after teleporting (slam window)
   },
 
-  // ── Throw budget (server-authoritative; local play is unlimited) ──
+  // ── Throw budget (server-authoritative online; LocalBackend enforces
+  //    the same rule offline against a localStorage counter) ───────────
   budget: {
     throwsPerDay: 5,
   },

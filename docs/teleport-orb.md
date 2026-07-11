@@ -138,9 +138,11 @@ solid blue core, and a small highlight.
   arc, fixed dt — confirms it ~a flight-time later. Dedup is by orb `seq`.
 - **The slam is a FREE throw** (decided 2026-07-10): hitting the orb keeps the
   ball — the server refunds the throw when it confirms the hit
-  (`refundThrow`, `server/budget.ts`) and pushes the corrected count. Net cost
-  of an orb play = 1 throw, same as any other throw. Hitting the orb with
-  your last ball therefore leaves you the slam.
+  (`refundThrow`, `src/shared/budget.ts`) and pushes the corrected count. Net
+  cost of an orb play = 1 throw, same as any other throw. Hitting the orb with
+  your last ball therefore leaves you the slam. Offline the `LocalBackend`
+  applies the same refund against its localStorage budget (2026-07-12, when
+  the daily budget started applying offline too).
 - Late joiners get the live orb in `welcome`; snapshots carry it too
   (adopt-only self-heal).
 

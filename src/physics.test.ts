@@ -93,6 +93,17 @@ describe("backboard (swept plane crossing)", () => {
     expect(s.rimTouched).toBe(true); // board touch spoils the swish
   });
 
+  it("a lob descending onto the UPPER board bounces (upper-board tunnel regression)", () => {
+    // this arc's edge reaches the board plane while the center is still
+    // just above boardTopM, then the center drops into the board — the
+    // old one-shot crossing test missed it and the ball sailed through
+    const { vx, vh } = arcTo(boardX, 7.9, 1.3);
+    const s = createBallState(X0, D0, H0, vx, vh);
+    const { events } = fly(s, 3);
+    expect(events).toContain("board");
+    expect(s.rimTouched).toBe(true);
+  });
+
   it("a ball sailing OVER the board is not teleported back (board-teleport regression)", () => {
     const s = createBallState(X0, D0, H0, 8, 17);
     const { events, xs } = fly(s, 4);

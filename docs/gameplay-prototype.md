@@ -137,8 +137,10 @@ are not the same thing."* The log is UI; the walls are world.
 
 - **Name:** asked once via a styled DOM overlay on first visit, then remembered
   (`localStorage` key `shootDaHoop.playerName`). Shown above the character —
-  small, **bold, green (#6ac48a), 65% opacity** (was 50% cream; owner wanted it
-  more visible). Used in every log line.
+  **13px bold white with a dark outline (stroke #20303a ×3), full opacity**
+  (2026-07-12; the earlier green-at-65%-alpha nameplate was "barely
+  perceptible" against the cream sky — an outline works on any backdrop).
+  Used in every log line.
 - **Character (2026-07-11, parts rig):** composed at runtime from
   owner-drawn part PNGs in `public/assets/` (head ×3 variants, white
   t-shirt torso, trouser band, two floating hand circles — Prison
@@ -233,6 +235,18 @@ are not the same thing."* The log is UI; the walls are world.
     frame timing, so re-running a throw's initial conditions can resolve
     differently (a rattle-in becomes a rattle-out). Ghost Records therefore
     replay recorded per-frame positions — pixel-identical by construction.
+11. **A one-shot plane-crossing test can only fire once — geometry that
+    misses that instant is invisible forever.** Lobs onto the *upper*
+    backboard tunneled through: the ball's leading edge reached the board
+    plane while its *center* was still just above `boardTopM`, the height
+    check failed at that single crossing substep, and the descent into the
+    board happened past the plane where the crossing test never re-fires.
+    Fix: the board is now a **circle-vs-segment overlap** test every substep
+    (`collideBackboard`), resolved along the actual contact normal (face,
+    top/bottom edge, either side). The substep travel cap (≤ half a ball
+    radius) makes overlap impossible to step over, and push-out along the
+    contact normal can't teleport far-side balls — so it keeps both old
+    regressions fixed while covering the corner cases a plane test can't.
 
 ---
 
@@ -255,6 +269,7 @@ Phaser/DOM/Node), imported by client AND server:**
 | `shared/simulate.ts` | `resolveThrow(launch)` — the server-side authority (fixed dt: one launch, one outcome) |
 | `shared/tiers.ts` | data-driven hoop tiers + `tierForScore` |
 | `shared/balls.ts` | data-driven ball types |
+| `shared/budget.ts` | the daily throw budget (pure, unit-tested; UTC-midnight reset) — server enforces it against the profile, `LocalBackend` against a localStorage counter (offline unlimited-practice reversed 2026-07-12) |
 | `shared/messages.ts` | the typed client↔server protocol (`ClientMsg`/`ServerMsg`, `ThrowLaunch`, `ThrowOutcome`, history entries) |
 
 **Client — Phaser + DOM, above the Backend seam:**
@@ -291,14 +306,14 @@ Phaser/DOM/Node), imported by client AND server:**
 |---|---|
 | `server/index.ts` | socket accept loop, one `Room` per lobby, created on demand / torn down when empty |
 | `server/room.ts` | presence, move-to relay, throw validation + authoritative resolution (outcome scheduled for when the ball lands), chat, snapshots, wall history |
-| `server/budget.ts` | the daily throw budget (pure, unit-tested; UTC-midnight reset) |
 | `server/storage.ts` | `Storage` interface (Postgres/DO swap point) + `JsonFileStorage` (local dev, `data/`) |
 
 ## 9. Testing
 
-- `npm test` — vitest, 38 tests: swept scoring (make/swish/rim-graze/
-  depth-gate + the far-catch regression), backboard swept crossing (the
-  board-teleport regression), both wall bounces, ground miss/bounce/rest,
+- `npm test` — vitest: swept scoring (make/swish/rim-graze/
+  depth-gate + the far-catch regression), backboard circle-vs-segment
+  collision (the board-teleport AND upper-board-tunnel regressions),
+  both wall bounces, ground miss/bounce/rest,
   the points table, coordinate mappings/clamps, ghost sample interpolation,
   `resolveThrow` (made/miss/slam/determinism), and the daily budget
   (countdown, exhaustion, UTC-midnight reset, no read-consumes).

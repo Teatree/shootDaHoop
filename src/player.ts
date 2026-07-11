@@ -49,12 +49,13 @@ export class Player {
     this.label = scene.add
       .text(0, 0, name, {
         fontFamily: '"Courier New", Courier, monospace',
-        fontSize: "11px",
+        fontSize: "13px",
         fontStyle: "bold",
-        color: "#6ac48a",
+        color: "#ffffff",
+        stroke: "#20303a",
+        strokeThickness: 3, // dark outline — readable against sky and court
       })
       .setOrigin(0.5, 1)
-      .setAlpha(0.65)
       .setResolution(2); // keep the small text legible under pixelArt
     this.rig.applyPose({ kind: "idle", t: 0 }, 1);
     this.render();

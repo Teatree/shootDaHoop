@@ -5,7 +5,7 @@ import {
   refundThrow,
   remainingThrows,
   type BudgetFields,
-} from "./budget";
+} from "../src/shared/budget";
 
 const NOON = new Date("2026-07-09T12:00:00Z");
 const LATER_SAME_DAY = new Date("2026-07-09T23:59:59Z");

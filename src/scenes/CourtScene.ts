@@ -138,8 +138,7 @@ export class CourtScene extends Phaser.Scene {
       this.hud.log("presence", `${esc(this.playerName)} joined the court.`);
       this.hud.setScore(e.world.sharedScore);
       this.hud.setThrowsRemaining(e.throwsRemaining);
-      // gates immediately if we rejoin with 0 left; harmless offline —
-      // LocalBackend reports the full allowance and never decrements it
+      // gates immediately if we rejoin with 0 left
       this.throwsRemaining = e.throwsRemaining;
       if (e.orb) this.teleport.orb.show(e.orb);
       for (const p of e.players) {
@@ -156,7 +155,7 @@ export class CourtScene extends Phaser.Scene {
       }
     });
     this.backend.on("budget", (e) => {
-      // only the server sends these — from here on the count gates throws
+      // the authority (server room / LocalBackend) recounted — gate on it
       this.throwsRemaining = e.throwsRemaining;
       this.hud.setThrowsRemaining(e.throwsRemaining);
     });

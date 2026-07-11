@@ -1,4 +1,10 @@
 import { BALANCE } from "../shared/config";
+import {
+  consumeThrow,
+  refundThrow,
+  remainingThrows,
+  type BudgetFields,
+} from "../shared/budget";
 import { pointsForDistance } from "../shared/scoring";
 import { tierForScore } from "../shared/tiers";
 import { clampToCourt, rollSpawn } from "../shared/court";
@@ -21,6 +27,23 @@ import { BackendEmitter, type Backend, type BackendEvents } from "./types";
 
 export type LocalIdentity = Cosmetics;
 
+/** Offline daily budget — persisted per browser, same UTC reset as the server. */
+const BUDGET_KEY = "shootDaHoop.budget";
+
+function loadBudget(): BudgetFields {
+  try {
+    const b = JSON.parse(localStorage.getItem(BUDGET_KEY) ?? "") as BudgetFields;
+    if (
+      typeof b.throwsUsedToday === "number" &&
+      typeof b.lastThrowDayUTC === "string"
+    )
+      return b;
+  } catch {
+    /* absent/corrupt store → fresh allowance */
+  }
+  return { throwsUsedToday: 0, lastThrowDayUTC: "" };
+}
+
 export class LocalBackend implements Backend {
   private readonly emitter = new BackendEmitter();
   private readonly self: PlayerInfo;
@@ -29,10 +52,15 @@ export class LocalBackend implements Backend {
   private orb: OrbState | null = null;
   private orbSeq = 0;
   private orbTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly budget: BudgetFields = loadBudget();
 
   constructor(identity: LocalIdentity) {
     const spawn = rollSpawn(); // random spot beside the keep-out zone
     this.self = { id: "local", ...identity, x: spawn.x, d: spawn.d };
+  }
+
+  private saveBudget() {
+    localStorage.setItem(BUDGET_KEY, JSON.stringify(this.budget));
   }
 
   connect(): void {
@@ -41,9 +69,7 @@ export class LocalBackend implements Backend {
       players: [this.self],
       world: { ...this.world },
       orb: null,
-      // local play is unlimited — the budget is a SERVER rule (Stage 2);
-      // report the full daily allowance for display purposes
-      throwsRemaining: BALANCE.budget.throwsPerDay,
+      throwsRemaining: remainingThrows(this.budget, new Date()),
       history: [],
     });
     this.scheduleOrbSpawn();
@@ -75,6 +101,12 @@ export class LocalBackend implements Backend {
     if (!o || o.seq !== seq) return; // expired first — nothing to take
     this.orb = null;
     if (this.orbTimer) clearTimeout(this.orbTimer);
+    // hitting the orb keeps the ball — same free-slam rule as the server
+    refundThrow(this.budget, new Date());
+    this.saveBudget();
+    this.emitter.emit("budget", {
+      throwsRemaining: remainingThrows(this.budget, new Date()),
+    });
     this.emitter.emit("orbRemoved", { seq: o.seq, byId: this.self.id });
     this.emitter.emit("teleported", { id: this.self.id, x: o.x, d: o.d, h: o.h });
     this.scheduleOrbSpawn();
@@ -92,7 +124,15 @@ export class LocalBackend implements Backend {
   }
 
   requestThrow(throwId: string, launch: ThrowLaunch): void {
-    // no budget check locally — unlimited practice, by design
+    // the same daily budget as the server, against the localStorage counter
+    if (!consumeThrow(this.budget, new Date())) {
+      this.emitter.emit("throwRejected", { throwId, reason: "budget" });
+      return;
+    }
+    this.saveBudget();
+    this.emitter.emit("budget", {
+      throwsRemaining: remainingThrows(this.budget, new Date()),
+    });
     this.pendingThrows.set(throwId, launch);
     this.emitter.emit("throwStarted", { id: this.self.id, throwId, launch });
   }

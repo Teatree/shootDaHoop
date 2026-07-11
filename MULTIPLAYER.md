@@ -180,6 +180,8 @@ is local.**
 - **Throw budget: 5 throws per player per day.** Server-authoritative — the client
   may *display* the remaining count, but the server owns it and rejects
   over-budget throws. Never trust the client for "throws left" or "I scored."
+  (Offline the LocalBackend self-enforces the same rule — see below; that's a
+  practice-mode nicety, not an authority statement.)
 - **Scoring lives in the shared deterministic module** so predicted arc == server
   result. Current rule (distance = floor metres from shot spot to hoop):
   - inside the 3-pt line: **100**
@@ -190,7 +192,7 @@ is local.**
   updates shared score/tier → broadcasts outcome + new snapshot. The server does
   **not** stream the ball; it resolves the outcome and clients animate the known
   arc.
-- **DECIDED: the budget resets at UTC MIDNIGHT** (`server/budget.ts`, unit
+- **DECIDED: the budget resets at UTC MIDNIGHT** (`src/shared/budget.ts`, unit
   tested). Simple, identical for every world, explainable in five words.
   Rolling-24h rejected (opaque to players); per-world local time rejected (no
   timezone source until the bot platform provides one).
@@ -247,7 +249,7 @@ Known accepted edges (fine among friends, revisit for strangers):
   leaves that client orb-less until the next spawn (cosmetic only).
 - ✅ DECIDED (2026-07-10): **the orb-hit throw is REFUNDED** when the server
   confirms the hit (the player "keeps the ball"; the slam is a free throw) —
-  `refundThrow` in `server/budget.ts`, corrected count pushed to the thrower.
+  `refundThrow` in `src/shared/budget.ts`, corrected count pushed to the thrower.
 
 ## Shared progression — hoop tiers (build data-driven)
 
@@ -345,8 +347,11 @@ chat+bubble, walk, teleport slam, ghost replays) all green.
   carries `slam` — ✅ now VALIDATED server-side (the Room only honors it
   within `levitatingUntil` after its own teleport ruling; step 8).
 - The throw **budget constant** lives in `BALANCE.budget.throwsPerDay`;
-  `LocalBackend` deliberately does NOT enforce it (single-player practice is
-  unlimited) — enforcement is the server's job (build step 7).
+  the helpers are shared (`src/shared/budget.ts`). Online the server enforces
+  it against the persisted profile (build step 7); offline `LocalBackend`
+  enforces the same rule against a localStorage counter (`shootDaHoop.budget`)
+  — originally single-player practice was unlimited, but 5 always-lit ball
+  slots read as a bug, so the budget now applies everywhere (2026-07-12).
 
 ---
 
@@ -392,10 +397,11 @@ chat+bubble, walk, teleport slam, ghost replays) all green.
 6. ✅ **Social:** chat broadcast to everyone (one client render path) +
    persisted to the wall; join/leave lines; speech bubbles over remote
    avatars too.
-7. ✅ **Budget:** `server/budget.ts` (pure, unit-tested), consumed at throw
-   acceptance, persisted in the profile (survives reconnect — verified), UTC
-   midnight reset; ball slots double as the remaining-throws display; local
-   play stays unlimited.
+7. ✅ **Budget:** `src/shared/budget.ts` (pure, unit-tested; moved from
+   `server/` when offline enforcement landed), consumed at throw acceptance,
+   persisted in the profile (survives reconnect — verified), UTC midnight
+   reset; ball slots double as the remaining-throws display; LocalBackend
+   enforces the same budget offline via localStorage (2026-07-12).
 8. ✅ **Server-side orb:** the teleport orb became a server-authoritative
    world object (see the pattern section above); slam flags validated;
    out-of-budget throws blocked client-side so nobody animates balls the

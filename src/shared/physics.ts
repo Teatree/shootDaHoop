@@ -6,10 +6,12 @@ import { RIM, WALL_LEFT_X, WALL_RIGHT_X, clamp } from "./court";
 // (resolveThrow in simulate.ts); unit tests drive it directly.
 //
 // The integration is substepped so travel per step never exceeds a
-// fraction of the ball radius, and every plane interaction (scoring,
-// backboard) is a SWEPT test against the segment travelled this substep —
-// "is past the plane" position checks teleport fast balls (see
-// docs/gameplay-prototype.md, discoveries #1/#2).
+// fraction of the ball radius. Scoring is a SWEPT test against the segment
+// travelled this substep — "is past the plane" position checks teleport
+// fast balls (see docs/gameplay-prototype.md, discoveries #1/#2). The
+// backboard is a circle-vs-segment overlap test, which the substep travel
+// cap makes tunnel-proof (a one-shot plane-crossing test let lobs through
+// the upper board — see collideBackboard).
 //
 // Determinism note (deliberate design decision): stepBall is deterministic
 // for a fixed dt sequence, but live play feeds it variable frame times, so
@@ -128,26 +130,42 @@ function collideRimPoint(s: BallState, px: number, ph: number): boolean {
 }
 
 /**
- * Swept board check: the ball must CROSS the board plane during this
- * substep. A mere "is past the plane" test teleported balls that sailed
- * over the board back onto its face when they descended on the far side.
+ * Circle-vs-segment board collision: the board is the vertical segment
+ * (bx, boardBottom)–(bx, boardTop) and the ball hits it whenever its
+ * circle overlaps — the substep travel cap (half a radius) means overlap
+ * can't be stepped over. Resolving along the ACTUAL contact normal (face,
+ * top/bottom edge, either side) fixes two bugs the old one-shot plane
+ * crossing had: "is past the plane" teleports (discovery #2), and lobs
+ * whose edge reached the plane while the CENTER was still above boardTop
+ * — the height check failed at the only substep that could fire, and the
+ * ball sailed down through the upper board.
  */
 function collideBackboard(s: BallState, prevX: number): boolean {
   const bx = RIM.x + RIM.r + T.hoop.boardGapM;
   const r = T.throw.ballRadiusM;
-  if (
-    s.vx > 0 &&
-    prevX + r <= bx &&
-    s.x + r > bx &&
-    s.h > T.hoop.boardBottomM &&
-    s.h < T.hoop.boardTopM
-  ) {
-    s.x = bx - r;
-    s.vx = -s.vx * T.hoop.boardRestitution;
-    s.rimTouched = true; // board touch also spoils the swish
-    return true;
+  const nearH = clamp(s.h, T.hoop.boardBottomM, T.hoop.boardTopM);
+  // the face we can hit is the side we were on at the substep start; if
+  // the center crossed the plane this substep (fast ball, or shoved by a
+  // rim push-out), resolve against that face, never the far one
+  const side = prevX < bx ? -1 : 1;
+  let dx = s.x - bx;
+  if (Math.sign(dx) !== side) dx = 0;
+  const dh = s.h - nearH;
+  const dist = Math.hypot(dx, dh);
+  if (dist >= r) return false;
+  const nx = dist === 0 ? side : dx / dist;
+  const nh = dist === 0 ? 0 : dh / dist;
+  const vDotN = s.vx * nx + s.vh * nh;
+  if (vDotN < 0) {
+    const e = T.hoop.boardRestitution;
+    s.vx -= (1 + e) * vDotN * nx;
+    s.vh -= (1 + e) * vDotN * nh;
   }
-  return false;
+  // push out of penetration, radially from the closest board point
+  s.x = bx + nx * r;
+  s.h = nearH + nh * r;
+  s.rimTouched = true; // board touch also spoils the swish
+  return true;
 }
 
 /**
