@@ -139,8 +139,19 @@ are not the same thing."* The log is UI; the walls are world.
   (`localStorage` key `shootDaHoop.playerName`). Shown above the character —
   small, **bold, green (#6ac48a), 65% opacity** (was 50% cream; owner wanted it
   more visible). Used in every log line.
-- **Character:** generated pixel figure with a **1px black outline**
-  (4-offset silhouette stamp), session-random shirt color.
+- **Character (2026-07-11, parts rig):** composed at runtime from
+  owner-drawn part PNGs in `public/assets/` (head ×3 variants, white
+  t-shirt torso, trouser band, two floating hand circles — Prison
+  Architect / Rayman body plan, outlines baked into the art). Tinted once
+  per player: one shared **skin tint** (white→brown, head + hands), a
+  **hard shirt tint** on the white torso (any colour — no per-colour
+  textures), a subtle **trouser tint**. All rolled per lobby. Poses
+  (walk/aim/throw/fall) are positional keyframes in `shared/pose.ts`,
+  driven identically for the local player, remote avatars (streamed
+  telemetry) and ghost replays; the figure mirrors to face its X travel
+  direction. Generated part stand-ins (`ph_*`) cover missing files.
+  Full method, anchors, animation list and tuning guide:
+  [character-rig.md](character-rig.md).
 - **Speech bubbles:** chat messages appear above the head — bubble sized to the
   text (wraps at 220px, up to 1000 chars), **pop-in** animation, **idle
   bob/sway** while "hanging", 5s hold, fade-out. Messages sent while one is
@@ -257,8 +268,9 @@ Phaser/DOM/Node), imported by client AND server:**
 | `src/world.ts` | meters→px render mapping (re-exports `shared/court`) |
 | `src/ball.ts` | Phaser face over the physics stepper: sprite/trail/shadow/sfx, outcome callbacks, consume/pos |
 | `src/aiming.ts` | right-click aim: direction at cursor, power by drag; power-meter preview |
-| `src/player.ts` | walking, stance, `airH`/`control`, name label, outlined sprite, sun shadow |
-| `src/remoteAvatar.ts` | other players: walk-intent animation, per-shirt textures, name tag |
+| `src/player.ts` | walking, stance, `airH`/`control`, pose state machine, name label, sun shadow |
+| `src/characterRig.ts` + `src/shared/pose.ts` | the parts character: tinting, facing mirror, pose smoothing; pure pose math (unit-tested) |
+| `src/remoteAvatar.ts` | other players: pose-telemetry interp buffer, walk-intent fallback, name tag |
 | `src/powerup.ts` | the orb object itself (see teleport-orb.md) |
 | `src/ghost.ts` + `src/ghostData.ts` | ghost playback rendering + pure sample types/interp (see ghost-records.md) |
 | `src/sky.ts` | sun procession + smoothed light direction for all shadows |
@@ -267,7 +279,7 @@ Phaser/DOM/Node), imported by client AND server:**
 | `src/systems/recording.ts` | ghost record capture: rolling history, per-throw recorders, playback wiring |
 | `src/systems/shotFeedback.ts` | score/miss juice + attributed log lines |
 | `src/scenes/CourtScene.ts` | world construction, system wiring, backend event handling, frame order |
-| `src/placeholders.ts` | generated textures (per-shirt via `ensurePlayerTexture`), backdrop, court, walls, hoop, keep-out zone |
+| `src/placeholders.ts` | generated stand-in textures (character parts via `partTexture`), identity rolls (shirt/skin/head), backdrop, court, walls, hoop, keep-out zone |
 | `src/hud.ts` | DOM HUD: score, log, chat, emoji picker, send, throw-budget slots |
 | `src/playerName.ts` | first-visit name overlay + localStorage |
 | `src/main.ts` | backend selection: `?lobby=` → SocketBackend, else LocalBackend |
