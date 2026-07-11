@@ -128,6 +128,11 @@ export class AimController {
     if (!this.aiming) return;
     this.preview.clear();
     const shot = this.computeShot();
+    // feed the live aim into the character pose (the hold leans with it
+    // and pulls back with power) — deadzone = ball held, no lean yet
+    this.player.aimInfo = shot
+      ? { angle: Math.atan2(shot.vh, shot.vx), power: shot.power }
+      : null;
     if (!shot) return;
 
     // Simulate the true flight; the drawn arc is the POWER METER:

@@ -95,11 +95,12 @@ export class TeleportSystem {
         this.player.airH = 0;
         this.player.d = this.returnD;
         this.state = "down";
+        this.player.tpKind = "lie"; // hands STAY up through the lie
         this.timer = T.tp.lieS;
         playSfx(this.scene, "sfx_bounce", 0.6);
         // face-plant: pivot over the feet onto the floor
         this.scene.tweens.add({
-          targets: this.player.sprite,
+          targets: this.player.rig,
           angle: 90,
           duration: 240,
           ease: "Quad.easeIn",
@@ -109,8 +110,11 @@ export class TeleportSystem {
       this.timer -= dt;
       if (this.timer <= 0) {
         this.state = "none";
+        // rig.angle animating back to 0 IS the "getup" pose window —
+        // the hands only come down once it lands at upright
+        this.player.tpKind = null;
         this.scene.tweens.add({
-          targets: this.player.sprite,
+          targets: this.player.rig,
           angle: 0,
           duration: T.tp.getUpMs,
           ease: "Back.easeOut",
@@ -171,6 +175,7 @@ export class TeleportSystem {
     this.state = "fall";
     this.fallV = 0;
     this.player.control = "none";
+    this.player.tpKind = "fall"; // hands go up the moment the fall starts
     if (this.deps.aim.isAiming) this.deps.aim.cancel();
   }
 }

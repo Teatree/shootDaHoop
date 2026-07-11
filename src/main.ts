@@ -6,7 +6,13 @@ import { askPlayerName, getStoredName } from "./playerName";
 import { LocalBackend } from "./backend/local";
 import { SocketBackend } from "./backend/socket";
 import type { Backend } from "./backend/types";
-import { persistentShirt } from "./placeholders";
+import {
+  persistentHead,
+  persistentLower,
+  persistentShirt,
+  persistentSkin,
+} from "./placeholders";
+import type { Cosmetics } from "./shared/messages";
 
 /** Stable per-browser identity for dev; the bot platform id replaces this. */
 function devIdentity(): string {
@@ -20,24 +26,21 @@ function devIdentity(): string {
 }
 
 /**
- * Who you are HERE. Name and shirt colour are PER-LOBBY: the first time
- * you enter a lobby you're asked a name and a colour is rolled; from then
- * on that lobby — and only that lobby — always shows you that way.
- * Offline keeps one browser-global name/colour (the original behaviour).
+ * Who you are HERE. Name and look (shirt, skin, trousers, head) are
+ * PER-LOBBY: the first time you enter a lobby you're asked a name and the
+ * cosmetics are rolled; from then on that lobby — and only that lobby —
+ * always shows you that way. Offline keeps one browser-global identity
+ * (the original behaviour).
  */
-async function resolveIdentity(
-  lobby: string | null,
-): Promise<{ name: string; shirtColor: number }> {
-  if (!lobby) {
-    return {
-      name: getStoredName() ?? (await askPlayerName()),
-      shirtColor: persistentShirt(),
-    };
-  }
-  const nameKey = `shootDaHoop.name.${lobby}`;
+async function resolveIdentity(lobby: string | null): Promise<Cosmetics> {
+  const suffix = lobby ? `.${lobby}` : "";
+  const nameKey = lobby ? `shootDaHoop.name.${lobby}` : undefined;
   return {
     name: getStoredName(nameKey) ?? (await askPlayerName(nameKey)),
-    shirtColor: persistentShirt(`shootDaHoop.shirt.${lobby}`),
+    shirtColor: persistentShirt(`shootDaHoop.shirt${suffix}`),
+    skinTint: persistentSkin(`shootDaHoop.skin${suffix}`),
+    lowerTint: persistentLower(`shootDaHoop.lower${suffix}`),
+    headVariant: persistentHead(`shootDaHoop.head${suffix}`),
   };
 }
 
@@ -45,7 +48,7 @@ async function resolveIdentity(
 function chooseBackend(
   params: URLSearchParams,
   lobby: string | null,
-  identity: { name: string; shirtColor: number },
+  identity: Cosmetics,
 ): Backend {
   if (!lobby) return new LocalBackend(identity);
   return new SocketBackend({

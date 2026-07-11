@@ -4,7 +4,9 @@ import { clampToCourt, rollSpawn } from "../src/shared/court";
 import { resolveThrow } from "../src/shared/simulate";
 import { tierForScore } from "../src/shared/tiers";
 import type {
+  AvatarState,
   ClientMsg,
+  Cosmetics,
   HistoryEntry,
   PlayerInfo,
   ServerMsg,
@@ -79,7 +81,7 @@ export class Room {
   /** Returns true if the join was accepted (welcome sent). */
   async join(
     ws: WebSocket,
-    identity: { id: string; name: string; shirtColor: number },
+    identity: Cosmetics & { id: string },
     reset = false,
   ): Promise<boolean> {
     await this.ready;
@@ -112,7 +114,10 @@ export class Room {
       lastThrowDayUTC: "",
     };
     profile.name = identity.name;
-    profile.shirtColor = identity.shirtColor;
+    profile.shirtColor = safeTint(identity.shirtColor);
+    profile.skinTint = safeTint(identity.skinTint);
+    profile.lowerTint = safeTint(identity.lowerTint);
+    profile.headVariant = clampHead(identity.headVariant);
     void this.storage.saveProfile(profile).catch(logSaveError);
 
     if (existing) {
@@ -130,7 +135,10 @@ export class Room {
       const info: PlayerInfo = {
         id: identity.id,
         name: identity.name,
-        shirtColor: identity.shirtColor,
+        shirtColor: safeTint(identity.shirtColor),
+        skinTint: safeTint(identity.skinTint),
+        lowerTint: safeTint(identity.lowerTint),
+        headVariant: clampHead(identity.headVariant),
         x: spawn.x,
         d: spawn.d,
       };
@@ -200,6 +208,16 @@ export class Room {
         occ.info.d = c.d;
         // intent broadcast — the sender already animates locally
         this.broadcast({ t: "move-to", id: playerId, x: c.x, d: c.d }, occ.ws);
+        break;
+      }
+      case "pose": {
+        // cosmetic telemetry — sanitize the numbers, relay to everyone
+        // else, and keep the presence info in step for snapshots
+        const s = sanePose(msg.s);
+        if (!s) break;
+        occ.info.x = s.x;
+        occ.info.d = s.d;
+        this.broadcast({ t: "pose", id: playerId, s }, occ.ws);
         break;
       }
       case "throw": {
@@ -396,6 +414,59 @@ function send(ws: WebSocket, msg: ServerMsg) {
 
 function logSaveError(err: unknown) {
   console.error("persist failed (state kept in memory):", err);
+}
+
+/** Head variant must index a real part texture on every client. */
+function clampHead(n: unknown): number {
+  return Number.isInteger(n) && (n as number) >= 1 && (n as number) <= 3
+    ? (n as number)
+    : 1;
+}
+
+const POSE_KINDS = new Set([
+  "idle",
+  "walk",
+  "aim",
+  "throw",
+  "fall",
+  "lie",
+  "getup",
+]);
+
+/**
+ * Pose telemetry is relayed to every client — never let a malformed
+ * payload through. Returns a clean copy, or null to drop the message.
+ */
+function sanePose(s: AvatarState): AvatarState | null {
+  if (typeof s !== "object" || s === null || typeof s.pose !== "object")
+    return null;
+  const nums = [s.x, s.d, s.airH, s.angle, s.pose.t];
+  if (nums.some((n) => typeof n !== "number" || !Number.isFinite(n)))
+    return null;
+  if (!POSE_KINDS.has(s.pose.kind)) return null;
+  const c = clampToCourt(s.x, s.d);
+  const num = (n: unknown) =>
+    typeof n === "number" && Number.isFinite(n) ? n : undefined;
+  return {
+    x: c.x,
+    d: c.d,
+    airH: Math.min(15, Math.max(0, s.airH)),
+    facing: s.facing === -1 ? -1 : 1,
+    angle: Math.min(180, Math.max(-180, s.angle)),
+    pose: {
+      kind: s.pose.kind,
+      t: Math.min(1e4, Math.max(0, s.pose.t)),
+      aimAngle: num(s.pose.aimAngle),
+      aimPower: num(s.pose.aimPower),
+    },
+  };
+}
+
+/** Tints are broadcast to every client — keep them valid 24-bit colours. */
+function safeTint(n: unknown): number {
+  return Number.isInteger(n) && (n as number) >= 0 && (n as number) <= 0xffffff
+    ? (n as number)
+    : 0xffffff;
 }
 
 /** Never trust the client: sanity-check every launch before resolving. */

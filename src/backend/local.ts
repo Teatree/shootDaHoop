@@ -3,7 +3,12 @@ import { pointsForDistance } from "../shared/scoring";
 import { tierForScore } from "../shared/tiers";
 import { clampToCourt, rollSpawn } from "../shared/court";
 import { rollOrbSpawn, type OrbState } from "../shared/orb";
-import type { PlayerInfo, ThrowLaunch, WorldState } from "../shared/messages";
+import type {
+  Cosmetics,
+  PlayerInfo,
+  ThrowLaunch,
+  WorldState,
+} from "../shared/messages";
 import { BackendEmitter, type Backend, type BackendEvents } from "./types";
 
 // Single-player: the whole "server" runs in-process and echoes
@@ -14,10 +19,7 @@ import { BackendEmitter, type Backend, type BackendEvents } from "./types";
 // instead. The teleport orb lifecycle mirrors server/orb.ts: spawn after
 // cadenceS, expire after lifeS, respawn cadenceS after it's gone.
 
-export interface LocalIdentity {
-  name: string;
-  shirtColor: number;
-}
+export type LocalIdentity = Cosmetics;
 
 export class LocalBackend implements Backend {
   private readonly emitter = new BackendEmitter();
@@ -30,13 +32,7 @@ export class LocalBackend implements Backend {
 
   constructor(identity: LocalIdentity) {
     const spawn = rollSpawn(); // random spot beside the keep-out zone
-    this.self = {
-      id: "local",
-      name: identity.name,
-      shirtColor: identity.shirtColor,
-      x: spawn.x,
-      d: spawn.d,
-    };
+    this.self = { id: "local", ...identity, x: spawn.x, d: spawn.d };
   }
 
   connect(): void {
@@ -89,6 +85,10 @@ export class LocalBackend implements Backend {
     this.self.x = c.x;
     this.self.d = c.d;
     this.emitter.emit("playerMoved", { id: this.self.id, x: c.x, d: c.d });
+  }
+
+  sendPose(): void {
+    // single player — nobody to telegraph to
   }
 
   requestThrow(throwId: string, launch: ThrowLaunch): void {

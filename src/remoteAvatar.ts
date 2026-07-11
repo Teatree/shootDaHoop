@@ -1,20 +1,53 @@
 import Phaser from "phaser";
 import { T } from "./tuning";
 import { clampToCourt, floorY, sortDepth, toScreen } from "./world";
-import { ensurePlayerTexture } from "./placeholders";
 import { burst, flash } from "./juice";
 import { playSfx } from "./sfx";
 import { shadowShift, type LightDir } from "./sky";
-import type { PlayerInfo } from "./shared/messages";
+import { CharacterRig } from "./characterRig";
+import { FIGURE_H, lerpPoseState, type PoseState } from "./shared/pose";
+import { sampleAt } from "./ghostData";
+import type { AvatarState, PlayerInfo } from "./shared/messages";
 
-// Another player's character: animated locally from their broadcast
-// move-to intents (positions are never streamed). Mirrors Player's walk
-// feel — same speed, same bob — with their own shirt colour and name tag.
-// When the server rules their ball hit the teleport orb, `teleportTo`
-// replays the zap + levitate → fall → face-down arc the local player has,
-// so everyone watches the same slam attempt.
+// Another player's character. Two sources of truth, best first:
+//
+//  1. POSE TELEMETRY — ~12 Hz AvatarState samples. We render ~150 ms in
+//     the past and lerp between the two samples straddling that moment,
+//     so motion (and the telegraphed aim) is smooth, never jerky.
+//  2. FALLBACK SIM — if the stream goes stale (drops, an old server),
+//     the original move-to intent walk + teleport state machine take
+//     over, exactly the pre-telemetry behaviour.
+//
+// Teleport events still fire the zap VFX/SFX in both modes; the pose
+// stream carries the levitate/fall/lie choreography itself.
 
 const ZAP = [0x2e7bff, 0x9fd0ff, 0xffffff] as const;
+
+/** render this far behind the newest sample — one lost packet's slack */
+const LERP_DELAY_S = 0.15;
+/** no samples for this long → the intent-walk fallback drives */
+const STALE_S = 0.7;
+
+interface TimedState {
+  t: number;
+  s: AvatarState;
+}
+
+const lerpTimed = (a: TimedState, b: TimedState, f: number): TimedState => {
+  const lin = (x: number, y: number) => x + (y - x) * f;
+  const near = f < 0.5 ? a : b;
+  return {
+    t: 0,
+    s: {
+      x: lin(a.s.x, b.s.x),
+      d: lin(a.s.d, b.s.d),
+      airH: lin(a.s.airH, b.s.airH),
+      facing: near.s.facing,
+      angle: lin(a.s.angle, b.s.angle),
+      pose: lerpPoseState(a.s.pose, b.s.pose, f),
+    },
+  };
+};
 
 export class RemoteAvatar {
   x: number;
@@ -24,18 +57,24 @@ export class RemoteAvatar {
 
   readonly name: string;
 
+  /** face-plant rotation for the FALLBACK machine's tweens */
+  readonly rig: CharacterRig;
+
+  private clock = 0;
+  private buffer: TimedState[] = [];
+
+  // ── fallback sim state (the pre-telemetry behaviour) ──────────────
   private walking = false;
   private targetX = 0;
   private targetD = 0;
   private bobT = 0;
+  private facingRight = true;
   private light: LightDir = { dx: 0, elev: 1 };
-
   private tpState: "none" | "levitate" | "fall" | "down" = "none";
   private tpTimer = 0;
   private returnD = 0; // depth row to fall back onto
   private fallV = 0;
 
-  private readonly sprite: Phaser.GameObjects.Image;
   private readonly label: Phaser.GameObjects.Text;
   private readonly shadow: Phaser.GameObjects.Ellipse;
 
@@ -46,10 +85,8 @@ export class RemoteAvatar {
     this.x = info.x;
     this.d = info.d;
     this.name = info.name;
-    this.shadow = scene.add.ellipse(0, 0, 26, 8, 0x000000, 0.22);
-    this.sprite = scene.add
-      .image(0, 0, ensurePlayerTexture(scene, info.shirtColor))
-      .setOrigin(0.5, 1);
+    this.shadow = scene.add.ellipse(0, 0, 44, 9, 0x000000, 0.22);
+    this.rig = new CharacterRig(scene, info);
     this.label = scene.add
       .text(0, 0, info.name, {
         fontFamily: '"Courier New", Courier, monospace',
@@ -60,27 +97,37 @@ export class RemoteAvatar {
       .setOrigin(0.5, 1)
       .setAlpha(0.65)
       .setResolution(2);
-    this.render();
+    this.render(null);
   }
 
-  /** A broadcast movement intent — walk there like the original did. */
+  /** A ~12 Hz telemetry sample — the primary animation source. */
+  pushSample(s: AvatarState) {
+    this.buffer.push({ t: this.clock, s });
+    // keep a couple of seconds; sampleAt scans linearly
+    const cutoff = this.clock - 2;
+    while (this.buffer.length && this.buffer[0].t < cutoff)
+      this.buffer.shift();
+  }
+
+  /** A broadcast movement intent — fallback path (and stale recovery). */
   walkTo(x: number, d: number) {
     if (this.tpState !== "none") return; // mid-teleport: no walking
     const c = clampToCourt(x, d);
     this.targetX = c.x;
     this.targetD = c.d;
     this.walking = true;
-    this.sprite.setFlipX(c.x < this.x);
+    if (Math.abs(c.x - this.x) > 0.01) this.facingRight = c.x >= this.x;
   }
 
   /** Snapshot reconciliation — snap without walking. */
   setPos(x: number, d: number) {
-    if (this.walking || this.tpState !== "none") return; // animating, intent will land us
+    if (this.streamFresh()) return; // the stream is truth while it flows
+    if (this.walking || this.tpState !== "none") return;
     this.x = x;
     this.d = d;
   }
 
-  /** The server ruled their ball hit the orb — zap them up to it. */
+  /** The server ruled their ball hit the orb — zap VFX + fallback state. */
   teleportTo(x: number, d: number, h: number) {
     // zapp out…
     const fs = toScreen(this.x, this.d, this.airH + 1);
@@ -111,7 +158,38 @@ export class RemoteAvatar {
 
   update(dt: number, light?: LightDir) {
     if (light) this.light = light;
+    this.clock += dt;
 
+    if (this.streamFresh()) {
+      const at = sampleAt(this.buffer, this.clock - LERP_DELAY_S, lerpTimed);
+      const s = at?.s ?? this.buffer[this.buffer.length - 1].s;
+      this.x = s.x;
+      this.d = s.d;
+      this.airH = s.airH;
+      this.facingRight = s.facing === 1;
+      this.rig.angle = s.angle;
+      this.render(s.pose, dt);
+      return;
+    }
+
+    this.updateFallback(dt);
+  }
+
+  destroy() {
+    this.rig.destroy();
+    this.label.destroy();
+    this.shadow.destroy();
+  }
+
+  private streamFresh(): boolean {
+    const last = this.buffer[this.buffer.length - 1];
+    return last !== undefined && this.clock - last.t < STALE_S;
+  }
+
+  // ── the original intent-walk + teleport machine ────────────────────
+
+  private updateFallback(dt: number) {
+    let pose: PoseState = { kind: "idle", t: 0 };
     if (this.tpState === "levitate") {
       this.airH -= T.tp.sinkSpeedM * dt;
       this.tpTimer -= dt;
@@ -120,6 +198,7 @@ export class RemoteAvatar {
       this.fallV += T.throw.gravityM * dt;
       this.airH -= this.fallV * dt;
       this.d += (this.returnD - this.d) * Math.min(1, 4 * dt);
+      pose = { kind: "fall", t: this.tpTimer };
       if (this.airH <= 0) {
         this.airH = 0;
         this.d = this.returnD;
@@ -127,7 +206,7 @@ export class RemoteAvatar {
         this.tpTimer = T.tp.lieS;
         playSfx(this.scene, "sfx_bounce", 0.6);
         this.scene.tweens.add({
-          targets: this.sprite,
+          targets: this.rig,
           angle: 90,
           duration: 240,
           ease: "Quad.easeIn",
@@ -135,10 +214,11 @@ export class RemoteAvatar {
       }
     } else if (this.tpState === "down") {
       this.tpTimer -= dt;
+      pose = { kind: "lie", t: 0 };
       if (this.tpTimer <= 0) {
         this.tpState = "none";
         this.scene.tweens.add({
-          targets: this.sprite,
+          targets: this.rig,
           angle: 0,
           duration: T.tp.getUpMs,
           ease: "Back.easeOut",
@@ -155,28 +235,28 @@ export class RemoteAvatar {
         this.x += (dx / dist) * step;
         this.d += (dd / dist) * step;
         this.bobT += dt;
+        pose = { kind: "walk", t: this.bobT };
       }
     }
-    this.render();
-  }
-
-  destroy() {
-    this.sprite.destroy();
-    this.label.destroy();
-    this.shadow.destroy();
+    if (this.tpState === "fall") this.tpTimer += dt; // fall clock for waggle
+    if (this.tpState === "none" && Math.abs(this.rig.angle) > 0.5)
+      pose = { kind: "getup", t: 0 };
+    this.render(pose, dt);
   }
 
   private startFall() {
     this.tpState = "fall";
+    this.tpTimer = 0;
     this.fallV = 0;
   }
 
-  private render() {
+  private render(pose: PoseState | null, dt = 1) {
     const { sx, sy } = toScreen(this.x, this.d, this.airH);
-    const bob = this.walking ? Math.abs(Math.sin(this.bobT * 9)) * 3 : 0;
-    this.sprite.setPosition(sx, sy - bob);
-    this.sprite.setDepth(sortDepth(this.d));
-    this.label.setPosition(sx, sy - bob - 68);
+    this.rig.setFacing(this.facingRight);
+    if (pose) this.rig.applyPose(pose, dt);
+    this.rig.setPosition(sx, sy);
+    this.rig.setDepth(sortDepth(this.d));
+    this.label.setPosition(sx, sy - FIGURE_H - 9);
     this.label.setDepth(sortDepth(this.d) + 1);
     // shadow shrinks/fades with height and leans away from the sun,
     // exactly like Player's

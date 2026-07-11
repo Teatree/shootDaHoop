@@ -3,17 +3,45 @@
 // imported by the client Backend implementations and the server.
 
 import type { OrbState } from "./orb";
+import type { PoseState } from "./pose";
 
 export type { OrbState };
+export type { PoseState };
+
+/**
+ * Everything needed to draw a character at one instant. Streamed as
+ * telemetry (~12 Hz, interpolated on arrival), sampled per-frame into
+ * ghost recordings — ONE format for both, by design.
+ */
+export interface AvatarState {
+  x: number; //      court meters
+  d: number;
+  airH: number; //   feet height above the floor
+  facing: 1 | -1; // 1 = facing +x (the hoop); the rig mirrors for -1
+  angle: number; //  whole-figure rotation, degrees (the face-plant)
+  pose: PoseState;
+}
 
 // ── shared shapes ─────────────────────────────────────────────────────
 
 export interface PlayerInfo {
   id: string; //         platform identity (Telegram/Discord user id) or local
   name: string;
-  shirtColor: number; // 0xRRGGBB
+  shirtColor: number; // 0xRRGGBB — hard tint on the white t-shirt part
+  skinTint: number; //   0xRRGGBB — multiply tint shared by head + hands
+  lowerTint: number; //  0xRRGGBB — subtle tint on the trouser band
+  headVariant: number; // 1-based index into the head_v* part textures
   x: number; //          court meters (last known/spawn)
   d: number;
+}
+
+/** Per-lobby cosmetic identity, rolled client-side on first entry. */
+export interface Cosmetics {
+  name: string;
+  shirtColor: number;
+  skinTint: number;
+  lowerTint: number;
+  headVariant: number;
 }
 
 export interface WorldState {
@@ -69,13 +97,15 @@ export type ClientMsg =
   | {
       t: "join";
       lobby: string;
-      identity: { id: string; name: string; shirtColor: number };
+      identity: Cosmetics & { id: string };
       /** ?reset link flag: wipe the world's shared score before joining */
       reset?: boolean;
     }
   | { t: "move-to"; x: number; d: number }
   | { t: "throw"; throwId: string; launch: ThrowLaunch }
-  | { t: "chat"; text: string };
+  | { t: "chat"; text: string }
+  /** pose telemetry, ~12 Hz while animating — cosmetic, relayed as-is */
+  | { t: "pose"; s: AvatarState };
 
 // ── server → client ───────────────────────────────────────────────────
 
@@ -93,6 +123,7 @@ export type ServerMsg =
   | { t: "player-joined"; player: PlayerInfo }
   | { t: "player-left"; id: string; name: string }
   | { t: "move-to"; id: string; x: number; d: number }
+  | { t: "pose"; id: string; s: AvatarState }
   | { t: "throw"; id: string; throwId: string; launch: ThrowLaunch }
   | { t: "outcome"; outcome: ThrowOutcome }
   | { t: "throw-rejected"; throwId: string; reason: "budget" | "invalid" }

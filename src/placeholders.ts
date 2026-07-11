@@ -19,6 +19,50 @@ const SHIRT_COLOURS = [
   0xd96a6a, 0x6a9ad9, 0x6ac48a, 0xd9b56a, 0xa97ad9, 0xd97ab0, 0x7ac4c4,
 ];
 
+// Skin: MULTIPLY tints over the pale part art — 0xffffff leaves it as
+// drawn, browner entries tan it. Deliberately gentle steps ("colorized
+// only a little bit"); head + both hands always share one entry.
+const SKIN_TINTS = [
+  0xffffff, 0xf5e0c8, 0xe8c8a4, 0xd4a97c, 0xb98a5e,
+];
+
+// Trousers: gentle shade variation over body_lower's own brown.
+const LOWER_TINTS = [0xffffff, 0xe8e0d4, 0xd8c8b8, 0xc8b8ac];
+
+export const HEAD_VARIANTS = 3;
+
+/** Rolled-once identity helper: an entry of `pool`, sticky under `key`. */
+function persistentPick(pool: readonly number[], key: string): number {
+  const stored = localStorage.getItem(key);
+  if (stored) {
+    const n = parseInt(stored, 16);
+    if (pool.includes(n)) return n;
+  }
+  const v = pool[Math.floor(Math.random() * pool.length)];
+  localStorage.setItem(key, v.toString(16));
+  return v;
+}
+
+/** The player's skin tint (head + hands) — rolled once per storage key. */
+export function persistentSkin(storageKey = "shootDaHoop.skin"): number {
+  return persistentPick(SKIN_TINTS, storageKey);
+}
+
+/** The trouser tint — rolled once, seeded independently of the skin. */
+export function persistentLower(storageKey = "shootDaHoop.lower"): number {
+  return persistentPick(LOWER_TINTS, storageKey);
+}
+
+/** Which head (1-based) — rolled once per storage key. */
+export function persistentHead(storageKey = "shootDaHoop.head"): number {
+  const stored = Number(localStorage.getItem(storageKey));
+  if (Number.isInteger(stored) && stored >= 1 && stored <= HEAD_VARIANTS)
+    return stored;
+  const v = 1 + Math.floor(Math.random() * HEAD_VARIANTS);
+  localStorage.setItem(storageKey, String(v));
+  return v;
+}
+
 /**
  * The player's shirt colour — their visual identity, rolled once and then
  * persistent under the given localStorage key. OFFLINE that key is global
@@ -26,20 +70,10 @@ const SHIRT_COLOURS = [
  * remembers its own colour (rolled the first time you enter it).
  */
 export function persistentShirt(storageKey = "shootDaHoop.shirt"): number {
-  const stored = localStorage.getItem(storageKey);
-  if (stored) {
-    const n = parseInt(stored, 16);
-    if (SHIRT_COLOURS.includes(n)) return n;
-  }
-  const c = SHIRT_COLOURS[Math.floor(Math.random() * SHIRT_COLOURS.length)];
-  localStorage.setItem(storageKey, c.toString(16));
-  return c;
+  return persistentPick(SHIRT_COLOURS, storageKey);
 }
 
-export function ensurePlaceholderTextures(
-  scene: Phaser.Scene,
-  localShirt: number,
-) {
+export function ensurePlaceholderTextures(scene: Phaser.Scene) {
   const tex = scene.textures;
 
   // 3×3 white square — particle building block
@@ -71,58 +105,71 @@ export function ensurePlaceholderTextures(
     g.destroy();
   }
 
-  // Character — the local player's texture, resolved shirt colour baked
-  // in. Remote avatars get their own colour via ensurePlayerTexture below.
-  if (!tex.exists("player")) {
-    drawPlayerTexture(scene, "player", localShirt);
-  }
+  ensurePartPlaceholders(scene);
 }
 
 /**
- * A player texture for any shirt colour (remote avatars) — generated once
- * per colour and cached in the texture manager. Returns the texture key.
+ * Resolve a character part's texture: the user-provided file when it was
+ * probed+loaded, otherwise the generated `ph_` stand-in (always present).
  */
-export function ensurePlayerTexture(
-  scene: Phaser.Scene,
-  shirtColor: number,
-): string {
-  const key = `player-${shirtColor.toString(16).padStart(6, "0")}`;
-  if (!scene.textures.exists(key)) drawPlayerTexture(scene, key, shirtColor);
-  return key;
+export function partTexture(scene: Phaser.Scene, name: string): string {
+  return scene.textures.exists(name) ? name : `ph_${name}`;
 }
 
-/** 34×66 cozy figure with a 1px black outline and the given shirt colour. */
-function drawPlayerTexture(scene: Phaser.Scene, key: string, shirt: number) {
-  const g = scene.make.graphics({ x: 0, y: 0 }, false);
-  const skin = 0xe8b88a;
-  const shorts = 0x4a4a5a;
-  const shoes = 0x8a5a3a;
-  // every body rect; mono=true paints them all black for the outline pass
-  const figure = (ox: number, oy: number, mono: boolean) => {
-    const c = (col: number) => (mono ? 0x000000 : col);
-    // head + hair
-    g.fillStyle(c(skin)).fillRect(ox + 10, oy + 2, 12, 12);
-    g.fillStyle(c(0x5a3d28)).fillRect(ox + 10, oy + 0, 12, 4);
-    // shirt + arms
-    g.fillStyle(c(shirt)).fillRect(ox + 8, oy + 14, 16, 20);
-    g.fillStyle(c(skin)).fillRect(ox + 4, oy + 14, 4, 14);
-    g.fillStyle(c(skin)).fillRect(ox + 24, oy + 14, 4, 14);
-    // shorts + legs + shoes
-    g.fillStyle(c(shorts)).fillRect(ox + 8, oy + 34, 16, 10);
-    g.fillStyle(c(skin)).fillRect(ox + 10, oy + 44, 5, 14);
-    g.fillStyle(c(skin)).fillRect(ox + 17, oy + 44, 5, 14);
-    g.fillStyle(c(shoes)).fillRect(ox + 9, oy + 58, 7, 6);
-    g.fillStyle(c(shoes)).fillRect(ox + 16, oy + 58, 7, 6);
+// Stand-ins for the character part files, drawn in the same palette
+// discipline as the real art: heads/hands PALE (a multiply skin tint tans
+// them), the shirt WHITE (a hard tint recolours it), the trousers brown.
+const PALE_SKIN = 0xf2c9a0;
+
+function ensurePartPlaceholders(scene: Phaser.Scene) {
+  const make = (key: string, w: number, h: number, draw: (g: Phaser.GameObjects.Graphics) => void) => {
+    if (scene.textures.exists(key)) return;
+    const g = scene.make.graphics({ x: 0, y: 0 }, false);
+    draw(g);
+    g.generateTexture(key, w, h);
+    g.destroy();
   };
-  // black silhouette at 4 offsets = 1px outline, then the figure on top
-  figure(0, 1, true);
-  figure(2, 1, true);
-  figure(1, 0, true);
-  figure(1, 2, true);
-  figure(1, 1, false);
-  g.fillStyle(0x2b2b2b).fillRect(1 + 18, 1 + 6, 2, 2); // eye (faces right)
-  g.generateTexture(key, 34, 66);
-  g.destroy();
+
+  const outlinedCircle = (
+    g: Phaser.GameObjects.Graphics,
+    cx: number,
+    cy: number,
+    r: number,
+    fill: number,
+  ) => {
+    g.fillStyle(0x000000).fillCircle(cx, cy, r);
+    g.fillStyle(fill).fillCircle(cx, cy, r - 2);
+  };
+
+  for (const v of [1, 2, 3]) {
+    make(`ph_head_v${v}`, 26, 26, (g) => {
+      outlinedCircle(g, 13, 13, 13, PALE_SKIN);
+      if (v === 2) {
+        // haired variant: a dark cap over the crown
+        g.fillStyle(0x6a5a4a);
+        g.fillCircle(13, 13, 11);
+        g.fillStyle(PALE_SKIN).fillRect(2, 12, 22, 12);
+      } else if (v === 3) {
+        g.fillStyle(0x6a5a4a).fillRect(4, 4, 8, 3); // a side tuft
+      }
+      g.fillStyle(0x2b2b2b).fillRect(19, 11, 2, 2); // eye (faces right)
+    });
+  }
+
+  make("ph_body_upper", 43, 36, (g) => {
+    // white t-shirt dome with an outline
+    g.fillStyle(0x000000).fillRoundedRect(0, 0, 43, 36, { tl: 18, tr: 18, bl: 0, br: 0 });
+    g.fillStyle(0xffffff).fillRoundedRect(2, 2, 39, 34, { tl: 16, tr: 16, bl: 0, br: 0 });
+  });
+
+  make("ph_body_lower", 43, 12, (g) => {
+    g.fillStyle(0x000000).fillRect(0, 0, 43, 12);
+    g.fillStyle(0x8a5a28).fillRect(2, 0, 39, 10);
+  });
+
+  for (const key of ["ph_left_hand", "ph_right_hand"]) {
+    make(key, 14, 14, (g) => outlinedCircle(g, 7, 7, 7, PALE_SKIN));
+  }
 }
 
 /** Desert backdrop: banded sky over rolling dunes. Suns live in sky.ts. */

@@ -23,6 +23,7 @@ import { playSfx } from "../sfx";
 import type { AvailableAssets } from "../assets";
 import type { ThrowRecording } from "../ghostData";
 import type {
+  Cosmetics,
   HistoryEntry,
   PlayerInfo,
   ThrowLaunch,
@@ -69,11 +70,16 @@ export class CourtScene extends Phaser.Scene {
     { avatar: RemoteAvatar; bubbles: SpeechBubbles }
   >();
 
+  /** pose telemetry cadence — send accumulated below */
+  private poseAccum = 0;
+  private lastPoseSent = "";
+  private sincePoseSend = 0;
+
   constructor(
     private readonly hud: HUD,
     private readonly assets: AvailableAssets,
-    /** per-lobby name + shirt colour, resolved by main.ts */
-    private readonly identity: { name: string; shirtColor: number },
+    /** per-lobby cosmetics (name, shirt, skin, head), resolved by main.ts */
+    private readonly identity: Cosmetics,
     private readonly backend: Backend,
   ) {
     super("court");
@@ -92,14 +98,14 @@ export class CourtScene extends Phaser.Scene {
   }
 
   create() {
-    ensurePlaceholderTextures(this, this.identity.shirtColor);
+    ensurePlaceholderTextures(this);
     drawBackdrop(this);
     drawCourt(this);
     drawWall(this);
     this.keepOutZone = createKeepOutZone(this);
     this.hoop = createHoop(this);
     this.sky = new SunSystem(this);
-    this.player = new Player(this, this.playerName);
+    this.player = new Player(this, this.playerName, this.identity);
     this.speech = new SpeechBubbles(this, this.player);
     this.aim = new AimController(
       this,
@@ -117,6 +123,7 @@ export class CourtScene extends Phaser.Scene {
     this.recording = new RecordingSystem(
       this,
       { player: this.player, orb: this.teleport.orb, speech: this.speech },
+      this.identity,
       () => replayMadeEffect(this, this.hoop),
     );
     this.rig = new CameraRig(this, this.player);
@@ -170,6 +177,9 @@ export class CourtScene extends Phaser.Scene {
     });
     this.backend.on("playerMoved", (e) => {
       if (e.id !== this.selfId) this.remotes.get(e.id)?.avatar.walkTo(e.x, e.d);
+    });
+    this.backend.on("playerPosed", (e) => {
+      if (e.id !== this.selfId) this.remotes.get(e.id)?.avatar.pushSample(e.s);
     });
     this.backend.on("throwStarted", (e) => {
       if (e.id === this.selfId) {
@@ -316,6 +326,21 @@ export class CourtScene extends Phaser.Scene {
     this.balls = this.balls.filter((b) => !b.done);
     this.rig.update(dt);
 
+    // ── pose telemetry: ~12 Hz while animating, slow keep-alive when
+    // still (a held pose must not go stale on the other screens) ──────
+    this.poseAccum += dt;
+    this.sincePoseSend += dt;
+    if (this.poseAccum >= 1 / 12) {
+      this.poseAccum = 0;
+      const s = this.player.visualState();
+      const enc = JSON.stringify(s);
+      if (enc !== this.lastPoseSent || this.sincePoseSend >= 0.4) {
+        this.lastPoseSent = enc;
+        this.sincePoseSend = 0;
+        this.backend.sendPose(s);
+      }
+    }
+
     // keep-out zone fades in only when the player is pressed up close
     const zoneX = (RIM.x - T.move.hoopStandoffM) * M;
     const near = zoneX - this.player.x * M <= T.zone.showDistPx;
@@ -360,6 +385,8 @@ export class CourtScene extends Phaser.Scene {
     // sees everyone's ids (outcomes, orb-consumed balls)
     const throwId = `t${++this.throwSeq}-${Math.random().toString(36).slice(2, 8)}`;
     this.backend.requestThrow(throwId, launch);
+    // follow-through sweep along the real launch direction
+    this.player.startThrow(Math.atan2(shot.vh, shot.vx), shot.power);
     // the levitation throw is the last act up there — falling starts now
     this.teleport.onThrowReleased();
   }

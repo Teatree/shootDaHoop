@@ -151,18 +151,25 @@ is local.**
   amenities / visual chapter. Part of the snapshot.
 - **Presence** — join / leave / idle.
 - **Chat** — relayed to the log ("wall").
-- **Character appearance** — shirt colour etc., sent on join.
+- **Character appearance** — full cosmetics on join: shirt colour (hard
+  tint), skin tint (shared by head + hands), trouser tint, head variant.
+- **Pose telemetry** — `pose` messages, ~12 Hz while animating with a
+  0.4 s keep-alive for held poses: the full `AvatarState` (position,
+  airH, facing, figure rotation, pose kind + clocks + **live aim
+  angle/power**). Receivers render ~150 ms in the past, lerping between
+  the straddling samples (`sampleAt`/`lerpFrame` — the ghost interp,
+  reused), so remote motion is smooth at any send rate. Stale stream
+  (> 0.7 s) falls back to the original move-to intent walk.
 - **The teleport orb** — a server-authoritative world object:
   `orb-spawned` / `orb-removed` / `teleported` events, current orb in
   welcome + snapshots. See the dedicated section below.
 
 **Not synced (local only):**
 
-- **Per-frame position** — derived from `move-to`.
-- **Aim-in-progress** — the live drag is local/cosmetic. **DECIDED: not
-  telegraphed** this pass — it's pure polish, costs a per-frame-ish message
-  class we otherwise don't have, and nothing depends on it. Revisit later.
-- **UI / camera / cursor / previews.**
+- **Per-frame position** — `pose` telemetry when flowing, `move-to`
+  intents as fallback; never per-frame.
+- **UI / camera / cursor / previews** — the aim *preview line* stays
+  local; opponents read aim from the character's pose instead.
 - **A player's private ball inventory and remaining throw budget** — persisted
   per-player; only the *effects* (a throw, a score) are broadcast.
 
@@ -418,6 +425,34 @@ chat+bubble, walk, teleport slam, ghost replays) all green.
       welcome replay; the archive is the unabridged record. Nothing reads
       it at runtime yet (future: bot admin tools, moderation, stats).
       Unit-tested in `server/storage.test.ts`.
+11. ✅ **Parts-rig character + pose telemetry (2026-07-11):** the character
+    is now composed from owner-drawn part PNGs (`public/assets/`: 3 heads,
+    white t-shirt torso, trouser band, two hand circles — `guy.png` in git
+    history is the assembly reference) instead of a single generated
+    sprite.
+    - **Tinting:** skin (head + both hands, one shared white→brown
+      multiply tint), shirt (hard tint on the white torso — the per-colour
+      texture cache is GONE, any colour works), trousers (subtle tint).
+      Rolled per lobby beside name/shirt (`shootDaHoop.skin/lower/head.*`),
+      carried in `PlayerInfo` + profile, server-sanitized.
+    - **Pose model:** `shared/pose.ts` (pure, unit-tested) maps a
+      `PoseState` (idle/walk/aim/throw/fall/lie/getup + clocks + aim) to
+      per-part offsets; `characterRig.ts` is the Phaser container that
+      tints once, mirrors `scaleX` for X-facing, and exp-smooths parts
+      toward targets (kind changes ease, 12 Hz telemetry looks continuous).
+      All limb motion is positional — tiny pixel art shears under rotation;
+      only the whole-figure tilt/face-plant rotates.
+    - **Animations:** walk = bob + antiphase hand swing + lean into
+      travel; aim = ball held overhead, hold leans with the live aim and
+      pulls back with power (slingshot read); throw = 250 ms follow-through
+      sweep; fall/lie/getup = hands straight up (waggling in the fall) and
+      they only come down once fully upright.
+    - **Telemetry:** `pose` client msg → server sanitizes (`sanePose`) and
+      relays; RemoteAvatar = interp buffer (render 150 ms back, ghost
+      lerp helpers reused) with move-to fallback when stale; ghosts record
+      the same `AvatarState` in `FrameSample` (yOff/flipX replaced by
+      facing/pose). Two-tab verified: 81 relayed samples, remote showed
+      the held ball + aim lean live.
 
 ---
 
@@ -425,7 +460,11 @@ chat+bubble, walk, teleport slam, ghost replays) all green.
 
 - ✅ DECIDED: **max 8 players / lobby, overflow rejected** (see Identity & lobbies).
 - ✅ DECIDED: **budget resets at UTC midnight** (see Server authority).
-- ✅ DECIDED: **aim-in-progress NOT telegraphed** this pass (see Syncing).
+- ✅ DECIDED (REVERSED 2026-07-11): **aim-in-progress IS telegraphed** — the
+  character rig rework streams full pose telemetry including the live aim
+  angle/power, so opponents read the aim from the body (see Syncing). The
+  original "not telegraphed" ruling stood from Stage 2 until the parts-rig
+  landed.
 - `DECIDE:` (design, later) shared progress counts makes vs. attempts; contribution
   floor; top-of-ladder endgame.
 

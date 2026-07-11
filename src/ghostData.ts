@@ -1,16 +1,13 @@
 // Ghost record data: sample types + interpolation. Pure (no Phaser) so
-// unit tests can drive it, and so a future multiplayer layer can reuse the
-// same format as its replication payload.
+// unit tests can drive it. A frame sample IS the streamed AvatarState
+// plus recording time and world dressing — the replication payload and
+// the recording format are one type, by design.
 
-export interface FrameSample {
+import { lerpPoseState } from "./shared/pose";
+import type { AvatarState } from "./shared/messages";
+
+export interface FrameSample extends AvatarState {
   t: number; //  seconds since recording start
-  // player
-  x: number; //  court meters
-  d: number;
-  airH: number;
-  yOff: number; // walk-bob / aim-crouch pixel offset (pre-baked)
-  flipX: boolean;
-  angle: number;
   // world dressing the player saw
   orb: { x: number; d: number; h: number; age: number } | null;
   bubble: { text: string; age: number } | null;
@@ -68,9 +65,9 @@ export const lerpFrame = (
     x: lin(a.x, b.x, f),
     d: lin(a.d, b.d, f),
     airH: lin(a.airH, b.airH, f),
-    yOff: lin(a.yOff, b.yOff, f),
-    flipX: near.flipX,
+    facing: near.facing,
     angle: lin(a.angle, b.angle, f),
+    pose: lerpPoseState(a.pose, b.pose, f),
     orb: near.orb,
     bubble: near.bubble,
   };

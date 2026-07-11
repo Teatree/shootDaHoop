@@ -24,6 +24,10 @@ export interface PlayerProfile {
   id: string;
   name: string;
   shirtColor: number;
+  /** rig cosmetics — optional so pre-rig profiles hydrate cleanly */
+  skinTint?: number;
+  lowerTint?: number;
+  headVariant?: number;
   /** daily throw budget — server-authoritative (build step 7) */
   throwsUsedToday: number;
   lastThrowDayUTC: string; // "YYYY-MM-DD"

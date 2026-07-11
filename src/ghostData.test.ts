@@ -14,9 +14,9 @@ const f = (t: number, x: number, extra?: Partial<FrameSample>): FrameSample => (
   x,
   d: 3,
   airH: 0,
-  yOff: 0,
-  flipX: false,
+  facing: 1,
   angle: 0,
+  pose: { kind: "idle", t: 0 },
   orb: null,
   bubble: null,
   ...extra,
@@ -48,15 +48,23 @@ describe("sampleAt", () => {
 describe("frame lerp carriers", () => {
   it("interpolates continuous fields, carries discrete ones from the nearer sample", () => {
     const orb = { x: 1, d: 3, h: 9, age: 2 };
-    const a = f(0, 0, { flipX: false, orb: null });
-    const c = f(1, 10, { flipX: true, orb });
+    const a = f(0, 0, { facing: 1, orb: null });
+    const c = f(1, 10, { facing: -1, orb });
     const early = lerpFrame(a, c, 0.25);
     expect(early.x).toBeCloseTo(2.5, 10);
-    expect(early.flipX).toBe(false);
+    expect(early.facing).toBe(1);
     expect(early.orb).toBeNull();
     const late = lerpFrame(a, c, 0.75);
-    expect(late.flipX).toBe(true);
+    expect(late.facing).toBe(-1);
     expect(late.orb).toBe(orb);
+  });
+
+  it("lerps the pose clock and aim within a kind", () => {
+    const a = f(0, 0, { pose: { kind: "aim", t: 0, aimAngle: 0.4, aimPower: 0 } });
+    const c = f(1, 10, { pose: { kind: "aim", t: 0, aimAngle: 0.8, aimPower: 1 } });
+    const mid = lerpFrame(a, c, 0.5);
+    expect(mid.pose.aimAngle).toBeCloseTo(0.6);
+    expect(mid.pose.aimPower).toBeCloseTo(0.5);
   });
 
   it("carries bubble text the same way", () => {

@@ -1,4 +1,5 @@
 import type {
+  AvatarState,
   HistoryEntry,
   OrbState,
   PlayerInfo,
@@ -29,6 +30,12 @@ export interface BackendEvents {
   playerLeft: (e: { id: string; name: string }) => void;
   /** a movement intent — every client animates the walk locally */
   playerMoved: (e: { id: string; x: number; d: number }) => void;
+  /**
+   * pose telemetry (~12 Hz): full avatar state, interpolated on the
+   * receiving side. When fresh it drives remote avatars entirely; the
+   * move-to intent walk is the staleness fallback.
+   */
+  playerPosed: (e: { id: string; s: AvatarState }) => void;
   /** a throw is happening — clients animate the arc from the launch params */
   throwStarted: (e: { id: string; throwId: string; launch: ThrowLaunch }) => void;
   /** the authoritative result (server-decided in multiplayer) */
@@ -64,6 +71,8 @@ export interface Backend {
 
   // ── intents (client → authority) ──────────────────────────────────
   moveTo(x: number, d: number): void;
+  /** cosmetic pose telemetry — LocalBackend no-ops (nobody's watching) */
+  sendPose(s: AvatarState): void;
   requestThrow(throwId: string, launch: ThrowLaunch): void;
   chat(text: string): void;
 

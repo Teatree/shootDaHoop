@@ -6,6 +6,7 @@ import type { Player } from "../player";
 import type { TeleportOrb } from "../powerup";
 import type { SpeechBubbles } from "../speech";
 import type { Ball } from "../ball";
+import type { RigLook } from "../characterRig";
 
 // Ghost records, capture side: a rolling buffer of world frame samples
 // (player + orb + speech bubble), one recorder per live throw, and the
@@ -43,9 +44,10 @@ export class RecordingSystem {
   constructor(
     scene: Phaser.Scene,
     private readonly providers: RecordingProviders,
+    look: RigLook,
     onMade: () => void,
   ) {
-    this.playback = new GhostPlayback(scene, onMade);
+    this.playback = new GhostPlayback(scene, look, onMade);
   }
 
   /** Anchors the next slam recording and lets it replay the zapp. */

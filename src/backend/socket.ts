@@ -1,4 +1,10 @@
-import type { ClientMsg, ServerMsg, ThrowLaunch } from "../shared/messages";
+import type {
+  AvatarState,
+  ClientMsg,
+  Cosmetics,
+  ServerMsg,
+  ThrowLaunch,
+} from "../shared/messages";
 import { BackendEmitter, type Backend, type BackendEvents } from "./types";
 
 // Live multiplayer: the same Backend surface as LocalBackend, spoken over
@@ -7,11 +13,7 @@ import { BackendEmitter, type Backend, type BackendEvents } from "./types";
 // no-op, the server resolves every throw and its outcome arrives as an
 // event.
 
-export interface SocketIdentity {
-  id: string;
-  name: string;
-  shirtColor: number;
-}
+export type SocketIdentity = Cosmetics & { id: string };
 
 export class SocketBackend implements Backend {
   private readonly emitter = new BackendEmitter();
@@ -70,6 +72,9 @@ export class SocketBackend implements Backend {
         break;
       case "move-to":
         this.emitter.emit("playerMoved", { id: m.id, x: m.x, d: m.d });
+        break;
+      case "pose":
+        this.emitter.emit("playerPosed", { id: m.id, s: m.s });
         break;
       case "throw":
         this.emitter.emit("throwStarted", {
@@ -130,6 +135,10 @@ export class SocketBackend implements Backend {
 
   moveTo(x: number, d: number): void {
     this.send({ t: "move-to", x, d });
+  }
+
+  sendPose(s: AvatarState): void {
+    this.send({ t: "pose", s });
   }
 
   requestThrow(throwId: string, launch: ThrowLaunch): void {

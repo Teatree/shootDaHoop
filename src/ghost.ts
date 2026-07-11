@@ -2,6 +2,8 @@ import Phaser from "phaser";
 import { T } from "./tuning";
 import { M, floorY, sortDepth, toScreen } from "./world";
 import { buildBubble } from "./speech";
+import { CharacterRig, type RigLook } from "./characterRig";
+import { FIGURE_H } from "./shared/pose";
 
 // Ghost Records: every throw is recorded as raw per-frame samples — the
 // player (plus the teleport orb and any speech bubble they could see) from
@@ -31,7 +33,7 @@ export * from "./ghostData";
 interface Ghosts {
   rec: ThrowRecording;
   t: number;
-  player: Phaser.GameObjects.Image;
+  player: CharacterRig;
   label: Phaser.GameObjects.Text;
   pShadow: Phaser.GameObjects.Ellipse;
   ball: Phaser.GameObjects.Image;
@@ -51,6 +53,8 @@ export class GhostPlayback {
 
   constructor(
     private readonly scene: Phaser.Scene,
+    /** the recorded player's look — recordings are always OWN throws */
+    private readonly look: RigLook,
     /** fired at the recording's hit moment so the scene can snap the net */
     private readonly onMade: () => void,
   ) {}
@@ -61,10 +65,14 @@ export class GhostPlayback {
     this.stop(true);
 
     const a = T.ghost.alpha;
-    const player = this.scene.add
-      .image(0, 0, "player")
-      .setOrigin(0.5, 1)
-      .setAlpha(a);
+    const player = new CharacterRig(this.scene, this.look);
+    player.setAlpha(0); // pop in below (a scale tween would fight the mirror)
+    this.scene.tweens.add({
+      targets: player.container,
+      alpha: a,
+      duration: T.ghost.popMs,
+      ease: "Cubic.easeOut",
+    });
     const label = this.scene.add
       .text(0, 0, rec.name, {
         fontFamily: '"Courier New", Courier, monospace',
@@ -75,7 +83,7 @@ export class GhostPlayback {
       .setOrigin(0.5, 1)
       .setAlpha(a * 0.65)
       .setResolution(2);
-    const pShadow = this.scene.add.ellipse(0, 0, 26, 8, 0x000000, a * 0.2);
+    const pShadow = this.scene.add.ellipse(0, 0, 44, 9, 0x000000, a * 0.2);
     const diaPx = T.throw.ballRadiusM * 2 * M;
     const ball = this.scene.add
       .image(0, 0, "ball")
@@ -95,17 +103,14 @@ export class GhostPlayback {
       .circle(0, 0, orbR, 0x2e7bff, 0.95 * a)
       .setVisible(false);
 
-    // pop in
-    for (const obj of [player, label]) {
-      const target = obj.scale;
-      obj.setScale(0);
-      this.scene.tweens.add({
-        targets: obj,
-        scale: target,
-        duration: T.ghost.popMs,
-        ease: "Back.easeOut",
-      });
-    }
+    // pop in (the rig fades in above — its scaleX carries the mirror)
+    label.setScale(0);
+    this.scene.tweens.add({
+      targets: label,
+      scale: 1,
+      duration: T.ghost.popMs,
+      ease: "Back.easeOut",
+    });
 
     this.g = {
       rec,
@@ -133,7 +138,15 @@ export class GhostPlayback {
     if (!g) return;
     const objs: (
       | Phaser.GameObjects.GameObject & { alpha?: number }
-    )[] = [g.player, g.label, g.pShadow, g.ball, g.bShadow, g.orbGlow, g.orbCore];
+    )[] = [
+      g.player.container,
+      g.label,
+      g.pShadow,
+      g.ball,
+      g.bShadow,
+      g.orbGlow,
+      g.orbCore,
+    ];
     if (g.bubble) objs.push(g.bubble);
     if (instant) {
       for (const o of objs) o.destroy();
@@ -164,11 +177,12 @@ export class GhostPlayback {
     const ps = sampleAt(rec.playerSamples, g.t, lerpFrame);
     if (ps) {
       const { sx, sy } = toScreen(ps.x, ps.d, ps.airH);
-      g.player.setPosition(sx, sy + ps.yOff);
-      g.player.setFlipX(ps.flipX);
-      g.player.setAngle(ps.angle);
+      g.player.setPosition(sx, sy);
+      g.player.setFacing(ps.facing === 1);
+      g.player.angle = ps.angle;
+      g.player.applyPose(ps.pose, dt);
       g.player.setDepth(sortDepth(ps.d));
-      g.label.setPosition(sx, sy + ps.yOff - 68);
+      g.label.setPosition(sx, sy - FIGURE_H - 9);
       g.label.setDepth(sortDepth(ps.d) + 1);
       const hFrac = Phaser.Math.Clamp(1 - ps.airH / 6, 0.25, 1);
       g.pShadow.setPosition(sx, floorY(ps.d));
