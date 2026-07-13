@@ -2,7 +2,6 @@ import type { WebSocket } from "ws";
 import { BALANCE } from "../src/shared/config";
 import { clampToCourt, rollSpawn } from "../src/shared/court";
 import { resolveThrow } from "../src/shared/simulate";
-import { tierForScore } from "../src/shared/tiers";
 import type {
   AvatarState,
   ClientMsg,
@@ -393,10 +392,11 @@ export class Room {
     slam: boolean,
     res: ReturnType<typeof resolveThrow>,
   ) {
-    const prevTier = this.world.tierId;
+    // score accumulates; the TIER only advances when a player triggers
+    // the upgrade (see the "upgrade" message) — never automatically
     this.world = {
+      ...this.world,
       sharedScore: this.world.sharedScore + res.points,
-      tierId: tierForScore(this.world.sharedScore + res.points).id,
     };
     this.broadcast({
       t: "outcome",
@@ -420,13 +420,6 @@ export class Room {
       distM: res.distM,
       points: res.points,
     });
-    if (this.world.tierId !== prevTier) {
-      this.broadcast({
-        t: "tier-unlock",
-        tierId: this.world.tierId,
-        world: { ...this.world },
-      });
-    }
   }
 
   private broadcast(msg: ServerMsg, except?: WebSocket) {

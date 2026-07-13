@@ -6,7 +6,6 @@ import {
   type BudgetFields,
 } from "../shared/budget";
 import { pointsForDistance } from "../shared/scoring";
-import { tierForScore } from "../shared/tiers";
 import { clampToCourt, rollSpawn } from "../shared/court";
 import { rollOrbSpawn, type OrbState } from "../shared/orb";
 import type {
@@ -147,10 +146,11 @@ export class LocalBackend implements Backend {
         ? BALANCE.score.slamPts
         : pointsForDistance(o.distM)
       : 0;
-    const prevTier = tierForScore(this.world.sharedScore).id;
+    // score accumulates; the tier only advances via a triggered upgrade
+    // (mirrors server/room.ts)
     this.world = {
+      ...this.world,
       sharedScore: this.world.sharedScore + points,
-      tierId: tierForScore(this.world.sharedScore + points).id,
     };
     this.emitter.emit("outcome", {
       playerId: this.self.id,
@@ -162,12 +162,6 @@ export class LocalBackend implements Backend {
       points,
       world: { ...this.world },
     });
-    if (this.world.tierId !== prevTier) {
-      this.emitter.emit("tierUnlocked", {
-        tierId: this.world.tierId,
-        world: { ...this.world },
-      });
-    }
   }
 
   chat(text: string): void {

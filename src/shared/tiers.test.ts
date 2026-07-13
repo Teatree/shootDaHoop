@@ -1,0 +1,181 @@
+import { describe, expect, it } from "vitest";
+import { BALANCE } from "./config";
+import { RIM } from "./court";
+import { HOOP_TIERS } from "./tiers";
+import {
+  animationsForTier,
+  ballLookForTier,
+  canUpgrade,
+  courtLookForTier,
+  effectivePowerForTier,
+  hoopGeometryForTier,
+  interactivesForTier,
+  nextTier,
+  orbTimingForTier,
+} from "./tierRules";
+
+// The tier recipes are DATA — these tests pin the doc's exact numbers
+// (HOOP_PROGRESSION.md) so a recipe edit that breaks a spec value fails
+// loudly, and the geometry fold that physics/render/camera all share
+// stays deterministic.
+
+describe("tier recipes (well-formedness)", () => {
+  it("ids are sequential from 1", () => {
+    HOOP_TIERS.forEach((t, i) => expect(t.id).toBe(i + 1));
+  });
+
+  it("tier 1 is the starting state: no threshold, no changes", () => {
+    expect(HOOP_TIERS[0].threshold).toBe(0);
+    expect(HOOP_TIERS[0].changes).toHaveLength(0);
+  });
+
+  it("every later tier has a positive threshold above the previous", () => {
+    for (const t of HOOP_TIERS.slice(1)) expect(t.threshold).toBeGreaterThan(0);
+  });
+});
+
+describe("hoopGeometryForTier", () => {
+  const ball = BALANCE.throw.ballRadiusM;
+
+  it("tier 1 reproduces today's hoop exactly", () => {
+    const g = hoopGeometryForTier(1);
+    expect(g.rims).toHaveLength(1);
+    expect(g.rims[0]).toEqual({ id: "main", x: RIM.x, h: RIM.h, r: RIM.r });
+    expect(g.boardX).toBeCloseTo(RIM.x + RIM.r + BALANCE.hoop.boardGapM, 10);
+    expect(g.boardBottomM).toBeCloseTo(BALANCE.hoop.boardBottomM, 10);
+    expect(g.boardTopM).toBeCloseTo(BALANCE.hoop.boardTopM, 10);
+  });
+
+  it("tier 2 is +40% taller with a +15% wider rim", () => {
+    const g = hoopGeometryForTier(2);
+    expect(g.rims).toHaveLength(1);
+    expect(g.rims[0].h).toBeCloseTo(BALANCE.hoop.rimHeightM * 1.4, 10);
+    expect(g.rims[0].r).toBeCloseTo(BALANCE.hoop.rimRadiusM * 1.15, 10);
+    // the whole hoop scales — board extents track ×1.4
+    expect(g.boardBottomM).toBeCloseTo(BALANCE.hoop.boardBottomM * 1.4, 10);
+    expect(g.boardTopM).toBeCloseTo(BALANCE.hoop.boardTopM * 1.4, 10);
+  });
+
+  it("tier 3 stacks two rims, overall only +10% over tier 2", () => {
+    const g = hoopGeometryForTier(3);
+    expect(g.rims.map((r) => r.id)).toEqual(["upper", "lower"]);
+    const [upper, lower] = g.rims;
+    expect(upper.h).toBeCloseTo(BALANCE.hoop.rimHeightM * 1.4 * 1.1, 10);
+    // the upper is the slimmer one, the lower the wider one
+    expect(upper.r).toBeLessThan(lower.r);
+    // lower keeps the tier-2 rim width
+    expect(lower.r).toBeCloseTo(hoopGeometryForTier(2).rims[0].r, 10);
+  });
+
+  it("tier 3 upper rim protrudes exactly 20 px further left", () => {
+    const [upper, lower] = hoopGeometryForTier(3).rims;
+    const upperFront = upper.x - upper.r;
+    const lowerFront = lower.x - lower.r;
+    expect(lowerFront - upperFront).toBeCloseTo(20 / BALANCE.court.meterPx, 10);
+  });
+
+  it("tier 3 rim gap clears the ball so each rim is hit independently", () => {
+    const [upper, lower] = hoopGeometryForTier(3).rims;
+    expect(upper.h - lower.h).toBeGreaterThan(ball * 2 * 1.5);
+  });
+
+  it("the board always sits behind the back-most rim", () => {
+    for (const t of HOOP_TIERS) {
+      const g = hoopGeometryForTier(t.id);
+      for (const rim of g.rims)
+        expect(g.boardX).toBeGreaterThanOrEqual(rim.x + rim.r);
+    }
+  });
+});
+
+describe("effectivePowerForTier (+25% ball travel)", () => {
+  it("tier 1 is the base curve", () => {
+    expect(effectivePowerForTier(1)).toEqual({
+      minPowerM: BALANCE.power.minPowerM,
+      maxPowerM: BALANCE.power.maxPowerM,
+    });
+  });
+
+  it("tier 2 scales launch speed by √1.25 (range ∝ v²)", () => {
+    const p = effectivePowerForTier(2);
+    expect(p.maxPowerM).toBeCloseTo(BALANCE.power.maxPowerM * Math.sqrt(1.25), 10);
+    expect(p.minPowerM).toBeCloseTo(BALANCE.power.minPowerM * Math.sqrt(1.25), 10);
+  });
+
+  it("tier 3 adds no further range", () => {
+    expect(effectivePowerForTier(3)).toEqual(effectivePowerForTier(2));
+  });
+});
+
+describe("looks", () => {
+  it("ball: classic until the tier-2 permanent effect turns it red", () => {
+    expect(ballLookForTier(1)).toBe("classic");
+    expect(ballLookForTier(2)).toBe("red");
+    expect(ballLookForTier(3)).toBe("red");
+  });
+
+  it("court floor: standard → mahogany → glass", () => {
+    expect(courtLookForTier(1)).toBe("standard");
+    expect(courtLookForTier(2)).toBe("mahogany");
+    expect(courtLookForTier(3)).toBe("glass");
+  });
+});
+
+describe("orbTimingForTier", () => {
+  it("tiers 1–2 keep today's fixed cadence", () => {
+    for (const id of [1, 2]) {
+      const o = orbTimingForTier(id);
+      expect(o.minCadenceS).toBe(BALANCE.orb.cadenceS);
+      expect(o.maxCadenceS).toBe(BALANCE.orb.cadenceS);
+      expect(o.lifeS).toBe(BALANCE.orb.lifeS);
+      expect(o.appearFx).toBe("pop");
+    }
+  });
+
+  it("tier 3 switches to a 10–20 s random cadence, 5 s life, no pop", () => {
+    expect(orbTimingForTier(3)).toEqual({
+      minCadenceS: 10,
+      maxCadenceS: 20,
+      lifeS: 5,
+      appearFx: "none",
+    });
+  });
+});
+
+describe("interactives & animations accumulate across tiers", () => {
+  it("tier 2 adds the cheering area; tier 3 keeps it and adds the jukebox", () => {
+    expect(interactivesForTier(1)).toHaveLength(0);
+    expect(interactivesForTier(2).map((e) => e.element)).toEqual(["cheer-area"]);
+    expect(interactivesForTier(3).map((e) => e.element)).toEqual([
+      "cheer-area",
+      "jukebox",
+    ]);
+  });
+
+  it("the jukebox is synced-to-everyone; the cheer area occupies a spot", () => {
+    const [cheer, jukebox] = interactivesForTier(3);
+    expect(cheer.occupiesSpot).toBe(true);
+    expect(cheer.spots).toBe(3);
+    expect(jukebox.occupiesSpot).toBe(false);
+    expect(jukebox.synced).toBe(true);
+  });
+
+  it("cheer unlocks at tier 2", () => {
+    expect(animationsForTier(1).has("cheer")).toBe(false);
+    expect(animationsForTier(2).has("cheer")).toBe(true);
+  });
+});
+
+describe("canUpgrade / nextTier", () => {
+  it("needs the next tier's threshold, counted from the reset", () => {
+    const t2 = nextTier(1)!;
+    expect(canUpgrade({ sharedScore: t2.threshold - 1, tierId: 1 })).toBe(false);
+    expect(canUpgrade({ sharedScore: t2.threshold, tierId: 1 })).toBe(true);
+  });
+
+  it("no upgrade past the top of the ladder", () => {
+    const top = HOOP_TIERS[HOOP_TIERS.length - 1].id;
+    expect(nextTier(top)).toBeNull();
+    expect(canUpgrade({ sharedScore: 999999, tierId: top })).toBe(false);
+  });
+});
