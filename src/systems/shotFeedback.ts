@@ -24,14 +24,14 @@ export function presentScore(
   slam: boolean,
   onReplay?: () => void,
 ) {
-  const big = pts > T.score.bigScorePts;
+  const double = o.rims >= 2; // both rims of the tier-3 double hoop
+  const big = pts > T.score.bigScorePts || double;
   const j = T.juice;
   const { scene, hoop } = ctx;
   const { rimSX, rimSY } = hoop.primary;
 
   // a double shot snapped BOTH nets on its way down
-  for (const rim of o.rims >= 2 ? hoop.rims : [hoop.primary])
-    netSnap(scene, rim.net);
+  for (const rim of double ? hoop.rims : [hoop.primary]) netSnap(scene, rim.net);
   flash(scene, rimSX, rimSY, big ? j.big.flashRadius : o.swish ? 34 : 24);
   const baseParticles = o.swish ? j.swishParticles : j.scoreParticles;
   burst(
@@ -52,7 +52,13 @@ export function presentScore(
     scene,
     rimSX,
     rimSY - 26,
-    slam ? `TELEPORT SLAM! +${pts}` : o.swish ? `SWISH! +${pts}` : `+${pts}`,
+    slam
+      ? `TELEPORT SLAM! +${pts}`
+      : double
+        ? `DOUBLE${o.swish ? " SWISH" : ""}! +${pts}`
+        : o.swish
+          ? `SWISH! +${pts}`
+          : `+${pts}`,
     big ? j.big.floatColor : o.swish ? "#ffb84d" : "#ffd97a",
     big ? j.big.floatSizePx : o.swish ? 22 : 18,
   );
@@ -65,11 +71,13 @@ export function presentScore(
     "throw",
     slam
       ? `${who} — ${d}m teleport slam! ${o.swish ? "SWISH! " : ""}+${pts}`
-      : big
-        ? `${who} — ${d}m ${o.swish ? "SWISH! " : ""}+${pts}`
-        : o.swish
-          ? `${who} — ${d}m <span class="swish">SWISH!</span> <span class="pts">+${pts}</span>`
-          : `${who} — ${d}m hit <span class="pts">+${pts}</span>`,
+      : double
+        ? `${who} — ${d}m DOUBLE${o.swish ? " SWISH" : ""}! both rims! +${pts}`
+        : big
+          ? `${who} — ${d}m ${o.swish ? "SWISH! " : ""}+${pts}`
+          : o.swish
+            ? `${who} — ${d}m <span class="swish">SWISH!</span> <span class="pts">+${pts}</span>`
+            : `${who} — ${d}m hit <span class="pts">+${pts}</span>`,
     big ? "bigscore" : undefined,
     onReplay,
   );

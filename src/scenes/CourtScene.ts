@@ -476,7 +476,7 @@ export class CourtScene extends Phaser.Scene {
         this.hud.log(
           "throw",
           h.made
-            ? `${who} — ${d}m ${h.slam ? "teleport slam! " : ""}${h.swish ? "SWISH! " : "hit "}<span class="pts">+${h.points}</span>`
+            ? `${who} — ${d}m ${h.slam ? "teleport slam! " : ""}${(h.rims ?? 1) >= 2 ? "DOUBLE! " : ""}${h.swish ? "SWISH! " : "hit "}<span class="pts">+${h.points}</span>`
             : h.slam
               ? `${who} — teleport slam failed!`
               : `${who} — ${d}m miss`,

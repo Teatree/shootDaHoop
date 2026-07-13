@@ -86,6 +86,8 @@ export type HistoryEntry =
       made: boolean;
       swish: boolean;
       slam: boolean;
+      /** rims made (2 = double shot) — absent on entries from before tier 3 */
+      rims?: number;
       distM: number;
       points: number;
     }

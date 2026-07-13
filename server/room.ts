@@ -461,6 +461,7 @@ export class Room {
       made: res.made,
       swish: res.swish,
       slam,
+      rims: res.rims,
       distM: res.distM,
       points: res.points,
     });
