@@ -71,6 +71,8 @@ export interface ThrowOutcome {
   made: boolean;
   swish: boolean;
   slam: boolean;
+  /** rims made — 2 on a tier-3 "double shot" through both rims */
+  rims: number;
   distM: number;
   points: number;
   world: WorldState; // shared state after this outcome

@@ -3,6 +3,7 @@ import { createBallState, stepBall } from "./physics";
 import { pointsForDistance } from "./scoring";
 import { floorDistToRim } from "./court";
 import { orbHitTest, type OrbState } from "./orb";
+import { hoopGeometryForTier } from "./tierRules";
 import type { ThrowLaunch } from "./messages";
 
 // The server-side throw resolver: runs the SAME stepBall the client's live
@@ -18,6 +19,8 @@ import type { ThrowLaunch } from "./messages";
 export interface ThrowResolution {
   made: boolean;
   swish: boolean;
+  /** rims made this throw — 2 on a tier-3 "double shot" */
+  rims: number;
   /** floor distance the shot was taken from — drives the points table */
   distM: number;
   points: number; // 0 when missed
@@ -36,19 +39,22 @@ const FIXED_DT = 1 / 120;
 export function resolveThrow(
   launch: ThrowLaunch,
   orb?: OrbState | null,
+  tierId = 1,
 ): ThrowResolution {
   const s = createBallState(launch.x, launch.d, launch.h, launch.vx, launch.vh);
   const distM = floorDistToRim(launch.shotX, launch.shotD);
+  const geom = hoopGeometryForTier(tierId);
 
   let t = 0;
   while (!s.resolved && t < BALANCE.ground.maxLifeS) {
-    stepBall(s, FIXED_DT);
+    stepBall(s, FIXED_DT, geom);
     t += FIXED_DT;
     if (orb && orbHitTest(orb, s.x, s.d, s.h)) {
       // consumed by the orb — the throw ends here, unscored
       return {
         made: false,
         swish: false,
+        rims: 0,
         distM,
         points: 0,
         resolvedAtS: t,
@@ -58,14 +64,18 @@ export function resolveThrow(
   }
 
   const made = s.scored;
+  const rims = s.rimsMade.length;
   return {
     made,
     swish: made && !s.rimTouched,
+    rims,
     distM,
+    // PLACEHOLDER (tune): a double shot scores each rim's full points —
+    // pointsForDistance × rims. The doc names the mechanic, not the math.
     points: made
       ? launch.slam
         ? BALANCE.score.slamPts
-        : pointsForDistance(distM)
+        : pointsForDistance(distM) * Math.max(1, rims)
       : 0,
     resolvedAtS: t,
   };

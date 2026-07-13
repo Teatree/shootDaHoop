@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { T } from "./tuning";
 import { M, WALL_LEFT_X, WALL_RIGHT_X, floorY, sortDepth, toScreen } from "./world";
 import { type BallState, createBallState, stepBall } from "./shared/physics";
+import type { HoopGeometry } from "./shared/tierRules";
 import { ballExplode } from "./juice";
 import { playSfx } from "./sfx";
 import { shadowShift, type LightDir } from "./sky";
@@ -9,6 +10,7 @@ import { shadowShift, type LightDir } from "./sky";
 export interface ShotOutcome {
   made: boolean;
   swish: boolean; // made without touching the rim
+  rims: number; //  rims made (2 = tier-3 double shot)
   distM: number; //  floor distance the shot was taken from
 }
 
@@ -21,6 +23,9 @@ interface BallOpts {
   shotDistM: number;
   /** thrown by the local player (remote balls never trigger local power-ups) */
   own: boolean;
+  /** the ACTIVE tier's hoop — a getter so an upgrade mid-flight is read
+   *  consistently on the next step */
+  geom: () => HoopGeometry;
   onScore: (o: ShotOutcome) => void;
   onMiss: (o: ShotOutcome) => void;
   onDone: (ball: Ball) => void;
@@ -112,9 +117,13 @@ export class Ball {
     if (this.dead) return;
     this.life += dt;
 
-    for (const e of stepBall(this.s, dt)) {
+    for (const e of stepBall(this.s, dt, this.opts.geom())) {
       switch (e) {
         case "score":
+          // one rim made — juice hooks land here later; the throw's
+          // OUTCOME fires on "made" (a double shot scores twice first)
+          break;
+        case "made":
           this.opts.onScore(this.outcome(true));
           break;
         case "miss":
@@ -144,7 +153,8 @@ export class Ball {
     ) {
       if (!this.s.resolved) {
         this.s.resolved = true;
-        this.opts.onMiss(this.outcome(false));
+        if (this.s.scored) this.opts.onScore(this.outcome(true));
+        else this.opts.onMiss(this.outcome(false));
       }
       this.explode();
       return;
@@ -157,6 +167,7 @@ export class Ball {
     return {
       made,
       swish: made && !this.s.rimTouched,
+      rims: this.s.rimsMade.length,
       distM: this.opts.shotDistM,
     };
   }

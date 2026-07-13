@@ -138,13 +138,21 @@ export class LocalBackend implements Backend {
 
   reportOutcome(
     throwId: string,
-    o: { made: boolean; swish: boolean; slam: boolean; distM: number },
+    o: {
+      made: boolean;
+      swish: boolean;
+      slam: boolean;
+      rims: number;
+      distM: number;
+    },
   ): void {
     if (!this.pendingThrows.delete(throwId)) return; // unknown/duplicate
+    // PLACEHOLDER (tune): double-shot points mirror shared/simulate.ts —
+    // pointsForDistance × rims made
     const points = o.made
       ? o.slam
         ? BALANCE.score.slamPts
-        : pointsForDistance(o.distM)
+        : pointsForDistance(o.distM) * Math.max(1, o.rims)
       : 0;
     // score accumulates; the tier only advances via a triggered upgrade
     // (mirrors server/room.ts)
@@ -158,6 +166,7 @@ export class LocalBackend implements Backend {
       made: o.made,
       swish: o.swish,
       slam: o.slam,
+      rims: o.rims,
       distM: o.distM,
       points,
       world: { ...this.world },

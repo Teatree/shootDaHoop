@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { T } from "./tuning";
 import { RIM, screenToFloor, toScreen } from "./world";
 import type { Player } from "./player";
+import type { PowerCurve } from "./shared/tierRules";
 
 export interface Shot {
   vx: number; // m/s toward the hoop (+x)
@@ -39,6 +40,9 @@ export class AimController {
     private readonly player: Player,
     private readonly onThrow: (shot: Shot) => void,
     private readonly onWalkClick: (sx: number, sy: number) => void,
+    /** the ACTIVE tier's power curve — the ball-range permanent effect
+     *  raises it, so a getter, not a constant */
+    private readonly power: () => PowerCurve,
   ) {
     this.preview = scene.add.graphics().setDepth(900);
 
@@ -113,9 +117,11 @@ export class AimController {
     if (len < 1) return null; // cursor on top of the release point: no direction
 
     const t = Phaser.Math.Clamp(dragLen / a.maxDragPx, 0, 1);
-    // eased power curve: fine control at the low end
+    // eased power curve: fine control at the low end; the curve's range
+    // is the ACTIVE tier's (ball-range effect = longer throws)
+    const pw = this.power();
     const power =
-      a.minPowerM + (a.maxPowerM - a.minPowerM) * Math.pow(t, a.powerExponent);
+      pw.minPowerM + (pw.maxPowerM - pw.minPowerM) * Math.pow(t, a.powerExponent);
 
     return {
       vx: (dx / len) * power,

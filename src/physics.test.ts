@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { T } from "./tuning";
 import { RIM, WALL_LEFT_X, WALL_RIGHT_X } from "./world";
 import { createBallState, stepBall, type BallEvent, type BallState } from "./shared/physics";
+import { hoopGeometryForTier, type HoopGeometry } from "./shared/tierRules";
 
 // These tests drive the pure stepper with a FIXED dt, which makes them
 // deterministic. Live play feeds variable frame times on purpose (design
@@ -22,11 +23,11 @@ function arcTo(tx: number, th: number, t: number, x0 = X0, h0 = H0) {
 }
 
 /** Step for `seconds`, collecting events and per-step positions. */
-function fly(s: BallState, seconds: number, dt = 1 / 120) {
+function fly(s: BallState, seconds: number, dt = 1 / 120, geom?: HoopGeometry) {
   const events: BallEvent[] = [];
   const xs: number[] = [];
   for (let t = 0; t < seconds; t += dt) {
-    events.push(...stepBall(s, dt));
+    events.push(...stepBall(s, dt, geom));
     xs.push(s.x);
   }
   return { events, xs };
@@ -137,6 +138,72 @@ describe("boundary walls", () => {
     expect(Math.min(...xs)).toBeGreaterThanOrEqual(
       WALL_LEFT_X + T.throw.ballRadiusM - 1e-9,
     );
+  });
+});
+
+describe("multi-rim geometry (tier 3 double hoop)", () => {
+  const g3 = hoopGeometryForTier(3);
+  const [upper, lower] = g3.rims;
+
+  it("an explicit tier-1 geometry behaves exactly like the default", () => {
+    const { vx, vh } = arcTo(RIM.x, RIM.h, 1.2);
+    const a = createBallState(X0, D0, H0, vx, vh);
+    const b = createBallState(X0, D0, H0, vx, vh);
+    const ra = fly(a, 3);
+    const rb = fly(b, 3, 1 / 120, hoopGeometryForTier(1));
+    expect(rb.events).toEqual(ra.events);
+    expect(rb.xs).toEqual(ra.xs);
+  });
+
+  it("a soft lob into the LOWER rim scores and resolves immediately", () => {
+    // apex below the upper rim's plane → the upper can't interfere
+    const { vx, vh } = arcTo(lower.x, lower.h, 1.1);
+    const s = createBallState(X0, D0, H0, vx, vh);
+    const apex = H0 + (vh * vh) / (2 * T.throw.gravityM);
+    expect(apex).toBeLessThan(upper.h);
+    const { events } = fly(s, 3, 1 / 120, g3);
+    expect(s.rimsMade).toEqual(["lower"]);
+    expect(count(events, "score")).toBe(1);
+    expect(count(events, "made")).toBe(1);
+    expect(events).not.toContain("miss");
+  });
+
+  it("a ball through the UPPER rim only still resolves as made (1 rim)", () => {
+    // a steep lob through the upper opening's center; whatever it clips
+    // on the way down, it must end made (≥1 rim), never a miss
+    const { vx, vh } = arcTo(upper.x, upper.h, 1.6);
+    const s = createBallState(X0, D0, H0, vx, vh);
+    const { events } = fly(s, 6, 1 / 120, g3);
+    expect(s.rimsMade[0]).toBe("upper");
+    expect(count(events, "made")).toBe(1);
+    expect(events).not.toContain("miss");
+    expect(s.scored).toBe(true);
+  });
+
+  it("the DOUBLE SHOT is physically achievable: one launch takes both rims", () => {
+    // deterministic grid search over launches that cross the upper
+    // opening — the doc's promise is that the protruding upper enables a
+    // ball to fall through it and carry into the lower opening
+    let found: { vx: number; vh: number } | null = null;
+    outer: for (let tx = upper.x - upper.r + 0.4; tx <= upper.x + upper.r - 0.36; tx += 0.05) {
+      for (let t = 0.55; t <= 1.5; t += 0.05) {
+        const { vx, vh } = arcTo(tx, upper.h, t);
+        const s = createBallState(X0, D0, H0, vx, vh);
+        fly(s, 6, 1 / 120, g3);
+        if (s.rimsMade.length === 2) {
+          found = { vx, vh };
+          break outer;
+        }
+      }
+    }
+    expect(found).not.toBeNull();
+    // replay the found launch and assert the full double-shot contract
+    const s = createBallState(X0, D0, H0, found!.vx, found!.vh);
+    const { events } = fly(s, 6, 1 / 120, g3);
+    expect(s.rimsMade).toEqual(["upper", "lower"]);
+    expect(count(events, "score")).toBe(2);
+    expect(count(events, "made")).toBe(1); // resolves once, on the lower
+    expect(events).not.toContain("miss");
   });
 });
 

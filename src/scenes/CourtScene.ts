@@ -30,6 +30,11 @@ import type {
   ThrowOutcome,
 } from "../shared/messages";
 import type { Backend } from "../backend/types";
+import {
+  effectivePowerForTier,
+  hoopGeometryForTier,
+  type HoopGeometry,
+} from "../shared/tierRules";
 import { showNotice } from "../settings";
 import { RemoteAvatar } from "../remoteAvatar";
 import { TeleportSystem } from "../systems/teleport";
@@ -61,6 +66,8 @@ export class CourtScene extends Phaser.Scene {
   private balls: Ball[] = [];
   private selfId = "";
   private throwSeq = 0;
+  /** the ACTIVE hoop tier — step 3's upgrade flow moves this */
+  private tierId = 1;
   /** server-reported daily budget; null until known (local = unlimited) */
   private throwsRemaining: number | null = null;
   private recsByThrowId = new Map<string, ThrowRecording>();
@@ -90,6 +97,11 @@ export class CourtScene extends Phaser.Scene {
     return this.identity.name;
   }
 
+  /** The ACTIVE tier's hoop geometry — physics, camera and render share it. */
+  private geom(): HoopGeometry {
+    return hoopGeometryForTier(this.tierId);
+  }
+
   preload() {
     // only assets that were probed to exist — everything else is a placeholder
     for (const key of this.assets.images)
@@ -104,7 +116,7 @@ export class CourtScene extends Phaser.Scene {
     drawCourt(this);
     drawWall(this);
     this.keepOutZone = createKeepOutZone(this);
-    this.hoop = createHoop(this);
+    this.hoop = createHoop(this, this.geom());
     this.sky = new SunSystem(this);
     this.player = new Player(this, this.playerName, this.identity);
     this.speech = new SpeechBubbles(this, this.player);
@@ -113,6 +125,7 @@ export class CourtScene extends Phaser.Scene {
       this.player,
       (shot) => this.sendThrow(shot, false),
       (sx, sy) => this.walkClick(sx, sy),
+      () => effectivePowerForTier(this.tierId),
     );
     this.teleport = new TeleportSystem(this, this.player, {
       aim: this.aim,
@@ -127,7 +140,7 @@ export class CourtScene extends Phaser.Scene {
       this.identity,
       () => replayMadeEffect(this, this.hoop),
     );
-    this.rig = new CameraRig(this, this.player);
+    this.rig = new CameraRig(this, this.player, () => this.geom());
 
     // dev console handle for poking at feel state while tuning
     (window as unknown as Record<string, unknown>).__court = this;
@@ -355,9 +368,9 @@ export class CourtScene extends Phaser.Scene {
     const kz = 1 - Math.exp(-T.zone.fadeLerp * dt);
     this.keepOutZone.alpha += ((near ? 1 : 0) - this.keepOutZone.alpha) * kz;
 
-    // hoop drop shadow tracks the sun (caster ≈ mid-rim height)
+    // hoop drop shadow tracks the sun (caster ≈ mid-height of the top rim)
     this.hoop.shadow.x =
-      RIM.x * M + 8 + shadowShift(T.hoop.rimHeightM * 0.5, light);
+      RIM.x * M + 8 + shadowShift(this.geom().rims[0].h * 0.5, light);
     this.hoop.shadow.scaleX =
       1 + (T.sky.shadowStretchMax - 1) * (1 - light.elev);
     this.hoop.shadow.fillAlpha = Phaser.Math.Linear(
@@ -412,12 +425,14 @@ export class CourtScene extends Phaser.Scene {
       vh: launch.vh,
       shotDistM: floorDistToRim(launch.shotX, launch.shotD),
       own: true,
+      geom: () => this.geom(),
       onScore: (o) => {
         this.recording.stampOutcome(rec, true);
         this.backend.reportOutcome(throwId, {
           made: true,
           swish: o.swish,
           slam: launch.slam,
+          rims: o.rims,
           distM: o.distM,
         });
       },
@@ -427,6 +442,7 @@ export class CourtScene extends Phaser.Scene {
           made: false,
           swish: false,
           slam: launch.slam,
+          rims: 0,
           distM: o.distM,
         });
       },
@@ -450,6 +466,7 @@ export class CourtScene extends Phaser.Scene {
       vh: launch.vh,
       shotDistM: floorDistToRim(launch.shotX, launch.shotD),
       own: false, // never triggers OUR power-ups; the server rules theirs
+      geom: () => this.geom(),
       // cosmetic: the server's outcome event carries the result
       onScore: () => {},
       onMiss: () => {},
@@ -474,7 +491,7 @@ export class CourtScene extends Phaser.Scene {
         ? this.playerName
         : (this.remotes.get(e.playerId)?.avatar.name ?? "Someone");
     const ctx = { scene: this, hud: this.hud, hoop: this.hoop, who };
-    const o = { made: e.made, swish: e.swish, distM: e.distM };
+    const o = { made: e.made, swish: e.swish, rims: e.rims, distM: e.distM };
     if (e.made) presentScore(ctx, o, e.points, e.slam, onReplay);
     else presentMiss(ctx, o, e.slam, onReplay);
   }

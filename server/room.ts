@@ -2,6 +2,7 @@ import type { WebSocket } from "ws";
 import { BALANCE } from "../src/shared/config";
 import { clampToCourt, rollSpawn } from "../src/shared/court";
 import { resolveThrow } from "../src/shared/simulate";
+import { effectivePowerForTier } from "../src/shared/tierRules";
 import type {
   AvatarState,
   ClientMsg,
@@ -250,7 +251,7 @@ export class Room {
         break;
       }
       case "throw": {
-        if (!validLaunch(msg.launch)) {
+        if (!validLaunch(msg.launch, this.world.tierId)) {
           send(occ.ws, {
             t: "throw-rejected",
             throwId: msg.throwId,
@@ -284,14 +285,14 @@ export class Room {
         // authoritative resolution NOW; the outcome fires when the ball
         // "lands" so score juice lines up with the visual flight
         const orb = this.orb.current;
-        const res = resolveThrow(launch, orb);
+        const res = resolveThrow(launch, orb, this.world.tierId);
         const playerName = occ.info.name; // captured — they may leave mid-flight
         if (res.orbHitAtS !== undefined && orb) {
           // ruled to hit the orb — confirm when the ball visually gets
           // there; if the orb is gone by then (expired / another ball
           // took it), the throw plays out as a plain arc instead
           const orbSeq = orb.seq;
-          const plain = resolveThrow(launch);
+          const plain = resolveThrow(launch, null, this.world.tierId);
           const hitAtS = res.orbHitAtS;
           this.schedule(
             () =>
@@ -406,6 +407,7 @@ export class Room {
         made: res.made,
         swish: res.swish,
         slam,
+        rims: res.rims,
         distM: res.distM,
         points: res.points,
         world: { ...this.world },
@@ -493,7 +495,7 @@ function safeTint(n: unknown): number {
 }
 
 /** Never trust the client: sanity-check every launch before resolving. */
-function validLaunch(l: ThrowLaunch): boolean {
+function validLaunch(l: ThrowLaunch, tierId: number): boolean {
   const nums = [l.shotX, l.shotD, l.x, l.d, l.h, l.vx, l.vh];
   if (nums.some((n) => typeof n !== "number" || !Number.isFinite(n)))
     return false;
@@ -503,6 +505,9 @@ function validLaunch(l: ThrowLaunch): boolean {
     return false;
   // release point near the shooter; height sane (slams release from high up)
   if (Math.abs(l.x - l.shotX) > 1.5 || l.h < 0 || l.h > 15) return false;
-  // launch speed within the power curve's ceiling (small float slack)
-  return Math.hypot(l.vx, l.vh) <= BALANCE.power.maxPowerM * 1.02;
+  // launch speed within the TIER's power ceiling (the ball-range permanent
+  // effect raises it) — small float slack
+  return (
+    Math.hypot(l.vx, l.vh) <= effectivePowerForTier(tierId).maxPowerM * 1.02
+  );
 }

@@ -86,7 +86,13 @@ export interface Backend {
    */
   reportOutcome(
     throwId: string,
-    o: { made: boolean; swish: boolean; slam: boolean; distM: number },
+    o: {
+      made: boolean;
+      swish: boolean;
+      slam: boolean;
+      rims: number;
+      distM: number;
+    },
   ): void;
 
   /**

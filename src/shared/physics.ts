@@ -1,5 +1,10 @@
 import { BALANCE as T } from "./config";
 import { RIM, WALL_LEFT_X, WALL_RIGHT_X, clamp } from "./court";
+import {
+  hoopGeometryForTier,
+  type HoopGeometry,
+  type RimSpec,
+} from "./tierRules";
 
 // Pure ball physics — no Phaser, no DOM, no Node. Shared by the client
 // (Ball in ball.ts owns the sprites and feeds this stepper) and the server
@@ -24,7 +29,8 @@ export interface BallState {
   h: number;
   vx: number; // m/s toward the hoop (+x)
   vh: number; // m/s up
-  scored: boolean;
+  scored: boolean; //   any rim made
+  rimsMade: string[]; //rim ids made, in order (tier 3: a "double shot" has 2)
   rimTouched: boolean; // any rim/board contact — spoils the swish
   resolved: boolean; //  score/miss decided
   resting: boolean; //   rolling out on the floor
@@ -32,8 +38,9 @@ export interface BallState {
 }
 
 export type BallEvent =
-  | "score" //    crossed the rim plane inside the opening — a bucket
-  | "miss" //     touched the floor unresolved — can no longer score
+  | "score" //    crossed a rim plane inside its opening — one bucket
+  | "made" //     the throw RESOLVED as made (fires exactly once)
+  | "miss" //     touched the floor with no bucket — can no longer score
   | "rim" //      bounced off a rim tip
   | "board" //    bounced off the backboard
   | "wall" //     bounced off a boundary wall
@@ -54,6 +61,7 @@ export function createBallState(
     vx,
     vh,
     scored: false,
+    rimsMade: [],
     rimTouched: false,
     resolved: false,
     resting: false,
@@ -61,8 +69,18 @@ export function createBallState(
   };
 }
 
-/** Advance the ball by dt seconds; returns what happened along the way. */
-export function stepBall(s: BallState, dt: number): BallEvent[] {
+/**
+ * Advance the ball by dt seconds; returns what happened along the way.
+ * `geom` is the ACTIVE tier's hoop (shared/tierRules.ts) — every rim in it
+ * is hittable and scoreable; the throw resolves once nothing below the
+ * lowest made point can still score. Defaults to the tier-1 hoop so
+ * geometry-agnostic callers/tests behave exactly as before.
+ */
+export function stepBall(
+  s: BallState,
+  dt: number,
+  geom: HoopGeometry = hoopGeometryForTier(1),
+): BallEvent[] {
   const ev: BallEvent[] = [];
 
   if (s.resting) {
@@ -94,10 +112,17 @@ export function stepBall(s: BallState, dt: number): BallEvent[] {
 
     // only interact with the hoop when we're in its lane
     if (Math.abs(s.d - RIM.d) < T.hoop.laneDepthM) {
-      if (collideRimPoint(s, RIM.x - RIM.r, RIM.h)) ev.push("rim");
-      if (collideRimPoint(s, RIM.x + RIM.r, RIM.h)) ev.push("rim");
-      if (collideBackboard(s, prevX)) ev.push("board");
-      if (checkScore(s, prevX, prevH)) ev.push("score");
+      for (const rim of geom.rims) {
+        if (collideRimPoint(s, rim.x - rim.r, rim.h)) ev.push("rim");
+        if (collideRimPoint(s, rim.x + rim.r, rim.h)) ev.push("rim");
+      }
+      if (collideBackboard(s, prevX, geom)) ev.push("board");
+      for (const rim of geom.rims) {
+        if (checkScore(s, prevX, prevH, rim, geom)) {
+          ev.push("score");
+          if (s.resolved) ev.push("made");
+        }
+      }
     }
 
     if (collideWall(s)) ev.push("wall");
@@ -140,10 +165,14 @@ function collideRimPoint(s: BallState, px: number, ph: number): boolean {
  * — the height check failed at the only substep that could fire, and the
  * ball sailed down through the upper board.
  */
-function collideBackboard(s: BallState, prevX: number): boolean {
-  const bx = RIM.x + RIM.r + T.hoop.boardGapM;
+function collideBackboard(
+  s: BallState,
+  prevX: number,
+  geom: HoopGeometry,
+): boolean {
+  const bx = geom.boardX;
   const r = T.throw.ballRadiusM;
-  const nearH = clamp(s.h, T.hoop.boardBottomM, T.hoop.boardTopM);
+  const nearH = clamp(s.h, geom.boardBottomM, geom.boardTopM);
   // the face we can hit is the side we were on at the substep start; if
   // the center crossed the plane this substep (fast ball, or shoved by a
   // rim push-out), resolve against that face, never the far one
@@ -169,21 +198,34 @@ function collideBackboard(s: BallState, prevX: number): boolean {
 }
 
 /**
- * Swept scoring: the segment travelled this substep must cross the rim
- * plane (h = RIM.h) downward, and the interpolated crossing point must fit
- * the opening with the FULL ball radius — physics decides, not whichever
- * position the frame happened to sample.
+ * Swept scoring against ONE rim: the segment travelled this substep must
+ * cross that rim's plane downward, and the interpolated crossing point
+ * must fit its opening with the FULL ball radius — physics decides, not
+ * whichever position the frame happened to sample.
+ *
+ * Each rim scores at most once. The throw only RESOLVES when the lowest
+ * rim is made (nothing below can still score) — a ball that swished the
+ * upper rim of a double hoop keeps flying, net-dragged, toward the lower
+ * one: the "double shot".
  */
-function checkScore(s: BallState, prevX: number, prevH: number): boolean {
-  if (s.scored || s.vh >= 0) return false;
-  if (!(prevH > RIM.h && s.h <= RIM.h)) return false;
-  const tCross = (prevH - RIM.h) / (prevH - s.h);
+function checkScore(
+  s: BallState,
+  prevX: number,
+  prevH: number,
+  rim: RimSpec,
+  geom: HoopGeometry,
+): boolean {
+  if (s.vh >= 0 || s.rimsMade.includes(rim.id)) return false;
+  if (!(prevH > rim.h && s.h <= rim.h)) return false;
+  const tCross = (prevH - rim.h) / (prevH - s.h);
   const xCross = prevX + (s.x - prevX) * tCross;
-  if (Math.abs(xCross - RIM.x) >= RIM.r - T.throw.ballRadiusM) return false;
+  if (Math.abs(xCross - rim.x) >= rim.r - T.throw.ballRadiusM) return false;
   if (Math.abs(s.d - RIM.d) >= T.hoop.scoreDepthM) return false;
 
+  s.rimsMade.push(rim.id);
   s.scored = true;
-  s.resolved = true;
+  const lowest = geom.rims.reduce((a, b) => (a.h < b.h ? a : b));
+  if (rim.id === lowest.id) s.resolved = true;
   // net drag
   s.vx *= 0.25;
   s.vh *= 0.55;
@@ -211,9 +253,11 @@ function stepGround(s: BallState, ev: BallEvent[]) {
   if (s.h <= r && s.vh < 0) {
     s.h = r;
     if (!s.resolved) {
-      // once it hits the floor it can't score — call the miss now
+      // once it hits the floor it can't score further — resolve now: a
+      // miss if nothing was made, or the final "made" for a ball that
+      // took an upper rim but never reached the lower one
       s.resolved = true;
-      ev.push("miss");
+      ev.push(s.scored ? "made" : "miss");
     }
     s.vh = -s.vh * T.ground.restitution;
     s.vx *= T.ground.slideFriction;

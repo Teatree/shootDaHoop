@@ -2,9 +2,12 @@ import Phaser from "phaser";
 import { T } from "./tuning";
 import { M, RIM, floorY, toScreen } from "./world";
 import type { Player } from "./player";
+import type { HoopGeometry } from "./shared/tierRules";
 
 // Frames the bounding box of {hoop, player} + padding. Zoom is a function
 // of their separation; pan and zoom are exponentially smoothed (never snap).
+// The hoop bounds come from the ACTIVE tier's geometry (a getter), so an
+// upgrade's taller hoop re-fits everyone's camera automatically.
 export class CameraRig {
   private cx = 0;
   private cy = 0;
@@ -13,6 +16,7 @@ export class CameraRig {
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly player: Player,
+    private readonly geom: () => HoopGeometry,
   ) {
     const t = this.target();
     this.cx = t.cx;
@@ -25,10 +29,11 @@ export class CameraRig {
     const cam = this.scene.cameras.main;
     const p = toScreen(this.player.x, this.player.d, this.player.airH);
 
-    // hoop bounds: rim structure from floor to board top
-    const hoopMinX = (RIM.x - RIM.r) * M - 20;
-    const hoopMaxX = (RIM.x + RIM.r + T.hoop.boardGapM) * M + 24;
-    const hoopMinY = floorY(RIM.d) - T.hoop.boardTopM * M - 10;
+    // hoop bounds: rim structure from floor to board top (active tier)
+    const g = this.geom();
+    const hoopMinX = Math.min(...g.rims.map((r) => (r.x - r.r) * M)) - 20;
+    const hoopMaxX = g.boardX * M + 24;
+    const hoopMinY = floorY(RIM.d) - g.boardTopM * M - 10;
 
     const minX = Math.min(p.sx - 32, hoopMinX) - T.camera.padXPx;
     const maxX = Math.max(p.sx + 32, hoopMaxX) + T.camera.padXPx;

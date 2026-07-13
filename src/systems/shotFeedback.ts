@@ -27,9 +27,11 @@ export function presentScore(
   const big = pts > T.score.bigScorePts;
   const j = T.juice;
   const { scene, hoop } = ctx;
-  const { rimSX, rimSY } = hoop;
+  const { rimSX, rimSY } = hoop.primary;
 
-  netSnap(scene, hoop.net);
+  // a double shot snapped BOTH nets on its way down
+  for (const rim of o.rims >= 2 ? hoop.rims : [hoop.primary])
+    netSnap(scene, rim.net);
   flash(scene, rimSX, rimSY, big ? j.big.flashRadius : o.swish ? 34 : 24);
   const baseParticles = o.swish ? j.swishParticles : j.scoreParticles;
   burst(
@@ -91,6 +93,6 @@ export function presentMiss(
 
 /** The ghost replay's made-basket moment: snap the real net, small flash. */
 export function replayMadeEffect(scene: Phaser.Scene, hoop: HoopParts) {
-  netSnap(scene, hoop.net);
-  flash(scene, hoop.rimSX, hoop.rimSY, 18);
+  netSnap(scene, hoop.primary.net);
+  flash(scene, hoop.primary.rimSX, hoop.primary.rimSY, 18);
 }

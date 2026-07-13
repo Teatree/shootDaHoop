@@ -10,6 +10,7 @@ import {
   floorY,
   sortDepth,
 } from "./world";
+import type { HoopGeometry } from "./shared/tierRules";
 
 // Placeholder pixel art, generated at boot. Any texture the user supplies
 // in public/assets/ (see the README there) takes priority — we only
@@ -313,27 +314,47 @@ export function createKeepOutZone(scene: Phaser.Scene): Phaser.GameObjects.Graph
   return g;
 }
 
-export interface HoopParts {
-  net: Phaser.GameObjects.Graphics;
-  shadow: Phaser.GameObjects.Ellipse; // live — the sun system steers it
+export interface HoopRimParts {
+  id: string;
+  net: Phaser.GameObjects.Graphics; // its own object so score juice can snap it
   rimSX: number; // rim center, world px
   rimSY: number;
 }
 
-/** Pole + backboard + rim + net, standing at the right end of the court. */
-export function createHoop(scene: Phaser.Scene): HoopParts {
+export interface HoopParts {
+  /** pole + backboard + rim strokes — one graphics object */
+  body: Phaser.GameObjects.Graphics;
+  /** one per hittable rim, top-most first (mirrors geom.rims) */
+  rims: HoopRimParts[];
+  /** the rim juice targets by default — the lowest one */
+  primary: HoopRimParts;
+  shadow: Phaser.GameObjects.Ellipse; // live — the sun system steers it
+  destroy(): void;
+}
+
+/**
+ * Pole + backboard + every rim/net of the given tier geometry, standing at
+ * the right end of the court. Rebuilt on upgrade (the tier director
+ * destroys the old parts and creates the new ones, staged for choreo).
+ */
+export function createHoop(scene: Phaser.Scene, geom: HoopGeometry): HoopParts {
   const baseY = floorY(RIM.d);
-  const rimY = baseY - RIM.h * M;
-  const rimL = (RIM.x - RIM.r) * M;
-  const rimR = (RIM.x + RIM.r) * M;
-  const boardX = (RIM.x + RIM.r + T.hoop.boardGapM) * M;
-  const boardTop = baseY - T.hoop.boardTopM * M;
-  const boardBot = baseY - T.hoop.boardBottomM * M;
+  const boardX = geom.boardX * M;
+  const boardTop = baseY - geom.boardTopM * M;
+  const boardBot = baseY - geom.boardBottomM * M;
   const boardW = 12;
+  const lowest = geom.rims.reduce((a, b) => (a.h < b.h ? a : b));
 
   // floor shadow — its own object so it can track the moving suns
   const shadow = scene.add
-    .ellipse(RIM.x * M + 8, baseY, RIM.r * M * 4, RIM.r * M * 0.7, 0x000000, 0.15)
+    .ellipse(
+      RIM.x * M + 8,
+      baseY,
+      lowest.r * M * 4,
+      lowest.r * M * 0.7,
+      0x000000,
+      0.15,
+    )
     .setDepth(sortDepth(RIM.d) - 1);
 
   const g = scene.add.graphics().setDepth(sortDepth(RIM.d));
@@ -343,34 +364,56 @@ export function createHoop(scene: Phaser.Scene): HoopParts {
   // backboard
   g.fillStyle(0xf6ead2).fillRect(boardX, boardTop, boardW, boardBot - boardTop);
   g.lineStyle(2, 0x8a6a4a).strokeRect(boardX, boardTop, boardW, boardBot - boardTop);
-  // rim
-  g.lineStyle(5, 0xe86a3a);
-  g.beginPath();
-  g.moveTo(rimL, rimY);
-  g.lineTo(rimR, rimY);
-  g.strokePath();
-  g.fillStyle(0xe86a3a).fillCircle(rimL, rimY, 3); // front hook
 
-  // net — its own object so score juice can snap it
-  const net = scene.add.graphics().setDepth(sortDepth(RIM.d));
-  net.setPosition(RIM.x * M, rimY);
-  const nw = RIM.r * M - 2;
-  const nh = Math.round(RIM.r * M * 2);
-  net.lineStyle(1, 0xfdf6e3, 0.9);
-  for (const t of [-1, -0.33, 0.33, 1]) {
+  const rims: HoopRimParts[] = geom.rims.map((rim) => {
+    const rimY = baseY - rim.h * M;
+    const rimL = (rim.x - rim.r) * M;
+    const rimR = (rim.x + rim.r) * M;
+    // rim stroke on the shared body graphics
+    g.lineStyle(5, 0xe86a3a);
+    g.beginPath();
+    g.moveTo(rimL, rimY);
+    g.lineTo(rimR, rimY);
+    g.strokePath();
+    g.fillStyle(0xe86a3a).fillCircle(rimL, rimY, 3); // front hook
+    // an arm tying a protruding rim back to the pole
+    if (rim.x + rim.r + 4 < geom.boardX) {
+      g.fillStyle(0x55555c).fillRect(rimR, rimY - 2, boardX - rimR, 4);
+    }
+
+    const net = scene.add.graphics().setDepth(sortDepth(RIM.d));
+    net.setPosition(rim.x * M, rimY);
+    const nw = rim.r * M - 2;
+    const nh = Math.round(rim.r * M * 2);
+    net.lineStyle(1, 0xfdf6e3, 0.9);
+    for (const t of [-1, -0.33, 0.33, 1]) {
+      net.beginPath();
+      net.moveTo(t * nw, 0);
+      net.lineTo(t * nw * 0.55, nh);
+      net.strokePath();
+    }
     net.beginPath();
-    net.moveTo(t * nw, 0);
-    net.lineTo(t * nw * 0.55, nh);
+    net.moveTo(-nw * 0.75, nh * 0.5);
+    net.lineTo(nw * 0.75, nh * 0.5);
     net.strokePath();
-  }
-  net.beginPath();
-  net.moveTo(-nw * 0.75, nh * 0.5);
-  net.lineTo(nw * 0.75, nh * 0.5);
-  net.strokePath();
-  net.beginPath();
-  net.moveTo(-nw * 0.55, nh);
-  net.lineTo(nw * 0.55, nh);
-  net.strokePath();
+    net.beginPath();
+    net.moveTo(-nw * 0.55, nh);
+    net.lineTo(nw * 0.55, nh);
+    net.strokePath();
 
-  return { net, shadow, rimSX: RIM.x * M, rimSY: rimY };
+    return { id: rim.id, net, rimSX: rim.x * M, rimSY: rimY };
+  });
+
+  const primary = rims[geom.rims.indexOf(lowest)];
+  return {
+    body: g,
+    rims,
+    primary,
+    shadow,
+    destroy() {
+      g.destroy();
+      for (const r of rims) r.net.destroy();
+      shadow.destroy();
+    },
+  };
 }
