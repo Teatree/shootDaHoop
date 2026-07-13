@@ -10,6 +10,7 @@ import {
   effectivePowerForTier,
   hoopChoreoGeometries,
   hoopGeometryForTier,
+  hoopLookForTier,
   interactivesForTier,
   nextTier,
   orbTimingForTier,
@@ -152,6 +153,17 @@ describe("looks", () => {
     expect(courtLookForTier(1)).toBe("standard");
     expect(courtLookForTier(2)).toBe("mahogany");
     expect(courtLookForTier(3)).toBe("glass");
+  });
+
+  it("hoop paint: each hoop change repaints board/rim/pole", () => {
+    const t1 = hoopLookForTier(1);
+    const t2 = hoopLookForTier(2);
+    const t3 = hoopLookForTier(3);
+    expect(t1.rim).toBe(0xe86a3a); // today's orange
+    expect(t2.rim).toBe(0x3a76c4); // owner-specified: blue rim…
+    expect(t2.board).toBe(0x4a4a52); // …dark gray board…
+    expect(t2.pole).toBeLessThan(t1.pole); // …darker pole
+    expect(t3).not.toEqual(t2); // tier 3 has its own paint job
   });
 });
 

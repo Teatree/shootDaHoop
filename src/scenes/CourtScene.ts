@@ -139,9 +139,9 @@ export class CourtScene extends Phaser.Scene {
     this.keepOutZone = createKeepOutZone(this);
     this.hoop = createHoop(this, this.geom());
     this.director = new TierDirector(this, {
-      rebuildHoop: (geom) => {
+      rebuildHoop: (geom, look) => {
         this.hoop.destroy();
-        this.hoop = createHoop(this, geom);
+        this.hoop = createHoop(this, geom, look);
       },
       hoopFx: (fx) => this.hoopFx(fx),
       redrawCourt: (look, fx) => {
@@ -415,24 +415,26 @@ export class CourtScene extends Phaser.Scene {
   }
 
   /**
-   * The server validates the presser against upgrade.proximityM using its
-   * OWN view of the position, which lags a pose tick (~0.4 m at walk
-   * speed) — so the client only presses when comfortably inside.
+   * PLACEHOLDER (tune): "touching the hoop" — the press fires within
+   * this distance of the hoop's base. Comfortably inside the server's
+   * upgrade.proximityM so a pose-tick of telemetry lag (~0.4 m at walk
+   * speed) can't lose the race.
    */
-  private static readonly PRESS_DIST = T.upgrade.proximityM * 0.6;
+  private static readonly PRESS_DIST = 1.0;
 
-  /** The Upgrade button was clicked: press if close, walk over if not. */
+  /**
+   * The Upgrade button (at the bottom of the hoop) was clicked: the
+   * errand walks the character THROUGH the keep-out zone — the only way
+   * in — up to the hoop; touching it triggers the upgrade (see update()).
+   * The walk is unclamped locally and the server's pose clamp opens the
+   * zone while an upgrade is available, so every screen sees the march.
+   */
   private tryUpgrade() {
+    if (!canUpgrade(this.world)) return;
     const spot = upgradeButtonSpot();
-    const dist = Math.hypot(this.player.x - spot.x, this.player.d - spot.d);
-    if (dist <= CourtScene.PRESS_DIST) {
-      this.backend.upgrade();
-    } else {
-      // walk up to the button, press on arrival (see update())
-      this.pendingUpgradePress = true;
-      this.player.walkTo(spot.x, spot.d);
-      this.backend.moveTo(spot.x, spot.d);
-    }
+    this.pendingUpgradePress = true;
+    this.player.stop();
+    this.player.walkToUnclamped(spot.x - 0.6, spot.d); // body at the pole
   }
 
   /** A player pressed Upgrade: VFX burst, teleport clear, transform. */

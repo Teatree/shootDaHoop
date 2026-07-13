@@ -1,5 +1,4 @@
 import Phaser from "phaser";
-import { T } from "../tuning";
 import { M, RIM, floorY } from "../world";
 
 // The beckoning "Upgrade" button (HOOP_PROGRESSION.md): once the shared
@@ -7,10 +6,11 @@ import { M, RIM, floorY } from "../world";
 // bobbing, pulsing, visibly calling a player over. ANY player can walk
 // up and press it; the authority validates threshold + proximity.
 
-/** The button's floor spot, court meters — as close to under the hoop as
- *  a player can stand (the keep-out edge, on the rim lane). */
+/** The button's floor spot, court meters — directly at the bottom of the
+ *  hoop. Pressing it is an errand: the character walks THROUGH the
+ *  keep-out zone up to the hoop and touches it. */
 export function upgradeButtonSpot() {
-  return { x: RIM.x - T.move.hoopStandoffM, d: RIM.d };
+  return { x: RIM.x, d: RIM.d };
 }
 
 export class UpgradeButton {
@@ -21,7 +21,7 @@ export class UpgradeButton {
   constructor(scene: Phaser.Scene, onPress: () => void) {
     const spot = upgradeButtonSpot();
     const sx = spot.x * M;
-    const sy = floorY(spot.d) - 34; // hovers just above its floor spot
+    const sy = floorY(spot.d) - 40; // hovers at the bottom of the hoop
 
     const w = 116;
     const h = 34;

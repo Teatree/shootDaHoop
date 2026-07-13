@@ -11,7 +11,7 @@ import {
   sortDepth,
 } from "./world";
 import type { HoopGeometry } from "./shared/tierRules";
-import type { CourtLookId } from "./shared/tierChanges";
+import type { CourtLookId, HoopLook } from "./shared/tierChanges";
 
 // Placeholder pixel art, generated at boot. Any texture the user supplies
 // in public/assets/ (see the README there) takes priority — we only
@@ -383,12 +383,33 @@ export interface HoopParts {
   destroy(): void;
 }
 
+/** Tier 1's hoop paint — the fallback when no look is passed. */
+const DEFAULT_HOOP_LOOK: HoopLook = {
+  board: 0xf6ead2,
+  boardEdge: 0x8a6a4a,
+  rim: 0xe86a3a,
+  pole: 0x6a6a72,
+};
+
+/** The pole's shaded arm/fitting colour, derived a step darker. */
+function darken(c: number, f = 0.8): number {
+  const r = Math.floor(((c >> 16) & 0xff) * f);
+  const g = Math.floor(((c >> 8) & 0xff) * f);
+  const b = Math.floor((c & 0xff) * f);
+  return (r << 16) | (g << 8) | b;
+}
+
 /**
- * Pole + backboard + every rim/net of the given tier geometry, standing at
- * the right end of the court. Rebuilt on upgrade (the tier director
- * destroys the old parts and creates the new ones, staged for choreo).
+ * Pole + backboard + every rim/net of the given tier geometry, in the
+ * tier's paint job, standing at the right end of the court. Rebuilt on
+ * upgrade (the tier director destroys the old parts and creates the new
+ * ones, staged for choreo).
  */
-export function createHoop(scene: Phaser.Scene, geom: HoopGeometry): HoopParts {
+export function createHoop(
+  scene: Phaser.Scene,
+  geom: HoopGeometry,
+  look: HoopLook = DEFAULT_HOOP_LOOK,
+): HoopParts {
   const baseY = floorY(RIM.d);
   const boardX = geom.boardX * M;
   const boardTop = baseY - geom.boardTopM * M;
@@ -408,28 +429,29 @@ export function createHoop(scene: Phaser.Scene, geom: HoopGeometry): HoopParts {
     )
     .setDepth(sortDepth(RIM.d) - 1);
 
+  const armColor = darken(look.pole);
   const g = scene.add.graphics().setDepth(sortDepth(RIM.d));
   // pole (behind the board, down to the floor)
-  g.fillStyle(0x6a6a72).fillRect(boardX + boardW + 2, boardTop + 14, 7, baseY - boardTop - 14);
-  g.fillStyle(0x55555c).fillRect(boardX - 2, boardTop + 22, boardW + 8, 5); // arm
+  g.fillStyle(look.pole).fillRect(boardX + boardW + 2, boardTop + 14, 7, baseY - boardTop - 14);
+  g.fillStyle(armColor).fillRect(boardX - 2, boardTop + 22, boardW + 8, 5); // arm
   // backboard
-  g.fillStyle(0xf6ead2).fillRect(boardX, boardTop, boardW, boardBot - boardTop);
-  g.lineStyle(2, 0x8a6a4a).strokeRect(boardX, boardTop, boardW, boardBot - boardTop);
+  g.fillStyle(look.board).fillRect(boardX, boardTop, boardW, boardBot - boardTop);
+  g.lineStyle(2, look.boardEdge).strokeRect(boardX, boardTop, boardW, boardBot - boardTop);
 
   const rims: HoopRimParts[] = geom.rims.map((rim) => {
     const rimY = baseY - rim.h * M;
     const rimL = (rim.x - rim.r) * M;
     const rimR = (rim.x + rim.r) * M;
     // rim stroke on the shared body graphics
-    g.lineStyle(5, 0xe86a3a);
+    g.lineStyle(5, look.rim);
     g.beginPath();
     g.moveTo(rimL, rimY);
     g.lineTo(rimR, rimY);
     g.strokePath();
-    g.fillStyle(0xe86a3a).fillCircle(rimL, rimY, 3); // front hook
+    g.fillStyle(look.rim).fillCircle(rimL, rimY, 3); // front hook
     // an arm tying a protruding rim back to the pole
     if (rim.x + rim.r + 4 < geom.boardX) {
-      g.fillStyle(0x55555c).fillRect(rimR, rimY - 2, boardX - rimR, 4);
+      g.fillStyle(armColor).fillRect(rimR, rimY - 2, boardX - rimR, 4);
     }
 
     const net = scene.add.graphics().setDepth(sortDepth(RIM.d));

@@ -51,7 +51,7 @@ export class CheerArea {
     this.button = new ProximityButton(
       this.scene,
       this.el.placement.xM * M,
-      floorY(this.el.placement.dM - this.el.depthM / 2) - 26,
+      floorY(this.el.placement.dM - this.el.depthM / 2) - 126, // well above the bench
       "🙌 CHEER",
       () => this.enter(),
     );
@@ -176,12 +176,16 @@ export class CheerArea {
     }));
   }
 
-  /** Edge-to-edge distance (world px) from the player to the deck rect. */
+  /**
+   * Distance (world px) from the player to the deck rect, PER AXIS —
+   * "within N px each way from the edges": the trigger area is the
+   * bench's rectangle grown by proximityPx on every side.
+   */
   private edgeDistPx(): number {
     const { xM, dM } = this.el.placement;
     const dx = Math.max(0, Math.abs(this.player.x - xM) - this.el.widthM / 2);
     const dd = Math.max(0, Math.abs(this.player.d - dM) - this.el.depthM / 2);
-    return Math.hypot(dx, dd) * M;
+    return Math.max(dx, dd) * M;
   }
 
   /** A small raised wooden platform: plank top + front skirt + legs. */

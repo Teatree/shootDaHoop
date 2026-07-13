@@ -19,6 +19,7 @@ import type {
   DoubleHoopSpec,
   FxKind,
   HoopChange,
+  HoopLook,
   InteractiveElement,
 } from "./tierChanges";
 
@@ -194,6 +195,24 @@ export function hoopChoreoGeometries(tierId: number): HoopGeometry[] {
   return out;
 }
 
+// ── Hoop look (the paint job repaints with each hoop change) ──────────
+
+/** Tier 1's paint: cream board, orange rim, gray pole — today's hoop. */
+const BASE_HOOP_LOOK: HoopLook = {
+  board: 0xf6ead2,
+  boardEdge: 0x8a6a4a,
+  rim: 0xe86a3a,
+  pole: 0x6a6a72,
+};
+
+export function hoopLookForTier(tierId: number): HoopLook {
+  let look = BASE_HOOP_LOOK;
+  for (const t of tiersUpTo(tierId))
+    for (const c of t.changes)
+      if (c.type === "hoop-change" && c.look) look = c.look;
+  return look;
+}
+
 // ── Throw power (Permanent Effect: ball-range) ────────────────────────
 
 export interface PowerCurve {
@@ -255,11 +274,16 @@ export function animationsForTier(tierId: number): Set<string> {
  * interactive area that characters physically occupy (the cheer deck).
  * The server's pose sanitizer uses this so remote cheerers aren't
  * snapped back onto the court.
+ *
+ * `zoneOpen` = the Upgrade button is available: pressing it means
+ * walking THROUGH the hoop's keep-out zone to touch the hoop, so while
+ * an upgrade is up the zone admits characters (up to the hoop itself).
  */
 export function clampToWalkable(
   x: number,
   d: number,
   tierId: number,
+  zoneOpen = false,
 ): { x: number; d: number } {
   for (const el of interactivesForTier(tierId)) {
     if (!el.occupiesSpot) continue;
@@ -270,7 +294,11 @@ export function clampToWalkable(
     )
       return { x, d };
   }
-  return clampToCourt(x, d);
+  const c = clampToCourt(x, d);
+  if (zoneOpen && x > c.x) {
+    return { x: Math.min(x, RIM.x), d: c.d };
+  }
+  return c;
 }
 
 // ── Orb timing (Ambient / Spawn Change) ───────────────────────────────

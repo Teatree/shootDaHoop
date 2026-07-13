@@ -77,6 +77,18 @@ export class Player {
     this.walking = false;
   }
 
+  /**
+   * Scripted errands (the Upgrade press walking THROUGH the keep-out
+   * zone to the hoop) go exactly where they're told — no court clamp.
+   * User clicks still route through walkTo.
+   */
+  walkToUnclamped(x: number, d: number) {
+    this.targetX = x;
+    this.targetD = d;
+    this.walking = true;
+    if (Math.abs(x - this.x) > 0.01) this.facingRight = x >= this.x;
+  }
+
   /** Right-click pressed: plant into the shooting stance immediately. */
   enterStance() {
     this.stop();

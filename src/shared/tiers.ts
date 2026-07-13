@@ -57,6 +57,14 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
         type: "hoop-change",
         heightScale: 1.4, //   +40% taller than Hoop 1
         rimWidthScale: 1.15, // rim +15% wider
+        // the hoop repaints with the tier: dark-gray board, blue rim,
+        // darker pole
+        look: {
+          board: 0x4a4a52,
+          boardEdge: 0x2c2c32,
+          rim: 0x3a76c4,
+          pole: 0x3c3c44,
+        },
         choreo: [
           // splashes into existence: taller FIRST…
           { beat: "grow-taller", fx: "pop-splash" },
@@ -80,7 +88,9 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
         placement: { xM: 19.8, dM: -0.6 },
         widthM: 3.6, //  PLACEHOLDER (tune): ~3 characters wide
         depthM: 1.2, // PLACEHOLDER (tune)
-        proximityPx: 2, // doc: "within ~2 px (very close)", edge-to-edge
+        // owner-tuned 2026-07-13 (was the doc's ~2 px): the button shows
+        // within 100 px each way from the bench's edges
+        proximityPx: 100,
         occupiesSpot: true, // characters physically stand in it to cheer
         spots: 3,
         synced: false, // cheering is just your pose — telemetry carries it
@@ -129,6 +139,14 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
       {
         type: "hoop-change",
         heightScale: 1.1, // overall height only +10% over Hoop 2
+        // a fancier paint job to match the glass court: deep slate
+        // board, gold rims, dark bronze pole
+        look: {
+          board: 0x25333e,
+          boardEdge: 0x121c24,
+          rim: 0xd9a441,
+          pole: 0x2a221c,
+        },
         doubleHoop: {
           // upper is slimmer and protrudes ~20 px further left (further
           // out) than the lower — what enables the "double shot"

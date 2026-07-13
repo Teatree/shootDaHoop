@@ -277,7 +277,7 @@ export class Room {
       case "pose": {
         // cosmetic telemetry — sanitize the numbers, relay to everyone
         // else, and keep the presence info in step for snapshots
-        const s = sanePose(msg.s, this.world.tierId);
+        const s = sanePose(msg.s, this.world.tierId, canUpgrade(this.world));
         if (!s) break;
         occ.info.x = s.x;
         occ.info.d = s.d;
@@ -347,13 +347,15 @@ export class Room {
       }
       case "upgrade": {
         // the communal upgrade press: ANY player may trigger it, but the
-        // server owns the rules — threshold met, presser at the button
+        // server owns the rules — threshold met, presser TOUCHING the
+        // hoop (the button sits at its base; the errand walks the
+        // presser through the keep-out zone, which the pose clamp opens
+        // while an upgrade is available)
         if (!canUpgrade(this.world)) break;
         const next = nextTier(this.world.tierId);
         if (!next) break;
-        const bx = RIM.x - BALANCE.move.hoopStandoffM; // the button spot
         if (
-          Math.hypot(occ.info.x - bx, occ.info.d - RIM.d) >
+          Math.hypot(occ.info.x - RIM.x, occ.info.d - RIM.d) >
           BALANCE.upgrade.proximityM
         )
           break;
@@ -558,14 +560,18 @@ const POSE_KINDS = new Set([
  * Positions clamp to the tier's WALKABLE space — the court plus any
  * unlocked stand-in areas (the cheer deck is off-court).
  */
-function sanePose(s: AvatarState, tierId: number): AvatarState | null {
+function sanePose(
+  s: AvatarState,
+  tierId: number,
+  zoneOpen: boolean,
+): AvatarState | null {
   if (typeof s !== "object" || s === null || typeof s.pose !== "object")
     return null;
   const nums = [s.x, s.d, s.airH, s.angle, s.pose.t];
   if (nums.some((n) => typeof n !== "number" || !Number.isFinite(n)))
     return null;
   if (!POSE_KINDS.has(s.pose.kind)) return null;
-  const c = clampToWalkable(s.x, s.d, tierId);
+  const c = clampToWalkable(s.x, s.d, tierId, zoneOpen);
   const num = (n: unknown) =>
     typeof n === "number" && Number.isFinite(n) ? n : undefined;
   return {

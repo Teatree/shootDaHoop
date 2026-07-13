@@ -110,8 +110,9 @@ export const BALANCE = {
 
   // ── Upgrade trigger (shared: the server validates presses) ────────
   upgrade: {
-    // PLACEHOLDER (tune): how close to the button under the hoop a
-    // presser must stand for the press to count (court meters)
+    // PLACEHOLDER (tune): how close to the HOOP'S BASE a presser must
+    // stand for the press to count — the button sits at the hoop and
+    // the errand walks the character through the keep-out zone to it
     proximityM: 2.5,
     // PLACEHOLDER (tune): where players teleport when the upgrade fires
     // — a random spot in this x-band, well clear of the hoop, so the

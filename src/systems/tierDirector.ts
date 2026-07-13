@@ -6,6 +6,7 @@ import {
   getTier,
   hoopChoreoGeometries,
   hoopGeometryForTier,
+  hoopLookForTier,
   interactivesForTier,
   type HoopGeometry,
 } from "../shared/tierRules";
@@ -13,6 +14,7 @@ import type {
   BallLookId,
   CourtLookId,
   FxKind,
+  HoopLook,
   InteractiveElement,
 } from "../shared/tierChanges";
 
@@ -39,8 +41,8 @@ import type {
 // no-ops and the playback is undisturbed.
 
 export interface TierDirectorHooks {
-  /** destroy the current hoop and build the given geometry */
-  rebuildHoop(geom: HoopGeometry): void;
+  /** destroy the current hoop and build the given geometry + paint job */
+  rebuildHoop(geom: HoopGeometry, look: HoopLook): void;
   /** pop/splash presentation at the hoop (one choreography beat landed) */
   hoopFx(fx: FxKind): void;
   /** reskin the court floor; fx null = instant (no transition) */
@@ -142,7 +144,7 @@ export class TierDirector {
             }
             const geom = geoms[i];
             this.at(at, () => {
-              this.hooks.rebuildHoop(geom);
+              this.hooks.rebuildHoop(geom, hoopLookForTier(this.applied));
               if (beat.fx !== "none") this.hooks.hoopFx(beat.fx);
             });
             at += fx.hoopBeatMs;
@@ -170,7 +172,10 @@ export class TierDirector {
 
   /** Everything the applied tier implies, applied at once, no animation. */
   private applyFinalState() {
-    this.hooks.rebuildHoop(hoopGeometryForTier(this.applied));
+    this.hooks.rebuildHoop(
+      hoopGeometryForTier(this.applied),
+      hoopLookForTier(this.applied),
+    );
     this.hooks.redrawCourt(courtLookForTier(this.applied), null);
     this.hooks.setBallLook(ballLookForTier(this.applied), null);
     this.hooks.clearInteractives(); // resets tear DOWN; upgrades re-add

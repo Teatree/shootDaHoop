@@ -40,6 +40,14 @@ export type HoopBeat =
   | { beat: "lower-appears"; fx: FxKind }
   | { beat: "wait"; delayS: number };
 
+/** The hoop's paint job — board, rim and pole colours (0xRRGGBB). */
+export interface HoopLook {
+  board: number;
+  boardEdge: number;
+  rim: number;
+  pole: number;
+}
+
 export interface DoubleHoopSpec {
   /** slimmer top rim; its FRONT tip protrudes this many world px further
    *  left (further out) than the lower rim's front tip — the "double shot" */
@@ -59,6 +67,8 @@ export interface HoopChange {
   rimWidthScale?: number;
   /** replace the single rim with two stacked rims on one post */
   doubleHoop?: DoubleHoopSpec;
+  /** repaint the hoop (board/rim/pole) from this tier on */
+  look?: HoopLook;
   /** the upgrade animation, beat by beat, in order */
   choreo: HoopBeat[];
   /** everyone's camera re-fits so the new hoop stays in view

@@ -61,8 +61,24 @@ const identity = (id: string) => ({
   headVariant: 1,
 });
 
-const BUTTON = { x: RIM.x - BALANCE.move.hoopStandoffM, d: RIM.d };
 const T2 = HOOP_TIERS[1];
+
+/** Walk the player to the hoop's base via pose telemetry — the Upgrade
+ *  errand goes THROUGH the keep-out zone, which move-to never allows;
+ *  the pose clamp opens the zone while an upgrade is available. */
+function standAtHoop(room: Room, id: string) {
+  room.handle(id, {
+    t: "pose",
+    s: {
+      x: RIM.x - 0.6,
+      d: RIM.d,
+      airH: 0,
+      facing: 1,
+      angle: 0,
+      pose: { kind: "walk", t: 0 },
+    },
+  });
+}
 
 let room: Room | null = null;
 
@@ -137,8 +153,8 @@ describe("the upgrade press", () => {
     await room.join(a as unknown as WebSocket, identity("alice"));
     await room.join(b as unknown as WebSocket, identity("bob"));
 
-    // alice walks to the button and presses
-    room.handle("alice", { t: "move-to", x: BUTTON.x, d: BUTTON.d });
+    // alice walks up to the hoop (through the open zone) and presses
+    standAtHoop(room, "alice");
     room.handle("alice", { t: "upgrade" });
 
     for (const ws of [a, b]) {
@@ -170,12 +186,12 @@ describe("the upgrade press", () => {
     const { room } = await makeRoom(T2.threshold - 1);
     const a = new FakeWS();
     await room.join(a as unknown as WebSocket, identity("alice"));
-    room.handle("alice", { t: "move-to", x: BUTTON.x, d: BUTTON.d });
+    standAtHoop(room, "alice");
     room.handle("alice", { t: "upgrade" });
     expect(a.of("upgraded")).toHaveLength(0);
   });
 
-  it("rejects a press from a player who isn't at the button", async () => {
+  it("rejects a press from a player who isn't at the hoop", async () => {
     const { room } = await makeRoom(T2.threshold);
     const a = new FakeWS();
     await room.join(a as unknown as WebSocket, identity("alice"));
@@ -184,12 +200,24 @@ describe("the upgrade press", () => {
     expect(a.of("upgraded")).toHaveLength(0);
   });
 
+  it("the keep-out zone only opens for poses while an upgrade is available", async () => {
+    const { room } = await makeRoom(T2.threshold - 1); // NOT ready
+    const a = new FakeWS();
+    const b = new FakeWS();
+    await room.join(a as unknown as WebSocket, identity("alice"));
+    await room.join(b as unknown as WebSocket, identity("bob"));
+    standAtHoop(room, "alice"); // zone closed → clamped back out
+    const [pose] = b.of("pose");
+    if (pose?.t !== "pose") throw new Error("no pose relayed");
+    expect(pose.s.x).toBeLessThanOrEqual(RIM.x - BALANCE.move.hoopStandoffM);
+  });
+
   it("rejects a press past the top of the ladder", async () => {
     const top = HOOP_TIERS[HOOP_TIERS.length - 1].id;
     const { room } = await makeRoom(999999, top);
     const a = new FakeWS();
     await room.join(a as unknown as WebSocket, identity("alice"));
-    room.handle("alice", { t: "move-to", x: BUTTON.x, d: BUTTON.d });
+    standAtHoop(room, "alice");
     room.handle("alice", { t: "upgrade" });
     expect(a.of("upgraded")).toHaveLength(0);
   });
@@ -246,7 +274,7 @@ describe("the upgrade press", () => {
     const { room } = await makeRoom(T2.threshold);
     const a = new FakeWS();
     await room.join(a as unknown as WebSocket, identity("alice"));
-    room.handle("alice", { t: "move-to", x: BUTTON.x, d: BUTTON.d });
+    standAtHoop(room, "alice");
     room.handle("alice", { t: "upgrade" });
 
     const late = new FakeWS();
