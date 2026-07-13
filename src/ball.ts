@@ -26,6 +26,8 @@ interface BallOpts {
   /** the ACTIVE tier's hoop — a getter so an upgrade mid-flight is read
    *  consistently on the next step */
   geom: () => HoopGeometry;
+  /** the tier's ball look, as a multiply tint (T.ballLooks) */
+  tint: number;
   onScore: (o: ShotOutcome) => void;
   onMiss: (o: ShotOutcome) => void;
   onDone: (ball: Ball) => void;
@@ -63,6 +65,7 @@ export class Ball {
     );
     this.sprite = scene.add.image(0, 0, "ball").setOrigin(0.5);
     this.sprite.setDisplaySize(diaPx, diaPx);
+    if (opts.tint !== 0xffffff) this.sprite.setTint(opts.tint);
     const baseScale = this.sprite.scaleX;
 
     // release "pop" — tween back to baseScale, NOT 1, or it undoes the sizing

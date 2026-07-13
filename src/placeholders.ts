@@ -11,6 +11,7 @@ import {
   sortDepth,
 } from "./world";
 import type { HoopGeometry } from "./shared/tierRules";
+import type { CourtLookId } from "./shared/tierChanges";
 
 // Placeholder pixel art, generated at boot. Any texture the user supplies
 // in public/assets/ (see the README there) takes priority — we only
@@ -246,24 +247,73 @@ export function drawWall(scene: Phaser.Scene) {
   column(WALL_LEFT_X * M - w, true);
 }
 
-/** The court floor band with its painted lines. */
-export function drawCourt(scene: Phaser.Scene) {
+/** Court-floor skins for the Scene Visual Change (shared/tierChanges.ts). */
+const COURT_PALETTES: Record<
+  CourtLookId,
+  { even: number; odd: number; lip: number; line: number; shine: boolean }
+> = {
+  standard: {
+    even: 0xc98d5a,
+    odd: 0xbd8250,
+    lip: 0x8a5a34,
+    line: 0xf3e2c0,
+    shine: false,
+  },
+  // much darker, like mahogany wood (floor only)
+  mahogany: {
+    even: 0x5a3220,
+    odd: 0x4c2a1a,
+    lip: 0x2e1810,
+    line: 0xd8c0a0,
+    shine: false,
+  },
+  // the same area turned to glass, fancier than the mahogany version
+  glass: {
+    even: 0xa9dbe4,
+    odd: 0x93cfdc,
+    lip: 0x5f93a4,
+    line: 0xffffff,
+    shine: true,
+  },
+};
+
+/** The court floor band with its painted lines, in the given skin. */
+export function drawCourt(
+  scene: Phaser.Scene,
+  look: CourtLookId = "standard",
+): Phaser.GameObjects.Graphics {
+  const pal = COURT_PALETTES[look];
   const x0 = 0;
   const x1 = T.court.lengthM * M;
   const yTop = floorY(0);
   const yBot = floorY(T.court.depthM);
   const g = scene.add.graphics().setDepth(-50);
 
-  // wood planks (alternating meter stripes)
+  // planks (alternating meter stripes)
   for (let m = 0; m < T.court.lengthM; m++) {
-    g.fillStyle(m % 2 === 0 ? 0xc98d5a : 0xbd8250);
+    g.fillStyle(m % 2 === 0 ? pal.even : pal.odd);
     g.fillRect(x0 + m * M, yTop, M, yBot - yTop);
   }
   // front lip (court edge facing the viewer)
-  g.fillStyle(0x8a5a34).fillRect(x0, yBot, x1 - x0, 8);
+  g.fillStyle(pal.lip).fillRect(x0, yBot, x1 - x0, 8);
+
+  // glass gets diagonal shine streaks sweeping the whole pane
+  if (pal.shine) {
+    g.lineStyle(10, 0xffffff, 0.18);
+    const zh = yBot - yTop;
+    for (let hx = x0 - zh; hx < x1; hx += 140) {
+      const xa = Math.max(hx, x0);
+      const xb = Math.min(hx + zh, x1);
+      if (xb <= xa) continue;
+      g.beginPath();
+      g.moveTo(xa, yBot - (xa - hx));
+      g.lineTo(xb, yBot - (xb - hx));
+      g.strokePath();
+    }
+  }
 
   // painted lines
-  const line = 0xf3e2c0;
+  const line = pal.line;
   g.lineStyle(3, line, 0.9);
   g.strokeRect(x0 + 1, yTop + 1, x1 - x0 - 2, yBot - yTop - 2); // boundary
 
@@ -280,6 +330,7 @@ export function drawCourt(scene: Phaser.Scene) {
 
   // free-throw spot marker (spawn)
   g.fillStyle(line, 0.9).fillCircle(FREE_THROW_X * M, floorY(RIM.d), 4);
+  return g;
 }
 
 /**

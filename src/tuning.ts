@@ -95,6 +95,21 @@ export const T = {
     weakThrowVh: 4.5, //     auto-throw (straight up) if time runs out mid-aim
   },
 
+  // ── Hoop progression: upgrade choreography feel ────────────────────
+  progressionFx: {
+    leadMs: 600, //      breath between the VFX burst/teleport and beat 1
+    hoopBeatMs: 450, //  each hoop-change beat (pop/splash) holds this long
+    changeBeatMs: 700, //each non-hoop change in the ordered list
+  },
+
+  // ── Ball looks (Permanent Effect: "balls become more red") ─────────
+  // multiply tints over the ball art — world balls, held ball, ghosts;
+  // the HUD icons get the matching CSS class (style.css)
+  ballLooks: {
+    classic: 0xffffff,
+    red: 0xff5f4a,
+  } as Record<string, number>,
+
   // ── Ghost records (click a log throw → replay it on the court) ────
   ghost: {
     preRollS: 2, //          recording starts this long before the throw

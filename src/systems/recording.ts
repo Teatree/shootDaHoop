@@ -7,6 +7,7 @@ import type { TeleportOrb } from "../powerup";
 import type { SpeechBubbles } from "../speech";
 import type { Ball } from "../ball";
 import type { RigLook } from "../characterRig";
+import type { BallLookId } from "../shared/tierChanges";
 
 // Ghost records, capture side: a rolling buffer of world frame samples
 // (player + orb + speech bubble), one recorder per live throw, and the
@@ -60,11 +61,17 @@ export class RecordingSystem {
    * slams rewind to before the orb hit so the observer sees the whole
    * power-up play.
    */
-  beginThrow(ball: Ball, isSlam: boolean, name: string): ThrowRecording {
+  beginThrow(
+    ball: Ball,
+    isSlam: boolean,
+    name: string,
+    ballLook: BallLookId = "classic",
+  ): ThrowRecording {
     const tp = isSlam ? this.lastTeleport : undefined;
     const t0 = tp ? tp.at - T.ghost.slamPreRollS : this.timeS - T.ghost.preRollS;
     const rec: ThrowRecording = {
       name,
+      ballLook, // stamped NOW — the replay recolour rule reads this
       playerSamples: this.history
         .filter((s) => s.t >= t0)
         .map((s) => ({ ...s, t: s.t - t0 })),

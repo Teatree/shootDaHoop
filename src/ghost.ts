@@ -91,6 +91,10 @@ export class GhostPlayback {
       .setAlpha(0)
       .setVisible(false);
     ball.setDisplaySize(diaPx, diaPx);
+    // the upgrade recolour rule: the ghost ball wears the look STAMPED AT
+    // RECORD TIME — a pre-upgrade replay keeps the old look forever
+    const lookTint = T.ballLooks[rec.ballLook ?? "classic"];
+    if (lookTint !== 0xffffff) ball.setTint(lookTint);
     const bShadow = this.scene.add
       .ellipse(0, 0, diaPx * 1.2, diaPx * 0.4, 0x000000, 0)
       .setVisible(false);

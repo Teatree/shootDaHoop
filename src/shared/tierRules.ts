@@ -63,64 +63,135 @@ export interface HoopGeometry {
   boardBottomM: number;
 }
 
-const geomCache = new Map<number, HoopGeometry>();
+/** The folded hoop parameters at some point of the ladder (or mid-beat). */
+interface HoopFold {
+  heightK: number; //  cumulative height scale over the tier-1 hoop
+  rimR: number; //     folded single-rim opening half-width
+  dbl: DoubleHoopSpec | null;
+  /** "upper-only" is the mid-choreography stage where the upper rim has
+   *  jutted forward but the lower hasn't appeared yet */
+  dblStage: "none" | "upper-only" | "full";
+}
 
-export function hoopGeometryForTier(tierId: number): HoopGeometry {
-  const hit = geomCache.get(tierId);
-  if (hit) return hit;
-
-  // fold every hoop-change from tier 1 up: scales are relative to the
-  // PREVIOUS tier, so they multiply
-  let heightK = 1;
-  let rimR = BALANCE.hoop.rimRadiusM;
-  let dbl: DoubleHoopSpec | null = null;
+/** Fold every hoop-change of tiers 1..tierId: scales are relative to the
+ *  PREVIOUS tier, so they multiply. */
+function foldHoop(tierId: number): HoopFold {
+  const f: HoopFold = {
+    heightK: 1,
+    rimR: BALANCE.hoop.rimRadiusM,
+    dbl: null,
+    dblStage: "none",
+  };
   for (const t of tiersUpTo(tierId))
     for (const c of t.changes)
       if (c.type === "hoop-change") {
-        heightK *= c.heightScale ?? 1;
-        rimR *= c.rimWidthScale ?? 1;
-        if (c.doubleHoop) dbl = c.doubleHoop;
+        f.heightK *= c.heightScale ?? 1;
+        f.rimR *= c.rimWidthScale ?? 1;
+        if (c.doubleHoop) {
+          f.dbl = c.doubleHoop;
+          f.dblStage = "full";
+        }
       }
+  return f;
+}
 
+function buildGeometry(f: HoopFold): HoopGeometry {
   // the board's extent tracks the rims it serves, scaled like the hoop
-  const topH = BALANCE.hoop.rimHeightM * heightK;
-  const belowM = (BALANCE.hoop.rimHeightM - BALANCE.hoop.boardBottomM) * heightK;
-  const aboveM = (BALANCE.hoop.boardTopM - BALANCE.hoop.rimHeightM) * heightK;
+  const topH = BALANCE.hoop.rimHeightM * f.heightK;
+  const belowM =
+    (BALANCE.hoop.rimHeightM - BALANCE.hoop.boardBottomM) * f.heightK;
+  const aboveM =
+    (BALANCE.hoop.boardTopM - BALANCE.hoop.rimHeightM) * f.heightK;
 
-  let geom: HoopGeometry;
-  if (!dbl) {
-    const rim: RimSpec = { id: "main", x: RIM.x, h: topH, r: rimR };
-    geom = {
+  if (!f.dbl || f.dblStage === "none") {
+    const rim: RimSpec = { id: "main", x: RIM.x, h: topH, r: f.rimR };
+    return {
       rims: [rim],
       boardX: rim.x + rim.r + BALANCE.hoop.boardGapM,
       boardBottomM: rim.h - belowM,
       boardTopM: rim.h + aboveM,
     };
-  } else {
-    const lower: RimSpec = {
-      id: "lower",
-      x: RIM.x,
-      h: topH - dbl.gapM,
-      r: rimR * dbl.lower.rScale,
-    };
-    const upperR = rimR * dbl.upper.rScale;
-    const upper: RimSpec = {
-      id: "upper",
-      // the upper rim's FRONT (left) tip protrudes further out than the
-      // lower's front tip — this is what enables the double shot
-      x: lower.x - lower.r - dbl.upper.protrudeLeftPx / BALANCE.court.meterPx + upperR,
-      h: topH,
-      r: upperR,
-    };
-    geom = {
-      rims: [upper, lower],
-      boardX: Math.max(upper.x + upper.r, lower.x + lower.r) + BALANCE.hoop.boardGapM,
-      boardBottomM: lower.h - belowM,
+  }
+  const dbl = f.dbl;
+  const lowerR = f.rimR * dbl.lower.rScale;
+  const lowerX = RIM.x;
+  const upperR = f.rimR * dbl.upper.rScale;
+  const upper: RimSpec = {
+    id: "upper",
+    // the upper rim's FRONT (left) tip protrudes further out than the
+    // lower's front tip — this is what enables the double shot
+    x: lowerX - lowerR - dbl.upper.protrudeLeftPx / BALANCE.court.meterPx + upperR,
+    h: topH,
+    r: upperR,
+  };
+  if (f.dblStage === "upper-only") {
+    // mid-choreography: the upper has jutted forward, the lower is yet
+    // to splash in beneath (presentation only — live physics runs on
+    // the FULL tier geometry from the moment the upgrade fires)
+    return {
+      rims: [upper],
+      boardX: Math.max(upper.x + upper.r, lowerX + lowerR) + BALANCE.hoop.boardGapM,
+      boardBottomM: upper.h - belowM,
       boardTopM: upper.h + aboveM,
     };
   }
-  geomCache.set(tierId, geom);
+  const lower: RimSpec = { id: "lower", x: lowerX, h: topH - dbl.gapM, r: lowerR };
+  return {
+    rims: [upper, lower],
+    boardX: Math.max(upper.x + upper.r, lower.x + lower.r) + BALANCE.hoop.boardGapM,
+    boardBottomM: lower.h - belowM,
+    boardTopM: upper.h + aboveM,
+  };
+}
+
+const geomCache = new Map<number, HoopGeometry>();
+
+export function hoopGeometryForTier(tierId: number): HoopGeometry {
+  let geom = geomCache.get(tierId);
+  if (!geom) {
+    geom = buildGeometry(foldHoop(tierId));
+    geomCache.set(tierId, geom);
+  }
   return geom;
+}
+
+/**
+ * The hoop's look AFTER each beat of a tier's upgrade choreography — one
+ * geometry per entry of the hoop change's `choreo` array ("wait" beats
+ * keep the previous look). The choreography player rebuilds the visual
+ * hoop through these stages while the LIVE geometry is already the full
+ * tier (players are teleported clear, so nothing meaningful can be
+ * thrown at a half-built hoop).
+ */
+export function hoopChoreoGeometries(tierId: number): HoopGeometry[] {
+  const change = hoopChangeForTier(tierId);
+  if (!change) return [];
+  const prev = foldHoop(tierId - 1);
+  const f: HoopFold = { ...prev };
+  const out: HoopGeometry[] = [];
+  for (const beat of change.choreo) {
+    switch (beat.beat) {
+      case "grow-taller":
+        f.heightK = prev.heightK * (change.heightScale ?? 1);
+        break;
+      case "widen-rim":
+        f.rimR = prev.rimR * (change.rimWidthScale ?? 1);
+        break;
+      case "upper-juts-forward":
+        if (change.doubleHoop) {
+          f.dbl = change.doubleHoop;
+          f.dblStage = "upper-only";
+        }
+        break;
+      case "lower-appears":
+        f.dblStage = "full";
+        break;
+      case "wait":
+        break;
+    }
+    out.push(buildGeometry(f));
+  }
+  return out;
 }
 
 // ── Throw power (Permanent Effect: ball-range) ────────────────────────

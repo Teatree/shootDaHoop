@@ -95,6 +95,11 @@ export class CharacterRig {
     this.place(this.cur, null);
   }
 
+  /** The ball-look tint (Permanent Effect: "balls become more red"). */
+  setBallTint(tint: number) {
+    this.heldBall.setTint(tint);
+  }
+
   /** Mirror the whole figure to face the X direction of travel. */
   setFacing(right: boolean) {
     this.facingRight = right;

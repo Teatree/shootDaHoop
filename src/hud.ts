@@ -27,6 +27,8 @@ export interface HUD {
   setScore(n: number): void;
   /** dim ball slots beyond the server's remaining daily throw budget */
   setThrowsRemaining(n: number): void;
+  /** the tier's ball look on the UI icons; splash = play the upgrade pop */
+  setBallLook(red: boolean, splash: boolean): void;
   /** text may contain the placeholders handled below; kept plain-text safe. */
   log(
     type: LogType,
@@ -141,6 +143,16 @@ export function initHUD(): HUD {
     setThrowsRemaining(n: number) {
       const slots = document.querySelectorAll("#ball-slots .slot");
       slots.forEach((slot, i) => slot.classList.toggle("used", i >= n));
+    },
+
+    setBallLook(red: boolean, splash: boolean) {
+      const box = el<HTMLDivElement>("ball-slots");
+      box.classList.toggle("red", red);
+      if (splash) {
+        box.classList.remove("splash");
+        void box.offsetWidth; // retrigger the animation
+        box.classList.add("splash");
+      }
     },
 
     setScore(n: number) {

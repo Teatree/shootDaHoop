@@ -5,6 +5,7 @@
 
 import { lerpPoseState } from "./shared/pose";
 import type { AvatarState } from "./shared/messages";
+import type { BallLookId } from "./shared/tierChanges";
 
 export interface FrameSample extends AvatarState {
   t: number; //  seconds since recording start
@@ -22,6 +23,13 @@ export interface BallSample {
 
 export interface ThrowRecording {
   name: string;
+  /**
+   * The ball look AT RECORD TIME — the upgrade recolour rule: a replay
+   * from before an upgrade keeps the old look, so the world stays
+   * temporally consistent (HOOP_PROGRESSION.md). Optional so recordings
+   * from before this field default to classic.
+   */
+  ballLook?: BallLookId;
   playerSamples: FrameSample[];
   ballSamples: BallSample[];
   outcomeT?: number; //  when the hit/miss happened (recording time)

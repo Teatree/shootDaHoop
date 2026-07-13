@@ -8,6 +8,7 @@ import {
   canUpgrade,
   courtLookForTier,
   effectivePowerForTier,
+  hoopChoreoGeometries,
   hoopGeometryForTier,
   interactivesForTier,
   nextTier,
@@ -85,6 +86,39 @@ describe("hoopGeometryForTier", () => {
       for (const rim of g.rims)
         expect(g.boardX).toBeGreaterThanOrEqual(rim.x + rim.r);
     }
+  });
+});
+
+describe("hoopChoreoGeometries (the upgrade animation's staged looks)", () => {
+  it("tier 2: taller FIRST (old rim width), then the rim widens", () => {
+    const stages = hoopChoreoGeometries(2);
+    expect(stages).toHaveLength(3); // grow-taller, wait, widen-rim
+    const [tall, wait, wide] = stages;
+    expect(tall.rims[0].h).toBeCloseTo(BALANCE.hoop.rimHeightM * 1.4, 10);
+    expect(tall.rims[0].r).toBeCloseTo(BALANCE.hoop.rimRadiusM, 10); // old width
+    expect(wait).toEqual(tall); // the 1-second pause holds the look
+    expect(wide).toEqual(hoopGeometryForTier(2)); // ends at the full tier
+  });
+
+  it("tier 3: taller → upper juts forward alone → lower appears beneath", () => {
+    const stages = hoopChoreoGeometries(3);
+    expect(stages).toHaveLength(4);
+    const [tall, jut, wait, full] = stages;
+    const t3 = hoopGeometryForTier(3);
+    // beat 1: still a single tier-2-width rim, at the +10% height
+    expect(tall.rims).toHaveLength(1);
+    expect(tall.rims[0].h).toBeCloseTo(t3.rims[0].h, 10);
+    expect(tall.rims[0].r).toBeCloseTo(hoopGeometryForTier(2).rims[0].r, 10);
+    // beat 2: the upper rim alone, slimmer + protruded
+    expect(jut.rims).toHaveLength(1);
+    expect(jut.rims[0]).toEqual(t3.rims[0]);
+    expect(wait).toEqual(jut);
+    // final beat: the full double hoop
+    expect(full).toEqual(t3);
+  });
+
+  it("tier 1 has no hoop choreography", () => {
+    expect(hoopChoreoGeometries(1)).toEqual([]);
   });
 });
 

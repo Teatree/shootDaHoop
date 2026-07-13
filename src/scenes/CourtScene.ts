@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { T } from "../tuning";
-import { M, RIM, floorDistToRim, screenToFloor, toScreen } from "../world";
+import { M, RIM, floorDistToRim, floorY, screenToFloor, toScreen } from "../world";
 import { burst, flash, puff } from "../juice";
 import { SunSystem, shadowShift } from "../sky";
 import { SpeechBubbles } from "../speech";
@@ -41,6 +41,7 @@ import {
 import { showNotice } from "../settings";
 import { TierDirector } from "../systems/tierDirector";
 import { UpgradeButton, upgradeButtonSpot } from "../systems/upgradeButton";
+import type { BallLookId, FxKind } from "../shared/tierChanges";
 import { RemoteAvatar } from "../remoteAvatar";
 import { TeleportSystem } from "../systems/teleport";
 import { RecordingSystem } from "../systems/recording";
@@ -73,6 +74,9 @@ export class CourtScene extends Phaser.Scene {
   private throwSeq = 0;
   private director!: TierDirector;
   private upgradeBtn!: UpgradeButton;
+  private courtG!: Phaser.GameObjects.Graphics;
+  /** the applied tier's ball tint — new balls spawn wearing it */
+  private ballTint: number = T.ballLooks.classic;
   /** the latest authoritative world state (score + tier) */
   private world: WorldState = { sharedScore: 0, tierId: 1 };
   /** clicked the Upgrade button from afar — press on arrival */
@@ -122,15 +126,25 @@ export class CourtScene extends Phaser.Scene {
   create() {
     ensurePlaceholderTextures(this);
     drawBackdrop(this);
-    drawCourt(this);
+    this.courtG = drawCourt(this, "standard");
     drawWall(this);
     this.keepOutZone = createKeepOutZone(this);
     this.hoop = createHoop(this, this.geom());
-    this.director = new TierDirector({
+    this.director = new TierDirector(this, {
       rebuildHoop: (geom) => {
         this.hoop.destroy();
         this.hoop = createHoop(this, geom);
       },
+      hoopFx: (fx) => this.hoopFx(fx),
+      redrawCourt: (look, fx) => {
+        this.courtG.destroy();
+        this.courtG = drawCourt(this, look);
+        if (fx && fx !== "none") this.courtSplash();
+      },
+      setBallLook: (look, fx) => this.applyBallLook(look, fx !== null),
+      // interactive elements register here as they land:
+      // cheer-area (step 5), jukebox (step 7)
+      spawnInteractive: () => {},
     });
     this.upgradeBtn = new UpgradeButton(this, () => this.tryUpgrade());
     this.sky = new SunSystem(this);
@@ -295,6 +309,40 @@ export class CourtScene extends Phaser.Scene {
     this.backend.connect();
   }
 
+  /** One hoop-change beat landed: the pop-with-splash at the hoop. */
+  private hoopFx(fx: FxKind) {
+    const { rimSX, rimSY } = this.hoop.rims[0]; // the top-most rim
+    if (fx === "pop" || fx === "pop-splash") {
+      flash(this, rimSX, rimSY, 46);
+      this.cameras.main.shake(140, 0.006);
+    }
+    if (fx === "splash" || fx === "pop-splash") {
+      burst(this, rimSX, rimSY + 8, 40, [0x9fd0ff, 0xfdf6e3, 0xffffff], 260);
+    }
+    playSfx(this, "sfx_pop", 0.9);
+  }
+
+  /** The court reskin's splash — a sweep of bursts across the floor. */
+  private courtSplash() {
+    const y = floorY(RIM.d);
+    for (const fx of [0.2, 0.5, 0.8]) {
+      const x = fx * T.court.lengthM * M;
+      burst(this, x, y, 30, [0xfdf6e3, 0xffffff, 0xffd97a], 240);
+    }
+    flash(this, (T.court.lengthM / 2) * M, y, 120);
+    this.cameras.main.shake(200, 0.005);
+    playSfx(this, "sfx_bounce", 0.8);
+  }
+
+  /** The tier's ball look, everywhere at once (world, held, UI icons). */
+  private applyBallLook(look: BallLookId, animated: boolean) {
+    this.ballTint = T.ballLooks[look] ?? T.ballLooks.classic;
+    this.player.rig.setBallTint(this.ballTint);
+    for (const r of this.remotes.values()) r.avatar.rig.setBallTint(this.ballTint);
+    this.hud.setBallLook(look !== "classic", animated);
+    if (animated) playSfx(this, "sfx_pop", 0.8);
+  }
+
   /** Track the authoritative world; the Upgrade button follows it. */
   private setWorld(w: WorldState) {
     this.world = w;
@@ -349,8 +397,8 @@ export class CourtScene extends Phaser.Scene {
       }
       this.spawnPuff(p.x, p.d);
     }
-    // the tier's change list (step 4 turns this into full choreography)
-    this.director.applyInstant(e.tierId);
+    // the tier's ordered change list plays out as choreography
+    this.director.playUpgrade(e.tierId);
     const tier = getTier(e.tierId);
     this.hud.log(
       "world",
@@ -361,6 +409,7 @@ export class CourtScene extends Phaser.Scene {
   private addRemote(p: PlayerInfo) {
     if (this.remotes.has(p.id)) return;
     const avatar = new RemoteAvatar(this, p);
+    avatar.rig.setBallTint(this.ballTint); // joiners wear the tier's look
     this.remotes.set(p.id, { avatar, bubbles: new SpeechBubbles(this, avatar) });
   }
 
@@ -520,6 +569,7 @@ export class CourtScene extends Phaser.Scene {
       shotDistM: floorDistToRim(launch.shotX, launch.shotD),
       own: true,
       geom: () => this.geom(),
+      tint: this.ballTint,
       onScore: (o) => {
         this.recording.stampOutcome(rec, true);
         this.backend.reportOutcome(throwId, {
@@ -544,7 +594,12 @@ export class CourtScene extends Phaser.Scene {
         this.ballsByThrowId.delete(throwId);
       },
     });
-    rec = this.recording.beginThrow(ball, launch.slam, this.playerName);
+    rec = this.recording.beginThrow(
+      ball,
+      launch.slam,
+      this.playerName,
+      this.director.ballLook, // the recolour rule stamps record time
+    );
     this.recsByThrowId.set(throwId, rec);
     this.ballsByThrowId.set(throwId, ball);
     this.balls.push(ball);
@@ -561,6 +616,7 @@ export class CourtScene extends Phaser.Scene {
       shotDistM: floorDistToRim(launch.shotX, launch.shotD),
       own: false, // never triggers OUR power-ups; the server rules theirs
       geom: () => this.geom(),
+      tint: this.ballTint,
       // cosmetic: the server's outcome event carries the result
       onScore: () => {},
       onMiss: () => {},
