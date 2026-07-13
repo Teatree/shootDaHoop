@@ -251,25 +251,37 @@ Known accepted edges (fine among friends, revisit for strangers):
   confirms the hit (the player "keeps the ball"; the slam is a free throw) —
   `refundThrow` in `src/shared/budget.ts`, corrected count pushed to the thrower.
 
-## Shared progression — hoop tiers (build data-driven)
+## Shared progression — hoop tiers (BUILT 2026-07-13; spec: HOOP_PROGRESSION.md)
 
-Shared per-world progression: cumulative community score unlocks a ladder of
-hoops, each a **different challenge** (not merely "worth more") and each
-**transforming the world** (visual chapter + amenity). This must be
-**data-driven** — a tier is a data entry, so adding Hoops 2–6 later is a content
-change, not a code change.
+Shared per-world progression, live through Hoop 3. The full design is
+`HOOP_PROGRESSION.md`; the implementation splits into:
 
-What the code must support without rework:
-
-- A hoop tier defined as data, roughly
-  `{ threshold, hoopBehaviour, visualChapter, amenity }`.
-- Hoop **behaviours pluggable** (static / double / moving / walking …) behind a
-  common interface — the throw/scoring code must not care which is active.
-- Cumulative shared score is part of synced world state; crossing a threshold
-  fires a **tier-unlock event** broadcast to everyone.
-- `DECIDE:` (design, later, not this pass) whether shared progress counts *makes*
-  or *attempts*; the contribution floor so a 0/5 day still nudges the bar; the
-  endgame at the top of the ladder.
+- **`shared/tierChanges.ts`** — the six change-type building blocks (hoop
+  change, scene visual, interactive element, permanent effect, new
+  animation, ambient/spawn). Engine vocabulary; adding a hoop never touches it.
+- **`shared/tiers.ts`** — Hoops 1–3 as data recipes (identity → unlock
+  threshold → ordered change list), readable top to bottom. Adding Hoop N
+  is editing this file only. Tunables are `PLACEHOLDER`-flagged.
+- **`shared/tierRules.ts`** — pure selectors folding recipes into live rules:
+  `hoopGeometryForTier` (multi-rim; physics/render/camera/validation all
+  consume it), `effectivePowerForTier` (+25% ball travel), ball/court looks,
+  `orbTimingForTier`, `canUpgrade`/`nextTier`, `clampToWalkable`,
+  `hoopChoreoGeometries` (staged looks per upgrade-animation beat).
+- **Upgrade loop** — score accumulates per made shot (points = "N",
+  PLACEHOLDER); at the next threshold a beckoning UPGRADE button appears
+  under the hoop; ANY player presses it; the server validates threshold +
+  proximity, **resets the shared score**, teleports everyone clear, persists,
+  broadcasts `upgraded`. Thresholds count from the reset (NOT cumulative —
+  the old `tierForScore` is gone). `LocalBackend` mirrors all of it offline.
+- **Client** — `systems/tierDirector.ts` plays recipes: `applyInstant`
+  (late joiners/snapshots/resets, no animation) vs `playUpgrade` (the
+  choreography; gameplay flips atomically, visuals lag through the beats).
+  `systems/upgradeButton.ts`, `cheerArea.ts`, `jukebox.ts`,
+  `proximityButton.ts`, `afk.ts` (AFK catch-up replay on return).
+- **Ghost recolour rule** — recordings stamp `ballLook` at record time; a
+  pre-upgrade replay keeps the classic ball forever.
+- `DECIDE:` (design, later) contribution floor so a 0/5 day still nudges the
+  bar; the endgame at the top of the ladder; real threshold values.
 
 ---
 
@@ -312,8 +324,9 @@ cleanly:
   `ThrowLaunch`, `ThrowOutcome`). The Backend event surface uses the same
   shapes, so client and (future) server compile against one vocabulary.
 - [x] **Data-driven definitions** — `shared/tiers.ts` (`HoopTierDef
-  { threshold, hoopBehaviour, visualChapter, amenity }` + `tierForScore`;
-  tier 1 = today's static hoop, behaviours are a pluggable id), `shared/
+  { id, name, threshold, changes }` — recipes composed from the
+  `shared/tierChanges.ts` change-type vocabulary; rules derived in
+  `shared/tierRules.ts`), `shared/
   balls.ts` (`BallTypeDef`; one "standard" entry today — threading per-throw
   ball types through physics is deferred to ball progression), and
   `shared/config.ts` (`BALANCE`) as the single balance surface: court, hoop,
@@ -386,9 +399,10 @@ chat+bubble, walk, teleport slam, ghost replays) all green.
    others; the thrower spawns **optimistically** for zero-latency feel; outcome
    resolved immediately via `resolveThrow` but **broadcast on a timer at
    `resolvedAtS`** so score juice lands when the ball visually lands.
-4. ✅ **Shared state:** score + tier update atomically per outcome; full
-   snapshot broadcast every 5s (the snapshot IS the recovery mechanism);
-   tier-unlock event wired (fires once tiers 2+ exist as data).
+4. ✅ **Shared state:** score updates per outcome; full snapshot broadcast
+   every 5s (the snapshot IS the recovery mechanism). The tier advances via
+   the player-triggered `upgrade` press (2026-07-13, HOOP_PROGRESSION.md) —
+   the `upgraded` event resets the score and teleports everyone clear.
 5. ✅ **Persistence:** `server/storage.ts` — `Storage` interface (the
    Postgres/DO swap point) with `JsonFileStorage` for local dev (`data/`,
    gitignored). World bundle (score, tier, last 50 wall lines) + player profile
@@ -503,5 +517,9 @@ chat+bubble, walk, teleport slam, ghost replays) all green.
 - **Ghost records are recorded only for your own throws** — remote outcome log
   lines are not clickable. Replaying others' throws would need remote-avatar
   history capture; deferred (the sample format already supports it).
+- ✅ **Hoop tiers 2–3 + amenities are LIVE** (2026-07-13): the upgrade loop,
+  double hoop, cheering area, jukebox, glass/mahogany courts, +25% ball
+  range, tier-timed orbs, AFK catch-up — see HOOP_PROGRESSION.md and the
+  progression section above. Placeholders flagged with `PLACEHOLDER` (grep).
 - **Not built yet:** Render deploy + Postgres `Storage` impl, bot processes,
-  hoop tiers 2+ (pure data + behaviour implementations), amenities.
+  hoop tiers 4+ (data recipes), real jukebox song files, tuned thresholds.

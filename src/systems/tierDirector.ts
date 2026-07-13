@@ -56,6 +56,8 @@ export interface TierDirectorHooks {
 export class TierDirector {
   private applied = 1;
   private timers: Phaser.Time.TimerEvent[] = [];
+  /** an upgrade that fired while the player was AFK — replayed on return */
+  private deferred: number | null = null;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -74,22 +76,58 @@ export class TierDirector {
 
   /** Jump straight to a tier with NO animation (late join, self-heal). */
   applyInstant(tierId: number) {
+    if (this.deferred !== null) {
+      // an AFK catch-up replay is queued: snapshots carrying that same
+      // tier must NOT preempt the show; any OTHER tier means the world
+      // moved elsewhere (another upgrade, a reset) — drop the hold
+      if (tierId === this.deferred) return;
+      this.deferred = null;
+    }
     if (tierId === this.applied) return;
     this.cancelPlayback();
     this.applied = tierId;
     this.applyFinalState();
   }
 
+  // ── AFK catch-up (HOOP_PROGRESSION.md): an upgrade that fires while
+  // the player is away holds the OLD world on their screen; their first
+  // input plays the full transformation, so nobody misses the payoff ──
+
+  /** Queue the upgrade's choreography instead of playing it now. */
+  deferUpgrade(tierId: number) {
+    this.deferred = tierId;
+  }
+
+  get hasDeferred(): boolean {
+    return this.deferred !== null;
+  }
+
+  /** The player is back — play the held transformation. */
+  playDeferred() {
+    const t = this.deferred;
+    this.deferred = null;
+    if (t === null) return;
+    // PLACEHOLDER (presentation): the catch-up is the FULL choreography.
+    // If the world upgraded more than once while away, the intermediate
+    // recipes can't chain — snap through them and play only the last leg.
+    if (t === this.applied + 1) this.playUpgrade(t);
+    else this.applyInstant(t);
+  }
+
   /** The live upgrade moment: play the tier's ordered change list. */
   playUpgrade(tierId: number) {
     if (tierId === this.applied) return;
+    this.deferred = null;
     this.cancelPlayback();
-    this.applied = tierId; // gameplay flips atomically; visuals follow
     const tier = getTier(tierId);
-    if (!tier) {
+    if (!tier || tierId !== this.applied + 1) {
+      // a recipe choreographs ONE rung of the ladder — a jump (missed
+      // events while disconnected/AFK across several upgrades) snaps
+      this.applied = tierId;
       this.applyFinalState();
       return;
     }
+    this.applied = tierId; // gameplay flips atomically; visuals follow
 
     const fx = T.progressionFx;
     const geoms = hoopChoreoGeometries(tierId);

@@ -43,6 +43,7 @@ import { TierDirector } from "../systems/tierDirector";
 import { UpgradeButton, upgradeButtonSpot } from "../systems/upgradeButton";
 import { CheerArea } from "../systems/cheerArea";
 import { Jukebox } from "../systems/jukebox";
+import { IdleWatch } from "../systems/afk";
 import { orbTimingForTier } from "../shared/tierRules";
 import type { BallLookId, FxKind } from "../shared/tierChanges";
 import { RemoteAvatar } from "../remoteAvatar";
@@ -79,6 +80,7 @@ export class CourtScene extends Phaser.Scene {
   private upgradeBtn!: UpgradeButton;
   private cheer?: CheerArea;
   private jukebox?: Jukebox;
+  private idle!: IdleWatch;
   private courtG!: Phaser.GameObjects.Graphics;
   /** the applied tier's ball tint — new balls spawn wearing it */
   private ballTint: number = T.ballLooks.classic;
@@ -172,6 +174,10 @@ export class CourtScene extends Phaser.Scene {
       },
     });
     this.upgradeBtn = new UpgradeButton(this, () => this.tryUpgrade());
+    this.idle = new IdleWatch(T.progressionFx.afkTimeoutS, () => {
+      // the AFK player is back — the held transformation plays now
+      if (this.director.hasDeferred) this.playUpgradeShow(null);
+    });
     this.sky = new SunSystem(this);
     this.player = new Player(this, this.playerName, this.identity);
     this.speech = new SpeechBubbles(this, this.player);
@@ -430,13 +436,8 @@ export class CourtScene extends Phaser.Scene {
   }) {
     this.pendingUpgradePress = false;
     this.setWorld(e.world);
-    // a burst of VFX — lots, all at once
-    const { rimSX, rimSY } = this.hoop.primary;
-    flash(this, rimSX, rimSY, 90);
-    burst(this, rimSX, rimSY, 110);
-    this.cameras.main.shake(500, 0.02);
-    playSfx(this, "sfx_swish", 1);
-    // all active players teleported clear of the hoop
+    // all active players teleported clear of the hoop — server truth,
+    // applied even for an AFK player (only the SHOW is deferred)
     for (const p of e.placements) {
       if (p.id === this.selfId) {
         this.player.stop();
@@ -447,13 +448,30 @@ export class CourtScene extends Phaser.Scene {
       }
       this.spawnPuff(p.x, p.d);
     }
-    // the tier's ordered change list plays out as choreography
-    this.director.playUpgrade(e.tierId);
     const tier = getTier(e.tierId);
     this.hud.log(
       "world",
       `${esc(e.byName)} upgraded the court — Hoop ${e.tierId}: ${esc(tier?.name ?? "")}!`,
     );
+    if (this.idle.isAfk) {
+      // AFK catch-up: hold the old world; the return replays the moment
+      this.director.deferUpgrade(e.tierId);
+      return;
+    }
+    this.playUpgradeShow(e.tierId);
+  }
+
+  /** The transformation's presentation: the burst + the change list. */
+  private playUpgradeShow(tierId: number | null) {
+    // a burst of VFX — lots, all at once
+    const { rimSX, rimSY } = this.hoop.primary;
+    flash(this, rimSX, rimSY, 90);
+    burst(this, rimSX, rimSY, 110);
+    this.cameras.main.shake(500, 0.02);
+    playSfx(this, "sfx_swish", 1);
+    // the tier's ordered change list plays out as choreography
+    if (tierId !== null) this.director.playUpgrade(tierId);
+    else this.director.playDeferred();
   }
 
   private addRemote(p: PlayerInfo) {
@@ -531,6 +549,7 @@ export class CourtScene extends Phaser.Scene {
 
     this.balls = this.balls.filter((b) => !b.done);
     this.rig.update(dt);
+    this.idle.update();
 
     // clicked Upgrade from afar → walking over; press when close enough
     if (this.pendingUpgradePress) {

@@ -264,10 +264,10 @@ Phaser/DOM/Node), imported by client AND server:**
 |---|---|
 | `shared/config.ts` | `BALANCE` — the single balance surface: court, hoop, throw physics, power curve, scoring (incl. slam points), walls, movement, ground, throw budget, lobby limits |
 | `shared/court.ts` | landmarks, walls, clamps, distances — all in meters |
-| `shared/physics.ts` | `stepBall(state, dt) → events`: substepped flight, rim/board/wall/ground collisions, swept scoring |
+| `shared/physics.ts` | `stepBall(state, dt, geom) → events`: substepped flight, rim/board/wall/ground collisions, swept scoring against every rim of the active tier's hoop |
 | `shared/scoring.ts` | distance → points table |
-| `shared/simulate.ts` | `resolveThrow(launch)` — the server-side authority (fixed dt: one launch, one outcome) |
-| `shared/tiers.ts` | data-driven hoop tiers + `tierForScore` |
+| `shared/simulate.ts` | `resolveThrow(launch, orb, tierId)` — the server-side authority (fixed dt: one launch, one outcome) |
+| `shared/tiers.ts` | hoop tiers as data recipes (spec: HOOP_PROGRESSION.md; change-type blocks in `tierChanges.ts`, derived rules in `tierRules.ts`) |
 | `shared/balls.ts` | data-driven ball types |
 | `shared/budget.ts` | the daily throw budget (pure, unit-tested; UTC-midnight reset) — server enforces it against the profile, `LocalBackend` against a localStorage counter (offline unlimited-practice reversed 2026-07-12) |
 | `shared/messages.ts` | the typed client↔server protocol (`ClientMsg`/`ServerMsg`, `ThrowLaunch`, `ThrowOutcome`, history entries) |

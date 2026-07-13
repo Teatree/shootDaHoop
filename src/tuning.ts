@@ -100,6 +100,9 @@ export const T = {
     leadMs: 600, //      breath between the VFX burst/teleport and beat 1
     hoopBeatMs: 450, //  each hoop-change beat (pop/splash) holds this long
     changeBeatMs: 700, //each non-hoop change in the ordered list
+    // PLACEHOLDER (tune): seconds without input before a player counts
+    // as AFK — an upgrade firing then is held and replayed on return
+    afkTimeoutS: 60,
   },
 
   // ── Ball looks (Permanent Effect: "balls become more red") ─────────

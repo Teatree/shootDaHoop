@@ -12,8 +12,9 @@
 //  ONLY: copy a tier block, set identity + threshold, compose the list.
 //
 //  Thresholds count from the shared-score RESET after the previous
-//  upgrade (they are NOT cumulative). Every made shot adds its points
-//  (100–500, see shared/scoring.ts) to the shared score.
+//  upgrade (they are NOT cumulative). PLACEHOLDER (design): "N per made
+//  shot" = the shot's own points (100–500, shared/scoring.ts) — change
+//  server/room.ts applyOutcome + backend/local.ts if N should differ.
 //
 //  Dependency-free: no Phaser, no DOM, no Node.
 // ════════════════════════════════════════════════════════════════════

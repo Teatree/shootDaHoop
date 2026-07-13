@@ -228,11 +228,22 @@ change-type to the vocabulary once, then every future hoop can use it as data.
 
 ## Open items (to define)
 
-- `N` per made shot, and the **score threshold for each tier** (Hoop 2, Hoop 3, …).
-- The **three reference songs** for the Jukebox, and the exact
-  cycle-vs-random behaviour on press.
-- Exact **teleport destinations** for active players when an upgrade fires.
-- The precise **AFK catch-up** presentation (full replay vs. condensed success
-  beat).
-- Ghost-ball system specifics the recolour rule depends on (recording timestamps
-  vs. upgrade time).
+All of these are BUILT with flagged placeholder values — grep `PLACEHOLDER`
+for the full list. Where each one lives:
+
+- `N` per made shot → currently the shot's own points
+  (`server/room.ts` applyOutcome + `src/backend/local.ts`; flagged in
+  `src/shared/tiers.ts` header). **Tier thresholds** → `threshold` in each
+  tier block of `src/shared/tiers.ts` (1500 / 4000 placeholders).
+- The **three reference songs** → drop files into `public/assets/music/`
+  (`song1..3.mp3|wav`, see the README there; silent until provided).
+  Press behaviour → re-roll, always different (`server/room.ts` "jukebox"
+  case + `BALANCE.jukebox`).
+- **Teleport destinations** on upgrade → `BALANCE.upgrade.clearMinXM/MaxXM`
+  band, rolled per player in `rollUpgradeClearSpot` (`src/shared/court.ts`).
+- **AFK catch-up** presentation → full choreography replay on return
+  (`src/systems/afk.ts` + `TierDirector.deferUpgrade`; timeout in
+  `T.progressionFx.afkTimeoutS`). A hidden tab gets this for free via
+  Phaser's pause-on-blur.
+- **Ghost-ball recolour** → recordings stamp `ballLook` at record time
+  (`ThrowRecording.ballLook`), not timestamps — simpler and equivalent.
