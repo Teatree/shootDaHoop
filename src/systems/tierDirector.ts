@@ -49,6 +49,8 @@ export interface TierDirectorHooks {
   setBallLook(look: BallLookId, fx: FxKind | null): void;
   /** place an interactive element; animated = play its appearFx */
   spawnInteractive(el: InteractiveElement, animated: boolean): void;
+  /** remove every placed interactive (a world reset back down a tier) */
+  clearInteractives(): void;
 }
 
 export class TierDirector {
@@ -133,6 +135,7 @@ export class TierDirector {
     this.hooks.rebuildHoop(hoopGeometryForTier(this.applied));
     this.hooks.redrawCourt(courtLookForTier(this.applied), null);
     this.hooks.setBallLook(ballLookForTier(this.applied), null);
+    this.hooks.clearInteractives(); // resets tear DOWN; upgrades re-add
     for (const el of interactivesForTier(this.applied))
       this.hooks.spawnInteractive(el, false);
   }

@@ -24,6 +24,8 @@ export class Player {
   aimInfo: { angle: number; power: number } | null = null;
   /** the teleport system's override while airborne/floored */
   tpKind: "fall" | "lie" | null = null;
+  /** a scripted activity's pose (the cheer area) — beats normal kinds */
+  poseOverride: "cheer" | null = null;
 
   /** the visible body — teleport tweens target rig.angle */
   readonly rig: CharacterRig;
@@ -125,7 +127,8 @@ export class Player {
           aimPower: this.throwAim.power,
         };
       case "fall":
-        return { kind, t: this.stateT }; // drives the hand waggle
+      case "cheer":
+        return { kind, t: this.stateT }; // drives the waggle / pump rhythm
       default:
         // idle/lie/getup are static — a constant clock keeps the
         // telemetry dirty-check quiet while standing around
@@ -181,6 +184,7 @@ export class Player {
 
   private currentKind(): PoseState["kind"] {
     if (this.tpKind) return this.tpKind; //         fall / lie
+    if (this.poseOverride) return this.poseOverride; // cheering
     if (Math.abs(this.rig.angle) > 0.5) return "getup"; // standing back up
     if (this.throwT < THROW_ANIM_S) return "throw";
     if (this.aiming) return "aim";

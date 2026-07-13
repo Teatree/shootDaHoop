@@ -15,7 +15,8 @@ export type PoseKind =
   | "throw"
   | "fall"
   | "lie"
-  | "getup";
+  | "getup"
+  | "cheer"; // unlocked with Hoop 2 (shared/tiers.ts New Animation)
 
 export interface PoseState {
   kind: PoseKind;
@@ -93,6 +94,14 @@ const HANDS_UP: V2 = { x: 8, y: 68 }; // beside and just above the crown
 const WAGGLE_HZ = 12;
 const WAGGLE_PX = 1.5;
 
+// cheering — bob and throw the hands in the air in a QUICK rhythm
+// (Hoop 2's New Animation). Hands pump between shoulder height and full
+// stretch, slightly out of phase so it reads alive, not robotic.
+const CHEER_HZ = 3.0; //     pumps per second — the "quick rhythm"
+const CHEER_BOB_PX = 4; //   body hop per pump
+const CHEER_LOW_Y = 42; //   hands at the pump's bottom (shoulder-ish)
+const CHEER_PHASE = 0.55; // right hand trails the left by this (radians)
+
 const smoothOut = (t: number) => 1 - (1 - t) * (1 - t);
 
 /** The single source of truth: a pose state → where every part sits. */
@@ -159,6 +168,23 @@ export function computePose(s: PoseState): RigPose {
       // hands STAY up while face-down and while getting up — they only
       // come down once the figure is fully upright (kind returns to idle)
       return handsUpPose(0);
+
+    case "cheer": {
+      const ph = s.t * Math.PI * 2 * CHEER_HZ;
+      const pumpL = (Math.sin(ph) + 1) / 2; //             0..1
+      const pumpR = (Math.sin(ph - CHEER_PHASE) + 1) / 2;
+      const bob = Math.abs(Math.sin(ph)) * CHEER_BOB_PX;
+      const handY = (p: number) => CHEER_LOW_Y + p * (HANDS_UP.y - CHEER_LOW_Y);
+      return {
+        lower: { x: 0, y: bob * 0.5 },
+        upper: { x: 0, y: bob * 0.7 },
+        head: { x: 0, y: bob },
+        handL: off("handL", { x: -HANDS_UP.x - 2, y: handY(pumpL) + bob }),
+        handR: off("handR", { x: HANDS_UP.x + 2, y: handY(pumpR) + bob }),
+        tilt: 0,
+        ball: null,
+      };
+    }
   }
 }
 

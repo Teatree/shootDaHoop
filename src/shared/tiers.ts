@@ -73,9 +73,12 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
       {
         type: "interactive",
         element: "cheer-area",
-        // PLACEHOLDER (tune): over the spawn area, behind the far sideline
-        placement: { xM: 19.8, dM: -1.2 },
-        widthM: 3.6, // PLACEHOLDER (tune): ~3 characters wide
+        // PLACEHOLDER (tune): over the spawn area, just behind the far
+        // sideline — its near edge touches the court so a player can
+        // stand "very close" (the ~2 px trigger is edge-to-edge)
+        placement: { xM: 19.8, dM: -0.6 },
+        widthM: 3.6, //  PLACEHOLDER (tune): ~3 characters wide
+        depthM: 1.2, // PLACEHOLDER (tune)
         proximityPx: 2, // doc: "within ~2 px (very close)", edge-to-edge
         occupiesSpot: true, // characters physically stand in it to cheer
         spots: 3,
@@ -152,8 +155,9 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
         type: "interactive",
         element: "jukebox",
         // PLACEHOLDER (tune): left of the cheering area, off court
-        placement: { xM: 16.8, dM: -1.2 },
+        placement: { xM: 16.8, dM: -0.6 },
         widthM: 1.2, // PLACEHOLDER (tune)
+        depthM: 0.8, // PLACEHOLDER (tune)
         proximityPx: 2, // like the cheering area: very close
         occupiesSpot: false, // press-in-passing — no dedicated space
         synced: true, // song choice + playback synced to everyone

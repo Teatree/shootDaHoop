@@ -87,6 +87,8 @@ export interface InteractiveElement {
   placement: { xM: number; dM: number };
   /** footprint width, meters (the deck / the box) */
   widthM: number;
+  /** footprint depth, meters (how far the element extends in d) */
+  depthM: number;
   /** the trigger button appears when the player is within this many
    *  world px of the element's edge (doc: "~2 px — very close") */
   proximityPx: number;

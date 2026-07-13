@@ -52,6 +52,35 @@ describe("computePose", () => {
     );
   });
 
+  it("cheer: hands pump above the head in a quick rhythm, body hops", () => {
+    // sample one full second — hands must reach clear above the crown at
+    // the pump's top and drop back toward shoulders at the bottom
+    let maxHand = -Infinity;
+    let minHand = Infinity;
+    let maxBob = 0;
+    for (let t = 0; t <= 1; t += 1 / 60) {
+      const p = computePose(at({ kind: "cheer", t }));
+      const handY = PART_ANCHORS.handL.y + p.handL.y;
+      maxHand = Math.max(maxHand, handY);
+      minHand = Math.min(minHand, handY);
+      maxBob = Math.max(maxBob, p.head.y);
+      expect(p.ball).toBeNull();
+    }
+    expect(maxHand).toBeGreaterThan(PART_ANCHORS.head.y + 14); // thrown in the air
+    expect(maxHand - minHand).toBeGreaterThan(15); //   a real pump, not a twitch
+    expect(maxBob).toBeGreaterThan(2); //               the bob
+  });
+
+  it("cheer: the rhythm is quick — several pumps per second", () => {
+    // the hand height at t and one full pump later must match (periodic),
+    // with the period well under a second ("quick rhythm")
+    const handAt = (t: number) =>
+      computePose(at({ kind: "cheer", t })).handL.y;
+    const period = 1 / 3.0; // CHEER_HZ
+    expect(handAt(0.1)).toBeCloseTo(handAt(0.1 + period), 5);
+    expect(handAt(0.1)).not.toBeCloseTo(handAt(0.1 + period / 2), 0);
+  });
+
   it("aim: charging pulls the hold back against the aim direction", () => {
     const soft = computePose(at({ kind: "aim", aimAngle: 0, aimPower: 0 }));
     const full = computePose(at({ kind: "aim", aimAngle: 0, aimPower: 1 }));

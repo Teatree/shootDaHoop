@@ -41,6 +41,7 @@ import {
 import { showNotice } from "../settings";
 import { TierDirector } from "../systems/tierDirector";
 import { UpgradeButton, upgradeButtonSpot } from "../systems/upgradeButton";
+import { CheerArea } from "../systems/cheerArea";
 import type { BallLookId, FxKind } from "../shared/tierChanges";
 import { RemoteAvatar } from "../remoteAvatar";
 import { TeleportSystem } from "../systems/teleport";
@@ -74,6 +75,7 @@ export class CourtScene extends Phaser.Scene {
   private throwSeq = 0;
   private director!: TierDirector;
   private upgradeBtn!: UpgradeButton;
+  private cheer?: CheerArea;
   private courtG!: Phaser.GameObjects.Graphics;
   /** the applied tier's ball tint — new balls spawn wearing it */
   private ballTint: number = T.ballLooks.classic;
@@ -142,9 +144,22 @@ export class CourtScene extends Phaser.Scene {
         if (fx && fx !== "none") this.courtSplash();
       },
       setBallLook: (look, fx) => this.applyBallLook(look, fx !== null),
-      // interactive elements register here as they land:
-      // cheer-area (step 5), jukebox (step 7)
-      spawnInteractive: () => {},
+      spawnInteractive: (el, animated) => {
+        if (el.element === "cheer-area") {
+          this.cheer ??= new CheerArea(this, this.player, el, () =>
+            [...this.remotes.values()].map((r) => ({
+              x: r.avatar.x,
+              d: r.avatar.d,
+            })),
+          );
+          this.cheer.spawn(animated);
+        }
+        // jukebox lands in step 7
+      },
+      clearInteractives: () => {
+        this.cheer?.destroy();
+        this.cheer = undefined;
+      },
     });
     this.upgradeBtn = new UpgradeButton(this, () => this.tryUpgrade());
     this.sky = new SunSystem(this);
@@ -302,6 +317,15 @@ export class CourtScene extends Phaser.Scene {
           r.avatar.destroy();
           this.remotes.delete(id);
         }
+      }
+    });
+
+    // throw yielding: a right-click while cheering walks the character
+    // back out of the area (PLACEHOLDER: the player re-aims once out —
+    // replaying the exact aim gesture after the walk isn't possible)
+    this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
+      if (p.rightButtonDown() && this.cheer?.active) {
+        this.cheer.leaveThen(() => {});
       }
     });
 
@@ -473,6 +497,7 @@ export class CourtScene extends Phaser.Scene {
       r.bubbles.update(dt);
     }
     this.aim.update();
+    this.cheer?.update(dt);
     for (const b of this.balls) b.update(dt, light);
     this.teleport.update(dt, this.balls);
     this.recording.update(dt);
@@ -651,8 +676,17 @@ export class CourtScene extends Phaser.Scene {
   private walkClick(sx: number, sy: number) {
     this.pendingUpgradePress = false; // walking elsewhere cancels the errand
     const { x, d } = screenToFloor(sx, sy);
-    this.backend.moveTo(x, d);
     this.clickRipple(sx, sy);
+    // yielding: a cheering character first walks back down out of the
+    // area, then obeys the click
+    if (
+      this.cheer?.leaveThen(() => {
+        this.player.walkTo(x, d);
+        this.backend.moveTo(x, d);
+      })
+    )
+      return;
+    this.backend.moveTo(x, d);
   }
 
   private clickRipple(sx: number, sy: number) {

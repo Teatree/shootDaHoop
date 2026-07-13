@@ -11,7 +11,7 @@
 // ════════════════════════════════════════════════════════════════════
 
 import { BALANCE } from "./config";
-import { RIM } from "./court";
+import { RIM, clampToCourt } from "./court";
 import { HOOP_TIERS, type HoopTierDef } from "./tiers";
 import type {
   BallLookId,
@@ -248,6 +248,29 @@ export function animationsForTier(tierId: number): Set<string> {
   for (const t of tiersUpTo(tierId))
     for (const c of t.changes) if (c.type === "new-animation") out.add(c.anim);
   return out;
+}
+
+/**
+ * Where a character may STAND at this tier: the court, plus any unlocked
+ * interactive area that characters physically occupy (the cheer deck).
+ * The server's pose sanitizer uses this so remote cheerers aren't
+ * snapped back onto the court.
+ */
+export function clampToWalkable(
+  x: number,
+  d: number,
+  tierId: number,
+): { x: number; d: number } {
+  for (const el of interactivesForTier(tierId)) {
+    if (!el.occupiesSpot) continue;
+    const slack = 0.3; // a little grace around the footprint
+    if (
+      Math.abs(x - el.placement.xM) <= el.widthM / 2 + slack &&
+      Math.abs(d - el.placement.dM) <= el.depthM / 2 + slack
+    )
+      return { x, d };
+  }
+  return clampToCourt(x, d);
 }
 
 // ── Orb timing (Ambient / Spawn Change) ───────────────────────────────

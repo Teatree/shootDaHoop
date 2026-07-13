@@ -9,6 +9,7 @@ import {
 import { resolveThrow } from "../src/shared/simulate";
 import {
   canUpgrade,
+  clampToWalkable,
   effectivePowerForTier,
   nextTier,
 } from "../src/shared/tierRules";
@@ -252,7 +253,7 @@ export class Room {
       case "pose": {
         // cosmetic telemetry — sanitize the numbers, relay to everyone
         // else, and keep the presence info in step for snapshots
-        const s = sanePose(msg.s);
+        const s = sanePose(msg.s, this.world.tierId);
         if (!s) break;
         occ.info.x = s.x;
         occ.info.d = s.d;
@@ -497,20 +498,23 @@ const POSE_KINDS = new Set([
   "fall",
   "lie",
   "getup",
+  "cheer",
 ]);
 
 /**
  * Pose telemetry is relayed to every client — never let a malformed
  * payload through. Returns a clean copy, or null to drop the message.
+ * Positions clamp to the tier's WALKABLE space — the court plus any
+ * unlocked stand-in areas (the cheer deck is off-court).
  */
-function sanePose(s: AvatarState): AvatarState | null {
+function sanePose(s: AvatarState, tierId: number): AvatarState | null {
   if (typeof s !== "object" || s === null || typeof s.pose !== "object")
     return null;
   const nums = [s.x, s.d, s.airH, s.angle, s.pose.t];
   if (nums.some((n) => typeof n !== "number" || !Number.isFinite(n)))
     return null;
   if (!POSE_KINDS.has(s.pose.kind)) return null;
-  const c = clampToCourt(s.x, s.d);
+  const c = clampToWalkable(s.x, s.d, tierId);
   const num = (n: unknown) =>
     typeof n === "number" && Number.isFinite(n) ? n : undefined;
   return {
