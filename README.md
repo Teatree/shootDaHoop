@@ -84,6 +84,61 @@ npm test
 Different `?lobby=` values are different worlds; a window with no `?lobby=`
 parameter plays offline through `LocalBackend`.
 
+### Creating a lobby from the game
+
+Click the **⚙️ gear button** next to Send and hit **Generate lobby link**.
+That mints an invite URL for a fresh court (e.g. `?lobby=mossy-fox-3f2a`),
+shown as a plain link in the pop-up. **Copy invite** puts a framed
+plain-text invitation on the clipboard — a little poster naming the court
+with the link inside, ready to paste into any chat — and **Join this
+lobby** takes you there yourself. A generated link is just a link: nothing
+exists on the server until someone opens it and enters a name — that first
+join creates and persists the world. The link carries only `?server=` over
+from your current address (`?pid=` and `?reset` are deliberately dropped).
+
+## Admin: managing lobbies
+
+Every joined lobby lives on as files under `data/` (`worlds/<lobby>.json`,
+`logs/<lobby>.jsonl`). To decide which lobbies can go, list them:
+
+```
+npm run admin -- list
+```
+
+Columns: **lobby** id, **players** (distinct names that ever joined — names,
+not identities), **hoop tier**, and **last visited** (the last player-caused
+event in the lobby's log).
+
+```
+npm run admin -- remove <lobby>
+```
+
+Removal is a move, not a delete: the lobby's world and log go to
+`data/backups/<lobby>/`. If the server is running, players currently in the
+lobby are kicked first and see a "removed manually by the admin" notice; if
+the server is down the kick is skipped and the files just move. Player
+profiles are global (shared across lobbies) and are never touched. Note: the
+old invite link still works — reopening it creates a *fresh* lobby with the
+same id.
+
+```
+npm run admin -- restore <lobby>
+```
+
+Brings back all progress (shared score, hoop tier, full wall history). It
+refuses if a lobby with that id already exists again (someone reused the old
+link); `restore <lobby> --force` discards that re-created lobby — kicking
+anyone in it — and brings the backup back.
+
+```
+npm run admin -- backups          # list what's in data/backups/
+npm run admin -- purge-backup <lobby>   # the only true delete
+```
+
+Environment knobs: `ADMIN_TOKEN` (shared secret between server and CLI;
+defaults to `dev-admin` — set a real one anywhere non-local), `ADMIN_SERVER`
+(default `ws://localhost:9999`), `DATA_DIR` (default `data`).
+
 ## Tuning
 
 - Client feel knobs (camera, aim preview, juice intensity, sky, ghosts,

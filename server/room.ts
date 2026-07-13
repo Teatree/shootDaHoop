@@ -182,6 +182,32 @@ export class Room {
     }
   }
 
+  /**
+   * Admin removal: notify + kick everyone WITHOUT persisting anything —
+   * the CLI moves the lobby's files right after this, so a stray write
+   * from a leave handler or pending outcome would resurrect them.
+   * Ordering is load-bearing: occupants cleared first so the socket
+   * close handlers' leave() calls no-op; pending timers discarded
+   * (never fired — firing would record() and re-save the world).
+   */
+  destroy(): void {
+    const socks = [...this.occupants.values()].map((o) => o.ws);
+    this.occupants.clear();
+    for (const p of this.pending) clearTimeout(p.timer);
+    this.pending.clear();
+    if (this.snapshotTimer) clearInterval(this.snapshotTimer);
+    this.orb.stop();
+    const data = JSON.stringify({ t: "lobby-removed" } satisfies ServerMsg);
+    for (const ws of socks) {
+      if (ws.readyState === ws.OPEN) ws.send(data);
+      try {
+        ws.close();
+      } catch {
+        /* already dead */
+      }
+    }
+  }
+
   /** Append to the wall history and persist the bundle — save on event. */
   private record(entry: HistoryEntry) {
     // the permanent archive gets EVERY entry, forever, per lobby —

@@ -18,6 +18,8 @@ export type SocketIdentity = Cosmetics & { id: string };
 export class SocketBackend implements Backend {
   private readonly emitter = new BackendEmitter();
   private ws: WebSocket | null = null;
+  /** the admin kicked this lobby — the close that follows is expected */
+  private removed = false;
 
   constructor(
     private readonly opts: {
@@ -46,7 +48,9 @@ export class SocketBackend implements Backend {
         console.error("bad server message, skipped:", err);
       }
     };
-    ws.onclose = () => this.emitter.emit("disconnected", {});
+    ws.onclose = () => {
+      if (!this.removed) this.emitter.emit("disconnected", {});
+    };
   }
 
   private dispatch(m: ServerMsg) {
@@ -107,6 +111,10 @@ export class SocketBackend implements Backend {
         break;
       case "world-reset":
         this.emitter.emit("worldReset", { name: m.name, world: m.world });
+        break;
+      case "lobby-removed":
+        this.removed = true;
+        this.emitter.emit("lobbyRemoved", {});
         break;
       case "orb-spawned":
         this.emitter.emit("orbSpawned", { orb: m.orb });

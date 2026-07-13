@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "server": "tsx server/index.ts",
+    "admin": "tsx scripts/admin.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

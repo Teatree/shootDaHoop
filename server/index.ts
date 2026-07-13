@@ -59,6 +59,26 @@ wss.on("connection", (ws: WebSocket) => {
             `[room ${lobby}] ${msg.identity.name} (${playerId}) joined — ${r.size} here`,
           );
         }
+      } else if (msg.t === "admin") {
+        // admin CLI (scripts/admin.ts): kick a live lobby so its files
+        // can be moved to backup without a write racing the move
+        const reply = (ok: boolean, detail: string) =>
+          ws.send(JSON.stringify({ t: "admin-result", ok, detail }));
+        if (msg.token !== (process.env.ADMIN_TOKEN ?? "dev-admin")) {
+          reply(false, "bad token");
+          ws.close();
+          return;
+        }
+        const lobby = String(msg.lobby).slice(0, 64);
+        const r = rooms.get(lobby);
+        const kicked = r?.size ?? 0;
+        if (r) {
+          rooms.delete(lobby); // before destroy — it must not resurrect
+          r.destroy();
+          console.log(`[room ${lobby}] removed by admin — kicked ${kicked}`);
+        }
+        reply(true, r ? `kicked ${kicked} player(s)` : "no live room");
+        ws.close();
       } else if (room && playerId) {
         room.handle(playerId, msg);
       }

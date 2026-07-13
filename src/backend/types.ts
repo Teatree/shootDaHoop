@@ -26,6 +26,8 @@ export interface BackendEvents {
   joinRejected: (e: { reason: "full" }) => void;
   /** the connection dropped (socket backends only) */
   disconnected: (e: { reason?: string }) => void;
+  /** the admin removed this lobby — a kick, not a network drop */
+  lobbyRemoved: (e: Record<string, never>) => void;
   playerJoined: (e: { player: PlayerInfo }) => void;
   playerLeft: (e: { id: string; name: string }) => void;
   /** a movement intent — every client animates the walk locally */

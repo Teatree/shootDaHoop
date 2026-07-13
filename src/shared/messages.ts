@@ -105,7 +105,9 @@ export type ClientMsg =
   | { t: "throw"; throwId: string; launch: ThrowLaunch }
   | { t: "chat"; text: string }
   /** pose telemetry, ~12 Hz while animating — cosmetic, relayed as-is */
-  | { t: "pose"; s: AvatarState };
+  | { t: "pose"; s: AvatarState }
+  /** admin CLI (scripts/admin.ts): kick a lobby before its files move */
+  | { t: "admin"; token: string; cmd: "remove"; lobby: string };
 
 // ── server → client ───────────────────────────────────────────────────
 
@@ -132,6 +134,10 @@ export type ServerMsg =
   | { t: "budget"; throwsRemaining: number }
   /** someone joined with a ?reset link — the shared score was wiped */
   | { t: "world-reset"; name: string; world: WorldState }
+  /** the admin removed this lobby — show a notice, expect the close */
+  | { t: "lobby-removed" }
+  /** ack for an admin command (sent to the CLI socket only) */
+  | { t: "admin-result"; ok: boolean; detail: string }
   // ── server-authoritative world objects (the orb) ──────────────────
   | { t: "orb-spawned"; orb: OrbState }
   /** byId present = consumed by that player's ball; absent = expired */

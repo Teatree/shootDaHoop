@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { CourtScene } from "./scenes/CourtScene";
 import { initHUD } from "./hud";
+import { initSettings } from "./settings";
 import { AUDIO_MANIFEST, IMAGE_MANIFEST } from "./assets";
 import { askPlayerName, getStoredName } from "./playerName";
 import { LocalBackend } from "./backend/local";
@@ -74,6 +75,7 @@ async function exists(url: string): Promise<boolean> {
 
 async function boot() {
   const hud = initHUD();
+  initSettings();
 
   const params = new URLSearchParams(location.search);
   const lobby = params.get("lobby");

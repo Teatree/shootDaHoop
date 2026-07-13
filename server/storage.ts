@@ -46,7 +46,7 @@ export interface Storage {
 }
 
 /** ids come from the outside world — never let them escape the data dir */
-function safe(name: string): string {
+export function safe(name: string): string {
   return name.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 80);
 }
 

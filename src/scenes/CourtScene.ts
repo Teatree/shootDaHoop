@@ -30,6 +30,7 @@ import type {
   ThrowOutcome,
 } from "../shared/messages";
 import type { Backend } from "../backend/types";
+import { showNotice } from "../settings";
 import { RemoteAvatar } from "../remoteAvatar";
 import { TeleportSystem } from "../systems/teleport";
 import { RecordingSystem } from "../systems/recording";
@@ -164,6 +165,14 @@ export class CourtScene extends Phaser.Scene {
     });
     this.backend.on("disconnected", () => {
       this.hud.log("presence", "Connection to the court lost.");
+    });
+    this.backend.on("lobbyRemoved", () => {
+      // a kick, not a network drop — the backend suppressed `disconnected`
+      showNotice(
+        "Court closed",
+        "This lobby was removed manually by the admin.",
+        { label: "Play offline", href: location.pathname },
+      );
     });
     this.backend.on("playerJoined", (e) => {
       this.addRemote(e.player);
