@@ -270,7 +270,10 @@ export class CourtScene extends Phaser.Scene {
       if (e.id === this.selfId) {
         this.spawnBall(e.throwId, e.launch);
       } else {
-        this.spawnRemoteBall(e.throwId, e.launch);
+        // a hidden tab's game loop is paused: a ball spawned now would
+        // fly when the player comes back — the outcome event carries
+        // everything that matters, so skip the cosmetic flight
+        if (!document.hidden) this.spawnRemoteBall(e.throwId, e.launch);
         // if they were levitating, this throw is their last act up there
         this.remotes.get(e.id)?.avatar.onThrowReleased();
       }
@@ -292,7 +295,8 @@ export class CourtScene extends Phaser.Scene {
       // comes into existence"
       this.teleport.orb.show(
         e.orb,
-        orbTimingForTier(this.director.tierId).appearFx !== "none",
+        orbTimingForTier(this.director.tierId).appearFx !== "none" &&
+          !document.hidden,
       ),
     );
     this.backend.on("orbRemoved", (e) => {
@@ -304,6 +308,9 @@ export class CourtScene extends Phaser.Scene {
       if (e.id === this.selfId) {
         // usually we predicted this locally — then it's a no-op
         this.teleport.confirmTeleport({ x: e.x, d: e.d, h: e.h });
+      } else if (document.hidden) {
+        // hidden tab: snap — a queued zap would play on return
+        this.remotes.get(e.id)?.avatar.setPos(e.x, e.d);
       } else {
         this.remotes.get(e.id)?.avatar.teleportTo(e.x, e.d, e.h);
       }
@@ -313,6 +320,7 @@ export class CourtScene extends Phaser.Scene {
         "chat",
         `<span class="who">${esc(e.name)}:</span> ${esc(e.text)}`,
       );
+      if (document.hidden) return; // the wall has it; no stale bubbles
       if (e.id === this.selfId) this.speech.say(e.text);
       else this.remotes.get(e.id)?.bubbles.say(e.text);
       playSfx(this, "sfx_chat", 0.5);
@@ -483,6 +491,7 @@ export class CourtScene extends Phaser.Scene {
 
   /** Appear-VFX at a floor spot (character mid-height). */
   private spawnPuff(x: number, d: number) {
+    if (document.hidden) return; // don't stockpile puffs for the return
     const { sx, sy } = toScreen(x, d, 0);
     puff(this, sx, sy);
   }
@@ -713,7 +722,8 @@ export class CourtScene extends Phaser.Scene {
         : (this.remotes.get(e.playerId)?.avatar.name ?? "Someone");
     const ctx = { scene: this, hud: this.hud, hoop: this.hoop, who };
     const o = { made: e.made, swish: e.swish, rims: e.rims, distM: e.distM };
-    if (e.made) presentScore(ctx, o, e.points, e.slam, onReplay);
+    // hidden tab → log-only: no stale juice bursting on return
+    if (e.made) presentScore(ctx, o, e.points, e.slam, onReplay, document.hidden);
     else presentMiss(ctx, o, e.slam, onReplay);
   }
 

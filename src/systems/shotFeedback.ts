@@ -23,6 +23,9 @@ export function presentScore(
   pts: number,
   slam: boolean,
   onReplay?: () => void,
+  /** log-only: the tab is hidden — tweens/particles made now would all
+   *  burst at once when the player comes back */
+  quiet = false,
 ) {
   const double = o.rims >= 2; // both rims of the tier-3 double hoop
   const big = pts > T.score.bigScorePts || double;
@@ -30,39 +33,42 @@ export function presentScore(
   const { scene, hoop } = ctx;
   const { rimSX, rimSY } = hoop.primary;
 
-  // a double shot snapped BOTH nets on its way down
-  for (const rim of double ? hoop.rims : [hoop.primary]) netSnap(scene, rim.net);
-  flash(scene, rimSX, rimSY, big ? j.big.flashRadius : o.swish ? 34 : 24);
-  const baseParticles = o.swish ? j.swishParticles : j.scoreParticles;
-  burst(
-    scene,
-    rimSX,
-    rimSY + 6,
-    Math.round(baseParticles * (big ? j.big.particleMult : 1)),
-  );
-  scene.cameras.main.shake(
-    big ? j.big.shakeMs : o.swish ? j.swishShakeMs : j.scoreShakeMs,
-    big
-      ? j.big.shakeIntensity
-      : o.swish
-        ? j.swishShakeIntensity
-        : j.scoreShakeIntensity,
-  );
-  floatText(
-    scene,
-    rimSX,
-    rimSY - 26,
-    slam
-      ? `TELEPORT SLAM! +${pts}`
-      : double
-        ? `DOUBLE${o.swish ? " SWISH" : ""}! +${pts}`
+  if (!quiet) {
+    // a double shot snapped BOTH nets on its way down
+    for (const rim of double ? hoop.rims : [hoop.primary])
+      netSnap(scene, rim.net);
+    flash(scene, rimSX, rimSY, big ? j.big.flashRadius : o.swish ? 34 : 24);
+    const baseParticles = o.swish ? j.swishParticles : j.scoreParticles;
+    burst(
+      scene,
+      rimSX,
+      rimSY + 6,
+      Math.round(baseParticles * (big ? j.big.particleMult : 1)),
+    );
+    scene.cameras.main.shake(
+      big ? j.big.shakeMs : o.swish ? j.swishShakeMs : j.scoreShakeMs,
+      big
+        ? j.big.shakeIntensity
         : o.swish
-          ? `SWISH! +${pts}`
-          : `+${pts}`,
-    big ? j.big.floatColor : o.swish ? "#ffb84d" : "#ffd97a",
-    big ? j.big.floatSizePx : o.swish ? 22 : 18,
-  );
-  playSfx(scene, o.swish ? "sfx_swish" : "sfx_score", 1);
+          ? j.swishShakeIntensity
+          : j.scoreShakeIntensity,
+    );
+    floatText(
+      scene,
+      rimSX,
+      rimSY - 26,
+      slam
+        ? `TELEPORT SLAM! +${pts}`
+        : double
+          ? `DOUBLE${o.swish ? " SWISH" : ""}! +${pts}`
+          : o.swish
+            ? `SWISH! +${pts}`
+            : `+${pts}`,
+      big ? j.big.floatColor : o.swish ? "#ffb84d" : "#ffd97a",
+      big ? j.big.floatSizePx : o.swish ? 22 : 18,
+    );
+    playSfx(scene, o.swish ? "sfx_swish" : "sfx_score", 1);
+  }
 
   const d = o.distM.toFixed(1);
   const who = esc(ctx.who);
