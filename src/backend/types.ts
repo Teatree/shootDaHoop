@@ -44,7 +44,17 @@ export interface BackendEvents {
   outcome: (e: ThrowOutcome) => void;
   throwRejected: (e: { throwId: string; reason: "budget" | "invalid" }) => void;
   chatMessage: (e: { id: string; name: string; text: string }) => void;
-  tierUnlocked: (e: { tierId: number; world: WorldState }) => void;
+  /**
+   * A player pressed the Upgrade button: score reset, tier advanced,
+   * everyone teleported clear — the change list plays on every client.
+   */
+  upgraded: (e: {
+    tierId: number;
+    world: WorldState;
+    byId: string;
+    byName: string;
+    placements: { id: string; x: number; d: number }[];
+  }) => void;
   budget: (e: { throwsRemaining: number }) => void;
   /** someone joined with a ?reset link — the shared score was wiped */
   worldReset: (e: { name: string; world: WorldState }) => void;
@@ -76,6 +86,8 @@ export interface Backend {
   /** cosmetic pose telemetry — LocalBackend no-ops (nobody's watching) */
   sendPose(s: AvatarState): void;
   requestThrow(throwId: string, launch: ThrowLaunch): void;
+  /** press the Upgrade button — the authority validates and broadcasts */
+  upgrade(): void;
   chat(text: string): void;
 
   /**

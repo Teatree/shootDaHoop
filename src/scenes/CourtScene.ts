@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { T } from "../tuning";
 import { M, RIM, floorDistToRim, screenToFloor, toScreen } from "../world";
-import { puff } from "../juice";
+import { burst, flash, puff } from "../juice";
 import { SunSystem, shadowShift } from "../sky";
 import { SpeechBubbles } from "../speech";
 import type { HUD } from "../hud";
@@ -28,14 +28,19 @@ import type {
   PlayerInfo,
   ThrowLaunch,
   ThrowOutcome,
+  WorldState,
 } from "../shared/messages";
 import type { Backend } from "../backend/types";
 import {
+  canUpgrade,
   effectivePowerForTier,
+  getTier,
   hoopGeometryForTier,
   type HoopGeometry,
 } from "../shared/tierRules";
 import { showNotice } from "../settings";
+import { TierDirector } from "../systems/tierDirector";
+import { UpgradeButton, upgradeButtonSpot } from "../systems/upgradeButton";
 import { RemoteAvatar } from "../remoteAvatar";
 import { TeleportSystem } from "../systems/teleport";
 import { RecordingSystem } from "../systems/recording";
@@ -66,8 +71,12 @@ export class CourtScene extends Phaser.Scene {
   private balls: Ball[] = [];
   private selfId = "";
   private throwSeq = 0;
-  /** the ACTIVE hoop tier — step 3's upgrade flow moves this */
-  private tierId = 1;
+  private director!: TierDirector;
+  private upgradeBtn!: UpgradeButton;
+  /** the latest authoritative world state (score + tier) */
+  private world: WorldState = { sharedScore: 0, tierId: 1 };
+  /** clicked the Upgrade button from afar — press on arrival */
+  private pendingUpgradePress = false;
   /** server-reported daily budget; null until known (local = unlimited) */
   private throwsRemaining: number | null = null;
   private recsByThrowId = new Map<string, ThrowRecording>();
@@ -99,7 +108,7 @@ export class CourtScene extends Phaser.Scene {
 
   /** The ACTIVE tier's hoop geometry — physics, camera and render share it. */
   private geom(): HoopGeometry {
-    return hoopGeometryForTier(this.tierId);
+    return hoopGeometryForTier(this.director?.tierId ?? 1);
   }
 
   preload() {
@@ -117,6 +126,13 @@ export class CourtScene extends Phaser.Scene {
     drawWall(this);
     this.keepOutZone = createKeepOutZone(this);
     this.hoop = createHoop(this, this.geom());
+    this.director = new TierDirector({
+      rebuildHoop: (geom) => {
+        this.hoop.destroy();
+        this.hoop = createHoop(this, geom);
+      },
+    });
+    this.upgradeBtn = new UpgradeButton(this, () => this.tryUpgrade());
     this.sky = new SunSystem(this);
     this.player = new Player(this, this.playerName, this.identity);
     this.speech = new SpeechBubbles(this, this.player);
@@ -125,7 +141,7 @@ export class CourtScene extends Phaser.Scene {
       this.player,
       (shot) => this.sendThrow(shot, false),
       (sx, sy) => this.walkClick(sx, sy),
-      () => effectivePowerForTier(this.tierId),
+      () => effectivePowerForTier(this.director.tierId),
     );
     this.teleport = new TeleportSystem(this, this.player, {
       aim: this.aim,
@@ -150,7 +166,9 @@ export class CourtScene extends Phaser.Scene {
       this.selfId = e.selfId;
       this.renderHistory(e.history);
       this.hud.log("presence", `${esc(this.playerName)} joined the court.`);
-      this.hud.setScore(e.world.sharedScore);
+      // a late joiner loads straight into the upgraded world
+      this.director.applyInstant(e.world.tierId);
+      this.setWorld(e.world);
       this.hud.setThrowsRemaining(e.throwsRemaining);
       // gates immediately if we rejoin with 0 left
       this.throwsRemaining = e.throwsRemaining;
@@ -247,17 +265,15 @@ export class CourtScene extends Phaser.Scene {
       playSfx(this, "sfx_chat", 0.5);
     });
     this.backend.on("worldReset", (e) => {
-      this.hud.setScore(e.world.sharedScore);
+      this.director.applyInstant(e.world.tierId);
+      this.setWorld(e.world);
       this.hud.log("world", `${esc(e.name)} reset the court score.`);
     });
-    this.backend.on("tierUnlocked", (e) => {
-      this.hud.log(
-        "world",
-        `The court reached tier ${e.tierId} — the hoop evolves!`,
-      );
-    });
+    this.backend.on("upgraded", (e) => this.onUpgraded(e));
     this.backend.on("snapshot", (e) => {
-      this.hud.setScore(e.world.sharedScore);
+      // self-heal: a missed upgrade event is corrected by the next snapshot
+      this.director.applyInstant(e.world.tierId);
+      this.setWorld(e.world);
       // orb self-heal is adopt-only: removal has its own ordered event,
       // and show() ignores seqs we already removed locally
       if (e.orb) this.teleport.orb.show(e.orb);
@@ -277,6 +293,69 @@ export class CourtScene extends Phaser.Scene {
 
     this.hud.onChat((msg) => this.backend.chat(msg));
     this.backend.connect();
+  }
+
+  /** Track the authoritative world; the Upgrade button follows it. */
+  private setWorld(w: WorldState) {
+    this.world = w;
+    this.hud.setScore(w.sharedScore);
+    this.upgradeBtn.setAvailable(canUpgrade(w));
+  }
+
+  /**
+   * The server validates the presser against upgrade.proximityM using its
+   * OWN view of the position, which lags a pose tick (~0.4 m at walk
+   * speed) — so the client only presses when comfortably inside.
+   */
+  private static readonly PRESS_DIST = T.upgrade.proximityM * 0.6;
+
+  /** The Upgrade button was clicked: press if close, walk over if not. */
+  private tryUpgrade() {
+    const spot = upgradeButtonSpot();
+    const dist = Math.hypot(this.player.x - spot.x, this.player.d - spot.d);
+    if (dist <= CourtScene.PRESS_DIST) {
+      this.backend.upgrade();
+    } else {
+      // walk up to the button, press on arrival (see update())
+      this.pendingUpgradePress = true;
+      this.player.walkTo(spot.x, spot.d);
+      this.backend.moveTo(spot.x, spot.d);
+    }
+  }
+
+  /** A player pressed Upgrade: VFX burst, teleport clear, transform. */
+  private onUpgraded(e: {
+    tierId: number;
+    world: WorldState;
+    byName: string;
+    placements: { id: string; x: number; d: number }[];
+  }) {
+    this.pendingUpgradePress = false;
+    this.setWorld(e.world);
+    // a burst of VFX — lots, all at once
+    const { rimSX, rimSY } = this.hoop.primary;
+    flash(this, rimSX, rimSY, 90);
+    burst(this, rimSX, rimSY, 110);
+    this.cameras.main.shake(500, 0.02);
+    playSfx(this, "sfx_swish", 1);
+    // all active players teleported clear of the hoop
+    for (const p of e.placements) {
+      if (p.id === this.selfId) {
+        this.player.stop();
+        this.player.x = p.x;
+        this.player.d = p.d;
+      } else {
+        this.remotes.get(p.id)?.avatar.setPos(p.x, p.d);
+      }
+      this.spawnPuff(p.x, p.d);
+    }
+    // the tier's change list (step 4 turns this into full choreography)
+    this.director.applyInstant(e.tierId);
+    const tier = getTier(e.tierId);
+    this.hud.log(
+      "world",
+      `${esc(e.byName)} upgraded the court — Hoop ${e.tierId}: ${esc(tier?.name ?? "")}!`,
+    );
   }
 
   private addRemote(p: PlayerInfo) {
@@ -313,6 +392,11 @@ export class CourtScene extends Phaser.Scene {
         );
       } else if (h.kind === "reset") {
         this.hud.log("world", `${esc(h.name)} reset the court score.`);
+      } else if (h.kind === "upgrade") {
+        this.hud.log(
+          "world",
+          `${esc(h.name)} upgraded the court to Hoop ${h.tierId}.`,
+        );
       } else {
         const d = h.distM.toFixed(1);
         const who = esc(h.name);
@@ -346,6 +430,16 @@ export class CourtScene extends Phaser.Scene {
 
     this.balls = this.balls.filter((b) => !b.done);
     this.rig.update(dt);
+
+    // clicked Upgrade from afar → walking over; press when close enough
+    if (this.pendingUpgradePress) {
+      const spot = upgradeButtonSpot();
+      const dist = Math.hypot(this.player.x - spot.x, this.player.d - spot.d);
+      if (dist <= CourtScene.PRESS_DIST) {
+        this.pendingUpgradePress = false;
+        if (canUpgrade(this.world)) this.backend.upgrade();
+      }
+    }
 
     // ── pose telemetry: ~12 Hz while animating, slow keep-alive when
     // still (a held pose must not go stale on the other screens) ──────
@@ -480,7 +574,7 @@ export class CourtScene extends Phaser.Scene {
 
   /** The authoritative result came back — score display + juice + log. */
   private presentOutcome(e: ThrowOutcome) {
-    this.hud.setScore(e.world.sharedScore);
+    this.setWorld(e.world);
     // recordings exist only for OWN throws — never match a remote outcome
     const rec =
       e.playerId === this.selfId ? this.recsByThrowId.get(e.throwId) : undefined;
@@ -499,6 +593,7 @@ export class CourtScene extends Phaser.Scene {
   // ── movement: animate immediately, broadcast the intent ───────────
 
   private walkClick(sx: number, sy: number) {
+    this.pendingUpgradePress = false; // walking elsewhere cancels the errand
     const { x, d } = screenToFloor(sx, sy);
     this.backend.moveTo(x, d);
     this.clickRipple(sx, sy);

@@ -46,16 +46,21 @@ export class AimController {
   ) {
     this.preview = scene.add.graphics().setDepth(900);
 
-    scene.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
-      if (p.rightButtonDown()) {
-        this.begin(p);
-      } else if (p.leftButtonDown() && !this.aiming) {
-        const wp = scene.cameras.main.getWorldPoint(p.x, p.y);
-        const { x, d } = screenToFloor(wp.x, wp.y);
-        this.player.walkTo(x, d);
-        this.onWalkClick(wp.x, wp.y);
-      }
-    });
+    scene.input.on(
+      "pointerdown",
+      (p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
+        if (p.rightButtonDown()) {
+          this.begin(p);
+        } else if (p.leftButtonDown() && !this.aiming && over.length === 0) {
+          // clicks on interactive world objects (upgrade button, jukebox…)
+          // are theirs — a bare floor click is a walk
+          const wp = scene.cameras.main.getWorldPoint(p.x, p.y);
+          const { x, d } = screenToFloor(wp.x, wp.y);
+          this.player.walkTo(x, d);
+          this.onWalkClick(wp.x, wp.y);
+        }
+      },
+    );
 
     scene.input.on("pointermove", (p: Phaser.Input.Pointer) => {
       if (this.aiming) {

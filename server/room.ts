@@ -1,8 +1,17 @@
 import type { WebSocket } from "ws";
 import { BALANCE } from "../src/shared/config";
-import { clampToCourt, rollSpawn } from "../src/shared/court";
+import {
+  RIM,
+  clampToCourt,
+  rollSpawn,
+  rollUpgradeClearSpot,
+} from "../src/shared/court";
 import { resolveThrow } from "../src/shared/simulate";
-import { effectivePowerForTier } from "../src/shared/tierRules";
+import {
+  canUpgrade,
+  effectivePowerForTier,
+  nextTier,
+} from "../src/shared/tierRules";
 import type {
   AvatarState,
   ClientMsg,
@@ -309,6 +318,38 @@ export class Room {
             Math.max(200, res.resolvedAtS * 1000),
           );
         }
+        break;
+      }
+      case "upgrade": {
+        // the communal upgrade press: ANY player may trigger it, but the
+        // server owns the rules — threshold met, presser at the button
+        if (!canUpgrade(this.world)) break;
+        const next = nextTier(this.world.tierId);
+        if (!next) break;
+        const bx = RIM.x - BALANCE.move.hoopStandoffM; // the button spot
+        if (
+          Math.hypot(occ.info.x - bx, occ.info.d - RIM.d) >
+          BALANCE.upgrade.proximityM
+        )
+          break;
+        // the next tier counts fresh from zero
+        this.world = { sharedScore: 0, tierId: next.id };
+        // teleport every active player clear of the hoop
+        const placements = [...this.occupants.entries()].map(([id, o]) => {
+          const spot = rollUpgradeClearSpot();
+          o.info.x = spot.x;
+          o.info.d = spot.d;
+          return { id, x: spot.x, d: spot.d };
+        });
+        this.record({ kind: "upgrade", name: occ.info.name, tierId: next.id });
+        this.broadcast({
+          t: "upgraded",
+          tierId: next.id,
+          world: { ...this.world },
+          byId: playerId,
+          byName: occ.info.name,
+          placements,
+        });
         break;
       }
       case "chat": {

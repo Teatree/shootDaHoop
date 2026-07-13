@@ -56,3 +56,16 @@ export function rollSpawn(rand: () => number = Math.random) {
     RIM.d - size / 2 + rand() * size,
   );
 }
+
+/**
+ * Where a player lands when an upgrade fires: a random spot in a band
+ * well clear of the hoop (BALANCE.upgrade — PLACEHOLDER band), giving
+ * the transformation room to play. Rolled by the AUTHORITY, like spawns.
+ */
+export function rollUpgradeClearSpot(rand: () => number = Math.random) {
+  const u = BALANCE.upgrade;
+  return clampToCourt(
+    u.clearMinXM + rand() * (u.clearMaxXM - u.clearMinXM),
+    0.5 + rand() * (BALANCE.court.depthM - 1),
+  );
+}

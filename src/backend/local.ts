@@ -6,7 +6,8 @@ import {
   type BudgetFields,
 } from "../shared/budget";
 import { pointsForDistance } from "../shared/scoring";
-import { clampToCourt, rollSpawn } from "../shared/court";
+import { clampToCourt, rollSpawn, rollUpgradeClearSpot } from "../shared/court";
+import { canUpgrade, nextTier } from "../shared/tierRules";
 import { rollOrbSpawn, type OrbState } from "../shared/orb";
 import type {
   Cosmetics,
@@ -170,6 +171,24 @@ export class LocalBackend implements Backend {
       distM: o.distM,
       points,
       world: { ...this.world },
+    });
+  }
+
+  /** The Upgrade press — mirrors server/room.ts (threshold, reset, clear). */
+  upgrade(): void {
+    if (!canUpgrade(this.world)) return;
+    const next = nextTier(this.world.tierId);
+    if (!next) return;
+    this.world = { sharedScore: 0, tierId: next.id };
+    const spot = rollUpgradeClearSpot();
+    this.self.x = spot.x;
+    this.self.d = spot.d;
+    this.emitter.emit("upgraded", {
+      tierId: next.id,
+      world: { ...this.world },
+      byId: this.self.id,
+      byName: this.self.name,
+      placements: [{ id: this.self.id, x: spot.x, d: spot.d }],
     });
   }
 

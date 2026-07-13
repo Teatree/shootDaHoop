@@ -103,8 +103,14 @@ export class SocketBackend implements Backend {
           text: m.text,
         });
         break;
-      case "tier-unlock":
-        this.emitter.emit("tierUnlocked", { tierId: m.tierId, world: m.world });
+      case "upgraded":
+        this.emitter.emit("upgraded", {
+          tierId: m.tierId,
+          world: m.world,
+          byId: m.byId,
+          byName: m.byName,
+          placements: m.placements,
+        });
         break;
       case "budget":
         this.emitter.emit("budget", { throwsRemaining: m.throwsRemaining });
@@ -147,6 +153,10 @@ export class SocketBackend implements Backend {
 
   sendPose(s: AvatarState): void {
     this.send({ t: "pose", s });
+  }
+
+  upgrade(): void {
+    this.send({ t: "upgrade" });
   }
 
   requestThrow(throwId: string, launch: ThrowLaunch): void {

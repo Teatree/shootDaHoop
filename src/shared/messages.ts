@@ -91,7 +91,8 @@ export type HistoryEntry =
     }
   | { kind: "chat"; name: string; text: string }
   | { kind: "presence"; name: string; joined: boolean }
-  | { kind: "reset"; name: string };
+  | { kind: "reset"; name: string }
+  | { kind: "upgrade"; name: string; tierId: number };
 
 // ── client → server ───────────────────────────────────────────────────
 
@@ -105,6 +106,8 @@ export type ClientMsg =
     }
   | { t: "move-to"; x: number; d: number }
   | { t: "throw"; throwId: string; launch: ThrowLaunch }
+  /** press the Upgrade button — the server validates threshold + proximity */
+  | { t: "upgrade" }
   | { t: "chat"; text: string }
   /** pose telemetry, ~12 Hz while animating — cosmetic, relayed as-is */
   | { t: "pose"; s: AvatarState }
@@ -132,7 +135,19 @@ export type ServerMsg =
   | { t: "outcome"; outcome: ThrowOutcome }
   | { t: "throw-rejected"; throwId: string; reason: "budget" | "invalid" }
   | { t: "chat"; id: string; name: string; text: string }
-  | { t: "tier-unlock"; tierId: number; world: WorldState }
+  /**
+   * A player pressed the Upgrade button: the shared score reset, the
+   * tier advanced, and everyone was teleported clear of the hoop. The
+   * tier's ordered change list plays out on every client.
+   */
+  | {
+      t: "upgraded";
+      tierId: number;
+      world: WorldState;
+      byId: string;
+      byName: string;
+      placements: { id: string; x: number; d: number }[];
+    }
   | { t: "budget"; throwsRemaining: number }
   /** someone joined with a ?reset link — the shared score was wiped */
   | { t: "world-reset"; name: string; world: WorldState }

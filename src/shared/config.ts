@@ -108,6 +108,18 @@ export const BALANCE = {
     levitateS: 3, //        suspended this long after teleporting (slam window)
   },
 
+  // ── Upgrade trigger (shared: the server validates presses) ────────
+  upgrade: {
+    // PLACEHOLDER (tune): how close to the button under the hoop a
+    // presser must stand for the press to count (court meters)
+    proximityM: 2.5,
+    // PLACEHOLDER (tune): where players teleport when the upgrade fires
+    // — a random spot in this x-band, well clear of the hoop, so the
+    // transformation has room to play
+    clearMinXM: 8,
+    clearMaxXM: 14,
+  },
+
   // ── Throw budget (server-authoritative online; LocalBackend enforces
   //    the same rule offline against a localStorage counter) ───────────
   budget: {
