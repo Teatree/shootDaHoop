@@ -82,6 +82,53 @@ afterEach(() => {
   room = null;
 });
 
+describe("throw budgets are PER LOBBY", () => {
+  it("balls spent in one lobby don't follow the player to a fresh one", async () => {
+    const storage = new MemStorage();
+    const onEmpty = () => {};
+    const roomA = new Room("court-a", storage, onEmpty);
+    const roomB = new Room("court-b", storage, onEmpty);
+    try {
+      const wsA = new FakeWS();
+      await roomA.join(wsA as unknown as WebSocket, identity("bob"));
+
+      // bob spends two balls in court A
+      const launch = {
+        shotX: 20,
+        shotD: 3,
+        x: 20.5,
+        d: 3,
+        h: 2.2,
+        vx: 5,
+        vh: 5,
+        slam: false,
+      };
+      roomA.handle("bob", { t: "throw", throwId: "t1", launch });
+      roomA.handle("bob", { t: "throw", throwId: "t2", launch });
+      const budgets = wsA.of("budget");
+      if (budgets[1]?.t !== "budget") throw new Error("no budget updates");
+      expect(budgets[1].throwsRemaining).toBe(BALANCE.budget.throwsPerDay - 2);
+
+      // …then walks into court B: a fresh set of balls
+      const wsB = new FakeWS();
+      await roomB.join(wsB as unknown as WebSocket, identity("bob"));
+      const [welcome] = wsB.of("welcome");
+      if (welcome?.t !== "welcome") throw new Error("no welcome");
+      expect(welcome.throwsRemaining).toBe(BALANCE.budget.throwsPerDay);
+
+      // …and court A still remembers what he spent there
+      const wsA2 = new FakeWS();
+      await roomA.join(wsA2 as unknown as WebSocket, identity("bob"));
+      const [welcomeA] = wsA2.of("welcome");
+      if (welcomeA?.t !== "welcome") throw new Error("no welcome A");
+      expect(welcomeA.throwsRemaining).toBe(BALANCE.budget.throwsPerDay - 2);
+    } finally {
+      roomA.destroy();
+      roomB.destroy();
+    }
+  });
+});
+
 describe("the upgrade press", () => {
   it("resets the score, advances the tier, and teleports everyone clear", async () => {
     const { room, storage } = await makeRoom(T2.threshold);

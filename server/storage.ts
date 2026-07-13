@@ -1,6 +1,7 @@
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { HistoryEntry, WorldState } from "../src/shared/messages";
+import type { BudgetFields } from "../src/shared/budget";
 
 // Persistence — three things persist, SEPARATELY:
 //   1. the world bundle (per lobby): shared score, tier, wall history
@@ -28,9 +29,13 @@ export interface PlayerProfile {
   skinTint?: number;
   lowerTint?: number;
   headVariant?: number;
-  /** daily throw budget — server-authoritative (build step 7) */
-  throwsUsedToday: number;
-  lastThrowDayUTC: string; // "YYYY-MM-DD"
+  /**
+   * Daily throw budgets, PER LOBBY (keyed by lobby id) — a fresh court
+   * hands out a fresh set of balls; what you spent elsewhere stays
+   * there. Optional so profiles from the per-identity-budget era (fields
+   * `throwsUsedToday`/`lastThrowDayUTC`, now ignored) hydrate cleanly.
+   */
+  budgets?: Record<string, BudgetFields>;
 }
 
 /** One line of the permanent per-lobby log archive. */

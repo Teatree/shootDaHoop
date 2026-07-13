@@ -30,6 +30,7 @@ import {
   consumeThrow,
   refundThrow,
   remainingThrows,
+  type BudgetFields,
 } from "../src/shared/budget";
 import { OrbAuthority } from "./orb";
 
@@ -124,15 +125,14 @@ export class Room {
       }); // the joiner learns via its own welcome below
     }
 
-    // profile is persistent and travels across worlds
+    // profile is persistent and travels across worlds (budgets are kept
+    // per lobby inside it — see budgetFor)
     const profile: PlayerProfile = (await this.storage.loadProfile(
       identity.id,
     )) ?? {
       id: identity.id,
       name: identity.name,
       shirtColor: identity.shirtColor,
-      throwsUsedToday: 0,
-      lastThrowDayUTC: "",
     };
     profile.name = identity.name;
     profile.shirtColor = safeTint(identity.shirtColor);
@@ -174,7 +174,7 @@ export class Room {
       players: [...this.occupants.values()].map((o) => o.info),
       world: { ...this.world },
       orb: this.orb.current,
-      throwsRemaining: remainingThrows(profile, new Date()),
+      throwsRemaining: remainingThrows(this.budgetFor(profile), new Date()),
       history: this.history.slice(0, -1), // minus our own join, logged live
     });
     return true;
@@ -223,6 +223,19 @@ export class Room {
         /* already dead */
       }
     }
+  }
+
+  /**
+   * The player's throw budget IN THIS LOBBY — budgets are per lobby, so
+   * a fresh court hands out a fresh set of balls (2026-07-13 fix: they
+   * used to be one per-identity pool across every world).
+   */
+  private budgetFor(profile: PlayerProfile): BudgetFields {
+    profile.budgets ??= {};
+    return (profile.budgets[this.lobby] ??= {
+      throwsUsedToday: 0,
+      lastThrowDayUTC: "",
+    });
   }
 
   /** Append to the wall history and persist the bundle — save on event. */
@@ -281,7 +294,7 @@ export class Room {
           break;
         }
         // the budget is the server's, not the client's
-        if (!consumeThrow(occ.profile, new Date())) {
+        if (!consumeThrow(this.budgetFor(occ.profile), new Date())) {
           send(occ.ws, {
             t: "throw-rejected",
             throwId: msg.throwId,
@@ -292,7 +305,7 @@ export class Room {
         void this.storage.saveProfile(occ.profile).catch(logSaveError);
         send(occ.ws, {
           t: "budget",
-          throwsRemaining: remainingThrows(occ.profile, new Date()),
+          throwsRemaining: remainingThrows(this.budgetFor(occ.profile), new Date()),
         });
         // never trust the client: a slam only counts if WE teleported
         // this player moments ago (the orb is server-side now)
@@ -441,11 +454,11 @@ export class Room {
           Date.now() + (BALANCE.orb.levitateS + 1.5) * 1000;
         occ.info.x = taken.x; // snapshots self-heal to the landing spot
         // hitting the orb keeps the ball — the slam is a FREE throw
-        refundThrow(occ.profile, new Date());
+        refundThrow(this.budgetFor(occ.profile), new Date());
         void this.storage.saveProfile(occ.profile).catch(logSaveError);
         send(occ.ws, {
           t: "budget",
-          throwsRemaining: remainingThrows(occ.profile, new Date()),
+          throwsRemaining: remainingThrows(this.budgetFor(occ.profile), new Date()),
         });
       }
       this.broadcast({ t: "orb-removed", seq: orbSeq, byId: playerId });
