@@ -1,6 +1,7 @@
 import type {
   AvatarState,
   HistoryEntry,
+  JukeboxState,
   OrbState,
   PlayerInfo,
   ThrowLaunch,
@@ -55,6 +56,8 @@ export interface BackendEvents {
     byName: string;
     placements: { id: string; x: number; d: number }[];
   }) => void;
+  /** someone pressed the jukebox — everyone hears the new loop */
+  jukebox: (e: { state: JukeboxState; byName: string }) => void;
   budget: (e: { throwsRemaining: number }) => void;
   /** someone joined with a ?reset link — the shared score was wiped */
   worldReset: (e: { name: string; world: WorldState }) => void;
@@ -88,6 +91,8 @@ export interface Backend {
   requestThrow(throwId: string, launch: ThrowLaunch): void;
   /** press the Upgrade button — the authority validates and broadcasts */
   upgrade(): void;
+  /** press the jukebox — the authority re-rolls the synced song */
+  jukeboxPress(): void;
   chat(text: string): void;
 
   /**

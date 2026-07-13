@@ -42,6 +42,8 @@ import { showNotice } from "../settings";
 import { TierDirector } from "../systems/tierDirector";
 import { UpgradeButton, upgradeButtonSpot } from "../systems/upgradeButton";
 import { CheerArea } from "../systems/cheerArea";
+import { Jukebox } from "../systems/jukebox";
+import { orbTimingForTier } from "../shared/tierRules";
 import type { BallLookId, FxKind } from "../shared/tierChanges";
 import { RemoteAvatar } from "../remoteAvatar";
 import { TeleportSystem } from "../systems/teleport";
@@ -76,6 +78,7 @@ export class CourtScene extends Phaser.Scene {
   private director!: TierDirector;
   private upgradeBtn!: UpgradeButton;
   private cheer?: CheerArea;
+  private jukebox?: Jukebox;
   private courtG!: Phaser.GameObjects.Graphics;
   /** the applied tier's ball tint — new balls spawn wearing it */
   private ballTint: number = T.ballLooks.classic;
@@ -123,6 +126,7 @@ export class CourtScene extends Phaser.Scene {
       this.load.image(key, `assets/${key}.png`);
     for (const key of this.assets.audio)
       this.load.audio(key, [`assets/${key}.wav`]);
+    for (const m of this.assets.music) this.load.audio(m.key, [m.url]);
   }
 
   create() {
@@ -153,12 +157,18 @@ export class CourtScene extends Phaser.Scene {
             })),
           );
           this.cheer.spawn(animated);
+        } else if (el.element === "jukebox") {
+          this.jukebox ??= new Jukebox(this, this.player, el, this.assets.music, () =>
+            this.backend.jukeboxPress(),
+          );
+          this.jukebox.spawn(animated);
         }
-        // jukebox lands in step 7
       },
       clearInteractives: () => {
         this.cheer?.destroy();
         this.cheer = undefined;
+        this.jukebox?.destroy();
+        this.jukebox = undefined;
       },
     });
     this.upgradeBtn = new UpgradeButton(this, () => this.tryUpgrade());
@@ -198,6 +208,7 @@ export class CourtScene extends Phaser.Scene {
       // a late joiner loads straight into the upgraded world
       this.director.applyInstant(e.world.tierId);
       this.setWorld(e.world);
+      this.jukebox?.sync(e.world.jukebox); // land mid-song like everyone
       this.hud.setThrowsRemaining(e.throwsRemaining);
       // gates immediately if we rejoin with 0 left
       this.throwsRemaining = e.throwsRemaining;
@@ -270,7 +281,14 @@ export class CourtScene extends Phaser.Scene {
       );
     });
     // ── the orb is a server-authoritative world object ──────────────
-    this.backend.on("orbSpawned", (e) => this.teleport.orb.show(e.orb));
+    this.backend.on("orbSpawned", (e) =>
+      // tier 3's ambient change: "no appearance animation — it simply
+      // comes into existence"
+      this.teleport.orb.show(
+        e.orb,
+        orbTimingForTier(this.director.tierId).appearFx !== "none",
+      ),
+    );
     this.backend.on("orbRemoved", (e) => {
       this.teleport.orb.removeBySeq(e.seq, e.byId !== undefined);
     });
@@ -299,10 +317,18 @@ export class CourtScene extends Phaser.Scene {
       this.hud.log("world", `${esc(e.name)} reset the court score.`);
     });
     this.backend.on("upgraded", (e) => this.onUpgraded(e));
+    this.backend.on("jukebox", (e) => {
+      this.jukebox?.sync(e.state);
+      this.hud.log(
+        "world",
+        `♪ ${esc(e.byName)} spins the jukebox — ${esc(this.jukebox?.songLabel(e.state.song) ?? `song ${e.state.song + 1}`)}.`,
+      );
+    });
     this.backend.on("snapshot", (e) => {
       // self-heal: a missed upgrade event is corrected by the next snapshot
       this.director.applyInstant(e.world.tierId);
       this.setWorld(e.world);
+      this.jukebox?.sync(e.world.jukebox);
       // orb self-heal is adopt-only: removal has its own ordered event,
       // and show() ignores seqs we already removed locally
       if (e.orb) this.teleport.orb.show(e.orb);
@@ -498,6 +524,7 @@ export class CourtScene extends Phaser.Scene {
     }
     this.aim.update();
     this.cheer?.update(dt);
+    this.jukebox?.update(dt);
     for (const b of this.balls) b.update(dt, light);
     this.teleport.update(dt, this.balls);
     this.recording.update(dt);

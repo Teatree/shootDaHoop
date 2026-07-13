@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { CourtScene } from "./scenes/CourtScene";
 import { initHUD } from "./hud";
 import { initSettings } from "./settings";
-import { AUDIO_MANIFEST, IMAGE_MANIFEST } from "./assets";
+import { AUDIO_MANIFEST, IMAGE_MANIFEST, MUSIC_MANIFEST } from "./assets";
 import { askPlayerName, getStoredName } from "./playerName";
 import { LocalBackend } from "./backend/local";
 import { SocketBackend } from "./backend/socket";
@@ -94,12 +94,22 @@ async function boot() {
 
   const images: string[] = [];
   const audio: string[] = [];
+  const music: { key: string; url: string }[] = [];
   await Promise.all([
     ...IMAGE_MANIFEST.map(async (k) => {
       if (await exists(`assets/${k}.png`)) images.push(k);
     }),
     ...AUDIO_MANIFEST.map(async (k) => {
       if (await exists(`assets/${k}.wav`)) audio.push(k);
+    }),
+    ...MUSIC_MANIFEST.map(async (k) => {
+      for (const ext of ["mp3", "wav"] as const) {
+        const url = `assets/music/${k}.${ext}`;
+        if (await exists(url)) {
+          music.push({ key: k, url });
+          return;
+        }
+      }
     }),
   ]);
 
@@ -118,7 +128,7 @@ async function boot() {
     scene: [
       new CourtScene(
         hud,
-        { images, audio },
+        { images, audio, music },
         identity,
         chooseBackend(params, lobby, identity),
       ),

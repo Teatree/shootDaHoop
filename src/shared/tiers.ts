@@ -154,8 +154,9 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
       {
         type: "interactive",
         element: "jukebox",
-        // PLACEHOLDER (tune): left of the cheering area, off court
-        placement: { xM: 16.8, dM: -0.6 },
+        // PLACEHOLDER (tune): left of the cheering area, off court — its
+        // near edge touches the sideline so "very close" is reachable
+        placement: { xM: 16.8, dM: -0.4 },
         widthM: 1.2, // PLACEHOLDER (tune)
         depthM: 0.8, // PLACEHOLDER (tune)
         proximityPx: 2, // like the cheering area: very close

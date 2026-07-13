@@ -57,8 +57,12 @@ export class TeleportOrb {
     return o && orbHitTest(o, bx, bd, bh) ? o : null;
   }
 
-  /** The authority spawned an orb (or a snapshot is self-healing one in). */
-  show(orb: OrbState) {
+  /**
+   * The authority spawned an orb (or a snapshot is self-healing one in).
+   * `pop` = play the appear animation; tier 3's ambient change spawns
+   * orbs with none — they simply come into existence.
+   */
+  show(orb: OrbState, pop = true) {
     if (orb.seq <= this.removedSeq) return; // already removed locally
     if (this.orb?.state.seq === orb.seq) return; // already showing it
     this.destroyOrb();
@@ -76,14 +80,15 @@ export class TeleportOrb {
       .circle(sx - r * 0.3, sy - r * 0.3, r * 0.3, 0xd8ecff, 0.85)
       .setDepth(depth + 1);
 
-    // pop in
-    for (const c of [glow, core, shine]) c.setScale(0);
-    this.scene.tweens.add({
-      targets: [glow, core, shine],
-      scale: 1,
-      duration: T.tp.popMs,
-      ease: "Back.easeOut",
-    });
+    if (pop) {
+      for (const c of [glow, core, shine]) c.setScale(0);
+      this.scene.tweens.add({
+        targets: [glow, core, shine],
+        scale: 1,
+        duration: T.tp.popMs,
+        ease: "Back.easeOut",
+      });
+    }
 
     this.orb = { state: orb, age: 0, fading: false, glow, core, shine };
   }

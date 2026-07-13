@@ -7,7 +7,12 @@ import {
 } from "../shared/budget";
 import { pointsForDistance } from "../shared/scoring";
 import { clampToCourt, rollSpawn, rollUpgradeClearSpot } from "../shared/court";
-import { canUpgrade, nextTier } from "../shared/tierRules";
+import {
+  canUpgrade,
+  interactivesForTier,
+  nextTier,
+  orbTimingForTier,
+} from "../shared/tierRules";
 import { rollOrbSpawn, type OrbState } from "../shared/orb";
 import type {
   Cosmetics,
@@ -78,11 +83,16 @@ export class LocalBackend implements Backend {
   // ── orb lifecycle (this IS the authority offline) ──────────────────
 
   private scheduleOrbSpawn() {
+    // tier-timed, like server/orb.ts: fixed cadence at tiers 1–2, the
+    // random 10–20 s / 5 s life Ambient/Spawn Change from Hoop 3 on
+    const t = orbTimingForTier(this.world.tierId);
+    const cadenceS =
+      t.minCadenceS + Math.random() * (t.maxCadenceS - t.minCadenceS);
     this.orbTimer = setTimeout(() => {
       this.orb = rollOrbSpawn(++this.orbSeq);
       this.emitter.emit("orbSpawned", { orb: this.orb });
       this.scheduleOrbExpiry();
-    }, BALANCE.orb.cadenceS * 1000);
+    }, cadenceS * 1000);
   }
 
   private scheduleOrbExpiry() {
@@ -92,7 +102,7 @@ export class LocalBackend implements Backend {
       this.orb = null;
       this.emitter.emit("orbRemoved", { seq: o.seq });
       this.scheduleOrbSpawn();
-    }, BALANCE.orb.lifeS * 1000);
+    }, orbTimingForTier(this.world.tierId).lifeS * 1000);
   }
 
   /** The live ball touched the orb — authoritative in single player. */
@@ -190,6 +200,21 @@ export class LocalBackend implements Backend {
       byName: this.self.name,
       placements: [{ id: this.self.id, x: spot.x, d: spot.d }],
     });
+  }
+
+  /** The jukebox press — mirrors server/room.ts (re-roll ≠ current). */
+  jukeboxPress(): void {
+    const box = interactivesForTier(this.world.tierId).find(
+      (el) => el.element === "jukebox",
+    );
+    if (!box) return;
+    const cur = this.world.jukebox?.song;
+    let song = Math.floor(Math.random() * BALANCE.jukebox.songs);
+    if (BALANCE.jukebox.songs > 1 && song === cur)
+      song = (song + 1) % BALANCE.jukebox.songs;
+    const state = { song, startedAtMs: Date.now() };
+    this.world = { ...this.world, jukebox: state };
+    this.emitter.emit("jukebox", { state, byName: this.self.name });
   }
 
   chat(text: string): void {

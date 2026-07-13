@@ -120,6 +120,15 @@ export const BALANCE = {
     clearMaxXM: 14,
   },
 
+  // ── Jukebox (Hoop 3 interactive — synced to everyone) ─────────────
+  jukebox: {
+    songs: 3, //           the three reference song slots (assets/music/)
+    // PLACEHOLDER (tune): server-side press validation slack — the
+    // client button needs the doc's "very close", the server just
+    // checks the presser is plausibly at the box
+    pressProximityM: 3,
+  },
+
   // ── Throw budget (server-authoritative online; LocalBackend enforces
   //    the same rule offline against a localStorage counter) ───────────
   budget: {

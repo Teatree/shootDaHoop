@@ -112,6 +112,9 @@ export class SocketBackend implements Backend {
           placements: m.placements,
         });
         break;
+      case "jukebox":
+        this.emitter.emit("jukebox", { state: m.state, byName: m.byName });
+        break;
       case "budget":
         this.emitter.emit("budget", { throwsRemaining: m.throwsRemaining });
         break;
@@ -157,6 +160,10 @@ export class SocketBackend implements Backend {
 
   upgrade(): void {
     this.send({ t: "upgrade" });
+  }
+
+  jukeboxPress(): void {
+    this.send({ t: "jukebox" });
   }
 
   requestThrow(throwId: string, launch: ThrowLaunch): void {

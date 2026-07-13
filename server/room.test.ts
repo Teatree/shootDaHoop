@@ -147,6 +147,54 @@ describe("the upgrade press", () => {
     expect(a.of("upgraded")).toHaveLength(0);
   });
 
+  it("jukebox: a press at the box re-rolls the synced song for everyone", async () => {
+    const { room, storage } = await makeRoom(0, 3); // tier 3: the box exists
+    const a = new FakeWS();
+    const b = new FakeWS();
+    await room.join(a as unknown as WebSocket, identity("alice"));
+    await room.join(b as unknown as WebSocket, identity("bob"));
+
+    // alice stands by the box (its d is off-court; nearest court spot works)
+    room.handle("alice", { t: "move-to", x: 16.8, d: 0 });
+    room.handle("alice", { t: "jukebox" });
+
+    for (const ws of [a, b]) {
+      const [jb] = ws.of("jukebox");
+      expect(jb).toBeDefined();
+      if (jb?.t !== "jukebox") throw new Error("unreachable");
+      expect(jb.byName).toBe("alice");
+      expect(jb.state.song).toBeGreaterThanOrEqual(0);
+      expect(jb.state.song).toBeLessThan(BALANCE.jukebox.songs);
+    }
+    // persisted + carried by welcome, so late joiners hear it too
+    const world = storage.worlds.get("test")?.world;
+    expect(world?.jukebox?.song).toBeDefined();
+
+    // pressing again always lands on a DIFFERENT song
+    const first = world!.jukebox!.song;
+    room.handle("alice", { t: "jukebox" });
+    const second = storage.worlds.get("test")?.world.jukebox?.song;
+    expect(second).not.toBe(first);
+  });
+
+  it("jukebox: no box below tier 3, no press from across the court", async () => {
+    const t2 = await makeRoom(0, 2);
+    const a = new FakeWS();
+    await t2.room.join(a as unknown as WebSocket, identity("alice"));
+    t2.room.handle("alice", { t: "move-to", x: 16.8, d: 0 });
+    t2.room.handle("alice", { t: "jukebox" });
+    expect(a.of("jukebox")).toHaveLength(0);
+    t2.room.destroy();
+
+    const t3 = await makeRoom(0, 3);
+    room = t3.room; // afterEach cleans this one
+    const c = new FakeWS();
+    await t3.room.join(c as unknown as WebSocket, identity("carol"));
+    t3.room.handle("carol", { t: "move-to", x: 5, d: 3 }); // far away
+    t3.room.handle("carol", { t: "jukebox" });
+    expect(c.of("jukebox")).toHaveLength(0);
+  });
+
   it("late joiners are welcomed straight into the upgraded world", async () => {
     const { room } = await makeRoom(T2.threshold);
     const a = new FakeWS();

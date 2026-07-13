@@ -1,5 +1,5 @@
-import { BALANCE } from "../src/shared/config";
 import { rollOrbSpawn, type OrbState } from "../src/shared/orb";
+import type { OrbTiming } from "../src/shared/tierRules";
 
 // ── Server-authoritative world objects ────────────────────────────────
 // Some things exist in the WORLD, not on any client: the server decides
@@ -11,9 +11,12 @@ import { rollOrbSpawn, type OrbState } from "../src/shared/orb";
 //   - Room broadcasts the events; welcome/snapshot carry current state
 //     so late joiners and dropped packets self-heal.
 //
-// OrbAuthority owns the orb's clock: spawn after cadenceS, expire after
-// lifeS, respawn cadenceS after it's gone (consumed or expired) — the
-// exact rhythm of the old client-local prototype orb.
+// OrbAuthority owns the orb's clock: spawn after a cadence, expire after
+// a lifetime, respawn a cadence after it's gone (consumed or expired).
+// The timing comes from the TIER (shared/tierRules.orbTimingForTier):
+// tiers 1–2 keep the fixed prototype rhythm; Hoop 3's Ambient/Spawn
+// Change switches to a random 10–20 s cadence with a 5 s life. The
+// getter is re-read every cycle, so an upgrade re-times the clock live.
 
 export class OrbAuthority {
   private orb: OrbState | null = null;
@@ -26,6 +29,7 @@ export class OrbAuthority {
       onSpawn: (orb: OrbState) => void;
       onExpire: (seq: number) => void;
     },
+    private readonly timing: () => OrbTiming,
   ) {
     this.scheduleSpawn();
   }
@@ -57,11 +61,14 @@ export class OrbAuthority {
 
   private scheduleSpawn() {
     if (this.stopped) return;
+    const t = this.timing();
+    const cadenceS =
+      t.minCadenceS + Math.random() * (t.maxCadenceS - t.minCadenceS);
     this.timer = setTimeout(() => {
       this.orb = rollOrbSpawn(++this.seq);
       this.events.onSpawn(this.orb);
       this.scheduleExpiry();
-    }, BALANCE.orb.cadenceS * 1000);
+    }, cadenceS * 1000);
   }
 
   private scheduleExpiry() {
@@ -72,7 +79,7 @@ export class OrbAuthority {
       this.orb = null;
       this.events.onExpire(o.seq);
       this.scheduleSpawn();
-    }, BALANCE.orb.lifeS * 1000);
+    }, this.timing().lifeS * 1000);
   }
 
   private clearTimer() {

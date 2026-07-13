@@ -44,9 +44,17 @@ export interface Cosmetics {
   headVariant: number;
 }
 
+/** The jukebox loop everyone in the world hears (Hoop 3+). */
+export interface JukeboxState {
+  song: number; //        0-based index into the song slots
+  startedAtMs: number; // epoch ms the loop began — clients seek to sync
+}
+
 export interface WorldState {
   sharedScore: number; // cumulative community score (shared between players)
   tierId: number; //     current hoop tier (see shared/tiers.ts)
+  /** current jukebox loop; absent/null = silence (or no jukebox yet) */
+  jukebox?: JukeboxState | null;
 }
 
 /**
@@ -110,6 +118,8 @@ export type ClientMsg =
   | { t: "throw"; throwId: string; launch: ThrowLaunch }
   /** press the Upgrade button — the server validates threshold + proximity */
   | { t: "upgrade" }
+  /** press the jukebox — re-rolls the song everyone hears (tier 3+) */
+  | { t: "jukebox" }
   | { t: "chat"; text: string }
   /** pose telemetry, ~12 Hz while animating — cosmetic, relayed as-is */
   | { t: "pose"; s: AvatarState }
@@ -150,6 +160,8 @@ export type ServerMsg =
       byName: string;
       placements: { id: string; x: number; d: number }[];
     }
+  /** someone pressed the jukebox — the new loop, synced to everyone */
+  | { t: "jukebox"; state: JukeboxState; byName: string }
   | { t: "budget"; throwsRemaining: number }
   /** someone joined with a ?reset link — the shared score was wiped */
   | { t: "world-reset"; name: string; world: WorldState }

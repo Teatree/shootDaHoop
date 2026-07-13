@@ -28,7 +28,14 @@ export const AUDIO_MANIFEST = [
   "sfx_chat",
 ] as const;
 
+// Jukebox song slots (Hoop 3): drop files at public/assets/music/
+// song1.mp3 (or .wav) … — the jukebox works without them (the song
+// choice still syncs to everyone; missing files just play silence).
+export const MUSIC_MANIFEST = ["song1", "song2", "song3"] as const;
+
 export interface AvailableAssets {
   images: string[];
   audio: string[];
+  /** jukebox songs found on disk, key + resolved url (may be empty) */
+  music: { key: string; url: string }[];
 }

@@ -11,7 +11,9 @@ import {
   canUpgrade,
   clampToWalkable,
   effectivePowerForTier,
+  interactivesForTier,
   nextTier,
+  orbTimingForTier,
 } from "../src/shared/tierRules";
 import type {
   AvatarState,
@@ -65,10 +67,15 @@ export class Room {
     private readonly onEmpty: () => void,
   ) {
     this.ready = this.hydrate();
-    this.orb = new OrbAuthority({
-      onSpawn: (orb) => this.broadcast({ t: "orb-spawned", orb }),
-      onExpire: (seq) => this.broadcast({ t: "orb-removed", seq }),
-    });
+    this.orb = new OrbAuthority(
+      {
+        onSpawn: (orb) => this.broadcast({ t: "orb-spawned", orb }),
+        onExpire: (seq) => this.broadcast({ t: "orb-removed", seq }),
+      },
+      // the tier's Ambient/Spawn Change: the clock re-reads this every
+      // cycle, so an upgrade changes the cadence without a restart
+      () => orbTimingForTier(this.world.tierId),
+    );
     this.snapshotTimer = setInterval(() => {
       if (this.occupants.size === 0) return;
       this.broadcast({
@@ -228,6 +235,10 @@ export class Room {
     this.history.push(entry);
     if (this.history.length > BALANCE.lobby.historyKept)
       this.history = this.history.slice(-BALANCE.lobby.historyKept);
+    this.persistWorld();
+  }
+
+  private persistWorld() {
     void this.storage
       .saveWorld({
         lobby: this.lobby,
@@ -351,6 +362,32 @@ export class Room {
           byName: occ.info.name,
           placements,
         });
+        break;
+      }
+      case "jukebox": {
+        // the box only exists from tier 3 on; the presser must be at it
+        const box = interactivesForTier(this.world.tierId).find(
+          (el) => el.element === "jukebox",
+        );
+        if (!box) break;
+        if (
+          Math.hypot(
+            occ.info.x - box.placement.xM,
+            occ.info.d - box.placement.dM,
+          ) > BALANCE.jukebox.pressProximityM
+        )
+          break;
+        // PLACEHOLDER (behaviour): a press RE-ROLLS a random song and
+        // always lands on a different one than is playing
+        const cur = this.world.jukebox?.song;
+        let song = Math.floor(Math.random() * BALANCE.jukebox.songs);
+        if (BALANCE.jukebox.songs > 1 && song === cur)
+          song = (song + 1) % BALANCE.jukebox.songs;
+        const state = { song, startedAtMs: Date.now() };
+        this.world = { ...this.world, jukebox: state };
+        this.persistWorld();
+        // heard by EVERYONE in the world — not local
+        this.broadcast({ t: "jukebox", state, byName: occ.info.name });
         break;
       }
       case "chat": {
