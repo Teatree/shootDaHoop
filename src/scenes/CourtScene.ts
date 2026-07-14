@@ -37,6 +37,7 @@ import {
   effectivePowerForTier,
   getTier,
   hoopGeometryForTier,
+  nextTier,
   type HoopGeometry,
 } from "../shared/tierRules";
 import { showNotice } from "../settings";
@@ -139,10 +140,12 @@ export class CourtScene extends Phaser.Scene {
     drawWall(this);
     this.keepOutZone = createKeepOutZone(this);
     this.hoop = createHoop(this, this.geom());
+    this.updateHoopScreen(); // fresh world: "0 / <tier-2 threshold>"
     this.director = new TierDirector(this, {
       rebuildHoop: (geom, look) => {
         this.hoop.destroy();
         this.hoop = createHoop(this, geom, look);
+        this.updateHoopScreen(); // the foot screen survives every rebuild
       },
       hoopFx: (fx) => this.hoopFx(fx),
       redrawCourt: (look, fx) => {
@@ -414,6 +417,17 @@ export class CourtScene extends Phaser.Scene {
     this.world = w;
     this.hud.setScore(w.sharedScore);
     this.upgradeBtn.setAvailable(canUpgrade(w));
+    this.updateHoopScreen();
+  }
+
+  /** The hoop-foot screen: shared score / next threshold (or score alone
+   *  at the top of the ladder). Thresholds count from the post-upgrade
+   *  reset, so current/required is exactly the world state. */
+  private updateHoopScreen() {
+    this.hoop.setScoreDisplay(
+      this.world.sharedScore,
+      nextTier(this.world.tierId)?.threshold ?? null,
+    );
   }
 
   /**

@@ -380,6 +380,9 @@ export interface HoopParts {
   /** the rim juice targets by default — the lowest one */
   primary: HoopRimParts;
   shadow: Phaser.GameObjects.Ellipse; // live — the sun system steers it
+  /** the foot contraption's screen: "current / required" toward the next
+   *  upgrade, or current alone at the ladder's top (required = null) */
+  setScoreDisplay(current: number, required: number | null): void;
   destroy(): void;
 }
 
@@ -438,6 +441,34 @@ export function createHoop(
   g.fillStyle(look.board).fillRect(boardX, boardTop, boardW, boardBot - boardTop);
   g.lineStyle(2, look.boardEdge).strokeRect(boardX, boardTop, boardW, boardBot - boardTop);
 
+  // the score contraption at the pole's foot: a semicircular housing
+  // wrapped around the pole base with a rectangular screen inside that
+  // shows "current / required" toward the next upgrade — part of the
+  // hoop itself, rebuilt (and repainted) with it every tier.
+  // PLACEHOLDER (tune): housing radius, screen size, font size.
+  const footCx = boardX + boardW + 2 + 3.5; // pole center
+  const housingR = 52;
+  g.fillStyle(armColor);
+  g.beginPath();
+  g.slice(footCx, baseY, housingR, Math.PI, Math.PI * 2);
+  g.fillPath();
+  g.lineStyle(2, look.boardEdge);
+  g.beginPath();
+  g.slice(footCx, baseY, housingR, Math.PI, Math.PI * 2);
+  g.strokePath();
+  g.fillStyle(0x101418).fillRect(footCx - 44, baseY - 28, 88, 22);
+  g.lineStyle(2, 0x2a3a44).strokeRect(footCx - 44, baseY - 28, 88, 22);
+  const scoreText = scene.add
+    .text(footCx, baseY - 17, "", {
+      fontFamily: '"Courier New", Courier, monospace',
+      fontSize: "14px",
+      fontStyle: "bold",
+      color: "#ffd97a", // warm LED — clearly readable on the dark screen
+    })
+    .setOrigin(0.5)
+    .setResolution(2)
+    .setDepth(sortDepth(RIM.d) + 1);
+
   const rims: HoopRimParts[] = geom.rims.map((rim) => {
     const rimY = baseY - rim.h * M;
     const rimL = (rim.x - rim.r) * M;
@@ -483,10 +514,16 @@ export function createHoop(
     rims,
     primary,
     shadow,
+    setScoreDisplay(current: number, required: number | null) {
+      scoreText.setText(
+        required === null ? `${current}` : `${current} / ${required}`,
+      );
+    },
     destroy() {
       g.destroy();
       for (const r of rims) r.net.destroy();
       shadow.destroy();
+      scoreText.destroy();
     },
   };
 }
