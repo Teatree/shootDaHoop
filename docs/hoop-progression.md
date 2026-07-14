@@ -293,3 +293,41 @@ choreography beat timings (`T.progressionFx` in `src/tuning.ts`), AFK timeout
 (`T.progressionFx.afkTimeoutS`), jukebox behavior (`BALANCE.jukebox` +
 `server/room.ts` `"jukebox"` case), songs (`public/assets/music/song1..3`,
 silent slots until provided).
+
+---
+
+## 6. Owner-feedback batch, 2026-07-15
+
+Five changes, all browser-verified end-to-end (Playwright + a raw-WS bot as
+the second player):
+
+- **Score lives on the hoop only.** The DOM top-center `#score` is gone
+  (`index.html`, `style.css`, `hud.ts` — `HUD.setScore` removed). The foot
+  screen is the single score display, and once the threshold is met it shows
+  **★ ★ ★** instead of `current / required` (`placeholders.ts`
+  `setScoreDisplay`).
+- **Characters and balls render over the foot screen.** The housing + screen
+  + text moved out of the hoop-body graphics into their own objects at
+  `sortDepth(RIM.d) − 0.5 / − 0.4` — just UNDER the character band (rigs sit
+  at `sortDepth(d)`, ball sprites at `+1`), so anyone at the hoop covers the
+  text. Gotcha: the pole had to stop at the housing crown (`baseY −
+  housingR + 6`) — a full-length pole in the higher-depth body graphics
+  would stripe straight across the lower-depth screen.
+- **Tier-2 red is obvious now.** Overlay `0xe03018 @ 0.16` (was `0xff2a18 @
+  0.05` — invisible), suns deep crimson `0xd83018` core / `0xff7a55` glow so
+  they read against the reddened sky instead of blending into it.
+- **The catch-up show survives a closed tab.** New per-lobby seen-tier store
+  (`shootDaHoop.seenTier.<lobby>`; `CourtScene.rememberSeenTier`, written on
+  every `setWorld` — during a deferred hold it stores the OLD applied tier,
+  which is exactly right — and at `playUpgradeShow`). A rejoin whose welcome
+  carries a higher tier: `applyInstant(seen)` → `deferUpgrade(worldTier)` →
+  1 s beat → the show. `TierDirector.playDeferred` now snaps through
+  intermediate rungs and plays the FINAL leg's choreography instead of
+  snapping the whole jump.
+- **Upgrade presses can't fail silently anymore.** The "character walks up
+  but nothing happens" bug was a STALE SERVER: `tsx` doesn't hot-reload, so
+  after editing `tiers.ts` thresholds the client showed the button while the
+  server still ran the old numbers and ate the press with a bare `break`.
+  The server now answers `upgrade-rejected` (`threshold` | `proximity`) to
+  the presser, and the client logs it on the court wall — including the
+  restart-the-server hint.

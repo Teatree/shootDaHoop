@@ -143,8 +143,10 @@ Only **made** baskets score; misses score 0 (but still log their distance/outcom
 Layout frame: the **left 80% of the screen is the game viewport**; the **right
 20% is the Log** (see below). Score, chat, and inventory sit within the viewport.
 
-- **Score** — displayed **squarely in the top-center** of the screen, large and
-  prominent.
+- **Score** — ~~displayed squarely in the top-center of the screen~~ *(changed
+  2026-07-15)*: the shared score lives **only on the hoop's foot screen** in the
+  world (see HOOP_PROGRESSION.md) — no DOM score element. Once the score reaches
+  the next tier's threshold the screen shows **★ ★ ★** instead of numbers.
 - **Ball inventory** — **bottom-right of the viewport** (just left of the Log),
   **3 static slots showing 3 basketballs.** Cosmetic only right now — slots don't
   deplete; balls are unlimited.

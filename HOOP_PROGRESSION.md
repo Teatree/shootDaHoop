@@ -44,7 +44,9 @@ How an upgrade happens, regardless of which tier is being unlocked:
      new mechanics — see each tier below).
 5. **AFK catch-up.** A player who was AFK during the upgrade sees, on return,
    **roughly the same success animation** the triggering player saw — so nobody
-   misses the payoff of a milestone the community hit.
+   misses the payoff of a milestone the community hit. This includes players who
+   **left entirely** (closed the tab): on rejoin they load into the world as they
+   last saw it, and a moment later the missed transformation plays (2026-07-15).
 
 ### Multiplayer, authority & replay
 
@@ -277,6 +279,10 @@ for the full list. Where each one lives:
 - **AFK catch-up** presentation → full choreography replay on return
   (`src/systems/afk.ts` + `TierDirector.deferUpgrade`; timeout in
   `T.progressionFx.afkTimeoutS`). A hidden tab gets this for free via
-  Phaser's pause-on-blur.
+  Phaser's pause-on-blur. A player who CLOSED the tab gets it too: the
+  client stores the last tier it showed (`shootDaHoop.seenTier.<lobby>`,
+  written by `CourtScene.rememberSeenTier`), and a rejoin whose welcome
+  carries a higher tier holds the old world ~1 s, then plays the missed
+  leg (multi-rung jumps snap to `t-1` and play only the final leg).
 - **Ghost-ball recolour** → recordings stamp `ballLook` at record time
   (`ThrowRecording.ballLook`), not timestamps — simpler and equivalent.
