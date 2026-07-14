@@ -85,7 +85,8 @@ export class RemoteAvatar {
     this.x = info.x;
     this.d = info.d;
     this.name = info.name;
-    this.shadow = scene.add.ellipse(0, 0, 44, 9, 0x000000, 0.22);
+    // PLACEHOLDER (tune): widened 44 → 54, matches Player
+    this.shadow = scene.add.ellipse(0, 0, 54, 9, 0x000000, 0.22);
     this.rig = new CharacterRig(scene, info);
     this.label = scene.add
       .text(0, 0, info.name, {
@@ -263,9 +264,12 @@ export class RemoteAvatar {
     // exactly like Player's
     const li = this.light;
     const hFrac = Phaser.Math.Clamp(1 - this.airH / 6, 0.25, 1);
+    // face-down offset, exactly like Player's: the rig angle (tweened
+    // locally or streamed) eases the shadow under the fallen body
+    const down = Math.min(1, Math.abs(this.rig.angle) / 90);
     this.shadow.setPosition(
-      sx + shadowShift(1.0 + this.airH, li),
-      floorY(this.d),
+      sx + shadowShift(1.0 + this.airH, li) + 10 * down,
+      floorY(this.d) + 10 * down,
     );
     this.shadow.setScale(
       hFrac * (1 + (T.sky.shadowStretchMax - 1) * (1 - li.elev)),

@@ -46,7 +46,8 @@ export class Player {
   private readonly label: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene, name: string, look: RigLook) {
-    this.shadow = scene.add.ellipse(0, 0, 44, 9, 0x000000, 0.22);
+    // PLACEHOLDER (tune): widened 44 → 54, our guys are more fat now
+    this.shadow = scene.add.ellipse(0, 0, 54, 9, 0x000000, 0.22);
     this.rig = new CharacterRig(scene, look);
     this.label = scene.add
       .text(0, 0, name, {
@@ -214,9 +215,14 @@ export class Player {
     // higher while levitating); shrinks and fades with altitude like the ball
     const li = this.light;
     const hFrac = Phaser.Math.Clamp(1 - this.airH / 6, 0.25, 1);
+    // face-planted bodies lie forward of their feet: slide the shadow
+    // under them, scaled by how far the rig has rotated so the teleport
+    // tween (angle 0↔90) drives the transition smoothly both ways.
+    // PLACEHOLDER (tune): 10 px down + right when fully down.
+    const down = Math.min(1, Math.abs(this.rig.angle) / 90);
     this.shadow.setPosition(
-      sx + shadowShift(1.0 + this.airH, li),
-      floorY(this.d),
+      sx + shadowShift(1.0 + this.airH, li) + 10 * down,
+      floorY(this.d) + 10 * down,
     );
     this.shadow.setScale(
       hFrac * (1 + (T.sky.shadowStretchMax - 1) * (1 - li.elev)),
