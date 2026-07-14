@@ -405,6 +405,27 @@ export class Room {
         this.broadcast({ t: "jukebox", state, byName: occ.info.name });
         break;
       }
+      case "jukebox-off": {
+        // the OFF toggle: same box, same proximity — and only meaningful
+        // while something is (or recently was) playing. Clients gate the
+        // button on live playback; the server just clears the state.
+        if (!this.world.jukebox) break;
+        const box = interactivesForTier(this.world.tierId).find(
+          (el) => el.element === "jukebox",
+        );
+        if (!box) break;
+        if (
+          Math.hypot(
+            occ.info.x - box.placement.xM,
+            occ.info.d - box.placement.dM,
+          ) > BALANCE.jukebox.pressProximityM
+        )
+          break;
+        this.world = { ...this.world, jukebox: null };
+        this.persistWorld();
+        this.broadcast({ t: "jukebox", state: null, byName: occ.info.name });
+        break;
+      }
       case "chat": {
         const text = String(msg.text).slice(0, 1000).trim();
         if (!text) break;

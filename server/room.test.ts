@@ -238,8 +238,9 @@ describe("the upgrade press", () => {
       expect(jb).toBeDefined();
       if (jb?.t !== "jukebox") throw new Error("unreachable");
       expect(jb.byName).toBe("alice");
-      expect(jb.state.song).toBeGreaterThanOrEqual(0);
-      expect(jb.state.song).toBeLessThan(BALANCE.jukebox.songs);
+      expect(jb.state).not.toBeNull();
+      expect(jb.state!.song).toBeGreaterThanOrEqual(0);
+      expect(jb.state!.song).toBeLessThan(BALANCE.jukebox.songs);
     }
     // persisted + carried by welcome, so late joiners hear it too
     const world = storage.worlds.get("test")?.world;
@@ -250,6 +251,31 @@ describe("the upgrade press", () => {
     room.handle("alice", { t: "jukebox" });
     const second = storage.worlds.get("test")?.world.jukebox?.song;
     expect(second).not.toBe(first);
+  });
+
+  it("jukebox-off: clears the song for everyone, only while playing", async () => {
+    const { room, storage } = await makeRoom(0, 3);
+    const a = new FakeWS();
+    const b = new FakeWS();
+    await room.join(a as unknown as WebSocket, identity("alice"));
+    await room.join(b as unknown as WebSocket, identity("bob"));
+    room.handle("alice", { t: "move-to", x: 16.8, d: 0 });
+
+    // nothing playing yet — the off press is ignored
+    room.handle("alice", { t: "jukebox-off" });
+    expect(a.of("jukebox")).toHaveLength(0);
+
+    room.handle("alice", { t: "jukebox" });
+    room.handle("alice", { t: "jukebox-off" });
+    for (const ws of [a, b]) {
+      const evs = ws.of("jukebox");
+      const last = evs[evs.length - 1];
+      if (last?.t !== "jukebox") throw new Error("unreachable");
+      expect(last.state).toBeNull(); // OFF, synced to everyone
+      expect(last.byName).toBe("alice");
+    }
+    // persisted: late joiners get silence
+    expect(storage.worlds.get("test")?.world.jukebox).toBeNull();
   });
 
   it("jukebox: no box below tier 3, no press from across the court", async () => {

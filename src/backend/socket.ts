@@ -166,6 +166,10 @@ export class SocketBackend implements Backend {
     this.send({ t: "jukebox" });
   }
 
+  jukeboxOffPress(): void {
+    this.send({ t: "jukebox-off" });
+  }
+
   requestThrow(throwId: string, launch: ThrowLaunch): void {
     this.send({ t: "throw", throwId, launch });
     // optimistic: spawn our ball NOW (zero-latency feel, exactly like the

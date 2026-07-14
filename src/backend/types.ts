@@ -56,8 +56,8 @@ export interface BackendEvents {
     byName: string;
     placements: { id: string; x: number; d: number }[];
   }) => void;
-  /** someone pressed the jukebox — everyone hears the new loop */
-  jukebox: (e: { state: JukeboxState; byName: string }) => void;
+  /** someone pressed the jukebox — the new song, or null = turned OFF */
+  jukebox: (e: { state: JukeboxState | null; byName: string }) => void;
   budget: (e: { throwsRemaining: number }) => void;
   /** someone joined with a ?reset link — the shared score was wiped */
   worldReset: (e: { name: string; world: WorldState }) => void;
@@ -93,6 +93,8 @@ export interface Backend {
   upgrade(): void;
   /** press the jukebox — the authority re-rolls the synced song */
   jukeboxPress(): void;
+  /** the OFF toggle — the authority stops the song for everyone */
+  jukeboxOffPress(): void;
   chat(text: string): void;
 
   /**

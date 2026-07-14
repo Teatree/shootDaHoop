@@ -120,6 +120,8 @@ export type ClientMsg =
   | { t: "upgrade" }
   /** press the jukebox — re-rolls the song everyone hears (tier 3+) */
   | { t: "jukebox" }
+  /** the OFF toggle beside a PLAYING jukebox — stops it for everyone */
+  | { t: "jukebox-off" }
   | { t: "chat"; text: string }
   /** pose telemetry, ~12 Hz while animating — cosmetic, relayed as-is */
   | { t: "pose"; s: AvatarState }
@@ -160,8 +162,9 @@ export type ServerMsg =
       byName: string;
       placements: { id: string; x: number; d: number }[];
     }
-  /** someone pressed the jukebox — the new loop, synced to everyone */
-  | { t: "jukebox"; state: JukeboxState; byName: string }
+  /** someone pressed the jukebox — the new song (or null = turned OFF),
+   *  synced to everyone */
+  | { t: "jukebox"; state: JukeboxState | null; byName: string }
   | { t: "budget"; throwsRemaining: number }
   /** someone joined with a ?reset link — the shared score was wiped */
   | { t: "world-reset"; name: string; world: WorldState }

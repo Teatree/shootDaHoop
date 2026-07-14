@@ -31,10 +31,13 @@ export class Jukebox {
   private readonly player: Player;
   private readonly el: InteractiveElement;
   private readonly onPressed: () => void;
+  private readonly onOffPressed: () => void;
   private readonly music: AvailableAssets["music"];
 
   private box: Phaser.GameObjects.Graphics | null = null;
   private button: ProximityButton | null = null;
+  /** the OFF toggle — exists beside the button, shown only mid-song */
+  private offButton: ProximityButton | null = null;
   private sound: Phaser.Sound.BaseSound | null = null;
   /** dedupe key: the authoritative start stamp of the adopted playback —
    *  NOT the song slot, so a re-pressed same slot restarts and a snapshot
@@ -51,23 +54,32 @@ export class Jukebox {
     el: InteractiveElement,
     music: AvailableAssets["music"],
     onPressed: () => void,
+    onOffPressed: () => void,
   ) {
     this.scene = scene;
     this.player = player;
     this.el = el;
     this.music = music;
     this.onPressed = onPressed;
+    this.onOffPressed = onOffPressed;
   }
 
   spawn(animated: boolean) {
     if (this.box) return;
     this.box = this.drawBox();
+    const bx = this.el.placement.xM * M;
+    const by = floorY(this.el.placement.dM - this.el.depthM / 2) - 46;
     this.button = new ProximityButton(
       this.scene,
-      this.el.placement.xM * M,
-      floorY(this.el.placement.dM - this.el.depthM / 2) - 46,
+      bx,
+      by,
       "♪ JUKEBOX",
       () => this.onPressed(),
+    );
+    // the OFF toggle sits right beside the main button, only while a
+    // song is playing. PLACEHOLDER (tune): the -64 px gap.
+    this.offButton = new ProximityButton(this.scene, bx - 64, by, "⏻", () =>
+      this.onOffPressed(),
     );
     if (animated) {
       const g = this.box;
@@ -89,6 +101,8 @@ export class Jukebox {
     this.box = null;
     this.button?.destroy();
     this.button = null;
+    this.offButton?.destroy();
+    this.offButton = null;
   }
 
   /** A song is audibly playing right now (drives the OFF toggle + vfx). */
@@ -99,7 +113,10 @@ export class Jukebox {
   update(dt: number) {
     if (!this.button) return;
     // press-in-passing: no occupancy, just the very-close trigger
-    this.button.setNear(this.edgeDistPx() <= this.el.proximityPx + 1);
+    const near = this.edgeDistPx() <= this.el.proximityPx + 1;
+    this.button.setNear(near);
+    // OFF is available only when close enough AND a song is playing
+    this.offButton?.setNear(near && this.isPlaying);
 
     this.t += dt;
     if (this.isPlaying) {

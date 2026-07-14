@@ -217,6 +217,13 @@ export class LocalBackend implements Backend {
     this.emitter.emit("jukebox", { state, byName: this.self.name });
   }
 
+  /** The OFF toggle — mirrors server/room.ts (only while playing). */
+  jukeboxOffPress(): void {
+    if (!this.world.jukebox) return;
+    this.world = { ...this.world, jukebox: null };
+    this.emitter.emit("jukebox", { state: null, byName: this.self.name });
+  }
+
   chat(text: string): void {
     this.emitter.emit("chatMessage", {
       id: this.self.id,

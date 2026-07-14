@@ -173,8 +173,13 @@ export class CourtScene extends Phaser.Scene {
           );
           this.cheer.spawn(animated);
         } else if (el.element === "jukebox") {
-          this.jukebox ??= new Jukebox(this, this.player, el, this.assets.music, () =>
-            this.backend.jukeboxPress(),
+          this.jukebox ??= new Jukebox(
+            this,
+            this.player,
+            el,
+            this.assets.music,
+            () => this.backend.jukeboxPress(),
+            () => this.backend.jukeboxOffPress(),
           );
           this.jukebox.spawn(animated);
         }
@@ -358,7 +363,9 @@ export class CourtScene extends Phaser.Scene {
       this.jukebox?.sync(e.state);
       this.hud.log(
         "world",
-        `♪ ${esc(e.byName)} spins the jukebox — ${esc(this.jukebox?.songLabel(e.state.song) ?? `song ${e.state.song + 1}`)}.`,
+        e.state
+          ? `♪ ${esc(e.byName)} spins the jukebox — ${esc(this.jukebox?.songLabel(e.state.song) ?? `song ${e.state.song + 1}`)}.`
+          : `⏹ ${esc(e.byName)} turned the jukebox off.`,
       );
     });
     this.backend.on("snapshot", (e) => {
