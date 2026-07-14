@@ -74,6 +74,9 @@ export class SocketBackend implements Backend {
       case "player-left":
         this.emitter.emit("playerLeft", { id: m.id, name: m.name });
         break;
+      case "player-offline":
+        this.emitter.emit("playerWentOffline", { id: m.id, name: m.name });
+        break;
       case "move-to":
         this.emitter.emit("playerMoved", { id: m.id, x: m.x, d: m.d });
         break;

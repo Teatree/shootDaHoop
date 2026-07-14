@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { T } from "./tuning";
-import { clampToCourt, floorY, sortDepth, toScreen } from "./world";
+import { floorY, sortDepth, toScreen } from "./world";
 import { burst, flash } from "./juice";
 import { playSfx } from "./sfx";
 import { shadowShift, type LightDir } from "./sky";
@@ -102,6 +102,13 @@ export class RemoteAvatar {
     this.render(null);
   }
 
+  /** Offline players' characters wait around: gray, slightly faded tag.
+   *  PLACEHOLDER (tune): gray #9aa4ac, 20% more transparent. */
+  setOffline(off: boolean) {
+    this.label.setColor(off ? "#9aa4ac" : "#ffffff");
+    this.label.setAlpha(off ? 0.8 : 1);
+  }
+
   /** A ~12 Hz telemetry sample — the primary animation source. */
   pushSample(s: AvatarState) {
     this.buffer.push({ t: this.clock, s });
@@ -111,14 +118,16 @@ export class RemoteAvatar {
       this.buffer.shift();
   }
 
-  /** A broadcast movement intent — fallback path (and stale recovery). */
+  /** A broadcast movement intent — fallback path (and stale recovery).
+   *  Coordinates arrive pre-clamped: CourtScene clamps to the TIER'S
+   *  walkable space (court + cheer deck), not the bare court, so a
+   *  waiting offline character can walk up onto the deck. */
   walkTo(x: number, d: number) {
     if (this.tpState !== "none") return; // mid-teleport: no walking
-    const c = clampToCourt(x, d);
-    this.targetX = c.x;
-    this.targetD = c.d;
+    this.targetX = x;
+    this.targetD = d;
     this.walking = true;
-    if (Math.abs(c.x - this.x) > 0.01) this.facingRight = c.x >= this.x;
+    if (Math.abs(x - this.x) > 0.01) this.facingRight = x >= this.x;
   }
 
   /** Snapshot reconciliation — snap without walking. */

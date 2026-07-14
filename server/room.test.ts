@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { WebSocket } from "ws";
 import { Room } from "./room";
 import type {
@@ -96,6 +96,128 @@ async function makeRoom(sharedScore: number, tierId = 1) {
 afterEach(() => {
   room?.destroy(); // clears orb + snapshot timers
   room = null;
+});
+
+describe("offline characters wait around", () => {
+  const ws = (f: FakeWS) => f as unknown as WebSocket;
+
+  it("leave marks the character offline instead of removing it", async () => {
+    const { room } = await makeRoom(0);
+    const a = new FakeWS();
+    const b = new FakeWS();
+    await room.join(ws(a), identity("alice"));
+    await room.join(ws(b), identity("bob"));
+    room.leave("bob", ws(b));
+
+    // alice hears player-offline, NOT player-left; bob's character stays
+    expect(a.of("player-offline")).toHaveLength(1);
+    expect(a.of("player-left")).toHaveLength(0);
+    expect(room.size).toBe(1); // size counts CONNECTED players only
+
+    // a late joiner still receives bob, flagged offline
+    const c = new FakeWS();
+    await room.join(ws(c), identity("cara"));
+    const [w] = c.of("welcome");
+    if (w?.t !== "welcome") throw new Error("unreachable");
+    const bob = w.players.find((p) => p.id === "bob");
+    expect(bob?.offline).toBe(true);
+  });
+
+  it("rejoining reclaims the waiting character in place, un-grayed", async () => {
+    const { room } = await makeRoom(0);
+    const a = new FakeWS();
+    const b = new FakeWS();
+    await room.join(ws(a), identity("alice"));
+    await room.join(ws(b), identity("bob"));
+    room.handle("bob", { t: "move-to", x: 10, d: 2 });
+    room.leave("bob", ws(b));
+
+    const b2 = new FakeWS();
+    await room.join(ws(b2), identity("bob"));
+    const joins = a.of("player-joined");
+    const last = joins[joins.length - 1];
+    if (last?.t !== "player-joined") throw new Error("unreachable");
+    expect(last.player.id).toBe("bob");
+    expect(last.player.offline).toBeUndefined(); // back online
+    expect(last.player.x).toBeCloseTo(10, 5); //   exactly where it stood
+  });
+
+  it("after the delay the character walks to its waiting spot", async () => {
+    vi.useFakeTimers();
+    try {
+      const { room } = await makeRoom(0); // tier 1 → the far-sideline spot
+      const a = new FakeWS();
+      const b = new FakeWS();
+      await room.join(ws(a), identity("alice"));
+      await room.join(ws(b), identity("bob"));
+      room.leave("bob", ws(b));
+      expect(a.of("move-to")).toHaveLength(0); // not yet — it waits first
+
+      vi.advanceTimersByTime(BALANCE.presence.offlineWalkDelayS * 1000 + 50);
+      const mv = a.of("move-to").find((m) => m.t === "move-to" && m.id === "bob");
+      if (mv?.t !== "move-to") throw new Error("no waiting walk broadcast");
+      expect(mv.d).toBeLessThan(1); // the upper side of the field
+      expect(mv.x).toBeGreaterThan(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a reclaim before the delay cancels the waiting walk", async () => {
+    vi.useFakeTimers();
+    try {
+      const { room } = await makeRoom(0);
+      const a = new FakeWS();
+      const b = new FakeWS();
+      await room.join(ws(a), identity("alice"));
+      await room.join(ws(b), identity("bob"));
+      room.leave("bob", ws(b));
+      const b2 = new FakeWS();
+      await room.join(ws(b2), identity("bob"));
+      vi.advanceTimersByTime(BALANCE.presence.offlineWalkDelayS * 1000 + 50);
+      expect(a.of("move-to")).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("the last CONNECTED player leaving tears the room down anyway", async () => {
+    const storage = new MemStorage();
+    storage.worlds.set("test", {
+      lobby: "test",
+      world: { sharedScore: 0, tierId: 1 },
+      history: [],
+    });
+    let empty = false;
+    room = new Room("test", storage, () => {
+      empty = true;
+    });
+    const a = new FakeWS();
+    const b = new FakeWS();
+    await room.join(ws(a), identity("alice"));
+    await room.join(ws(b), identity("bob"));
+    room.leave("bob", ws(b));
+    expect(empty).toBe(false); // alice is still connected
+    room.leave("alice", ws(a));
+    expect(empty).toBe(true); // offline characters don't keep it alive
+  });
+
+  it("an offline character does not count against maxPlayers", async () => {
+    const { room } = await makeRoom(0);
+    const sockets: FakeWS[] = [];
+    for (let i = 0; i < BALANCE.lobby.maxPlayers; i++) {
+      const f = new FakeWS();
+      sockets.push(f);
+      expect(await room.join(ws(f), identity(`p${i}`))).toBe(true);
+    }
+    // full for a newcomer…
+    const extra = new FakeWS();
+    expect(await room.join(ws(extra), identity("late"))).toBe(false);
+    // …but one player going offline frees a connected slot
+    room.leave("p0", ws(sockets[0]));
+    const extra2 = new FakeWS();
+    expect(await room.join(ws(extra2), identity("late2"))).toBe(true);
+  });
 });
 
 describe("throw budgets are PER LOBBY", () => {

@@ -34,19 +34,28 @@ import {
 } from "../src/shared/budget";
 import { OrbAuthority } from "./orb";
 
-// One live world. Holds who's connected (presence — ephemeral) and the
-// shared world state. Presence dies with the socket; world state and
-// profiles persist (storage lands in build step 5).
+// One live world. Holds who's here (presence) and the shared world state.
+// A DISCONNECT does not despawn the character: the occupant goes OFFLINE
+// (ws = null, tag grayed on every client) and the character waits around —
+// after a short delay it walks to a waiting spot (the cheer deck if it
+// exists, else the far sideline) and stays until its player rejoins.
+// Presence is still ephemeral at the ROOM level: when the last CONNECTED
+// player leaves, the room tears down and offline characters evaporate
+// with it (the world bundle persists; avatars don't). World state and
+// profiles persist via storage.
 //
 // "The loop must never stop": every inbound message is handled inside a
 // try/catch upstream (index.ts); a bad event degrades to a skip.
 
 interface Occupant {
   info: PlayerInfo;
-  ws: WebSocket;
+  /** null = the player disconnected; the character stays, offline */
+  ws: WebSocket | null;
   profile: PlayerProfile;
   /** epoch ms until which a slam throw is legitimate (set on teleport) */
   levitatingUntil: number;
+  /** the one-shot walk-to-the-waiting-spot after going offline */
+  offlineWalkTimer: NodeJS.Timeout | null;
 }
 
 export class Room {
@@ -78,7 +87,7 @@ export class Room {
       () => orbTimingForTier(this.world.tierId),
     );
     this.snapshotTimer = setInterval(() => {
-      if (this.occupants.size === 0) return;
+      if (this.connectedCount() === 0) return;
       this.broadcast({
         t: "snapshot",
         players: [...this.occupants.values()].map((o) => ({ ...o.info })),
@@ -96,8 +105,15 @@ export class Room {
     }
   }
 
+  /** Connected players — offline characters don't count. */
   get size(): number {
-    return this.occupants.size;
+    return this.connectedCount();
+  }
+
+  private connectedCount(): number {
+    let n = 0;
+    for (const o of this.occupants.values()) if (o.ws) n++;
+    return n;
   }
 
   /** Returns true if the join was accepted (welcome sent). */
@@ -108,7 +124,9 @@ export class Room {
   ): Promise<boolean> {
     await this.ready;
     const existing = this.occupants.get(identity.id);
-    if (!existing && this.occupants.size >= BALANCE.lobby.maxPlayers) {
+    // capacity counts CONNECTED players — a waiting offline character
+    // must never lock its own player (or friends) out
+    if (!existing && this.connectedCount() >= BALANCE.lobby.maxPlayers) {
       send(ws, { t: "join-rejected", reason: "full" });
       return false;
     }
@@ -142,15 +160,27 @@ export class Room {
     void this.storage.saveProfile(profile).catch(logSaveError);
 
     if (existing) {
-      // reconnect: replace the zombie socket, keep the avatar where it was
+      // reconnect OR reclaim: replace the socket (a zombie, or null for
+      // an offline character), keep the avatar exactly where it stands
+      const wasOffline = existing.ws === null;
+      if (existing.offlineWalkTimer) {
+        clearTimeout(existing.offlineWalkTimer);
+        existing.offlineWalkTimer = null;
+      }
       try {
-        existing.ws.close();
+        existing.ws?.close();
       } catch {
         /* already dead */
       }
       existing.ws = ws;
       existing.info.name = identity.name;
       existing.profile = profile;
+      if (wasOffline) {
+        // the character comes back to life: un-gray the tag everywhere
+        delete existing.info.offline;
+        this.broadcast({ t: "player-joined", player: { ...existing.info } }, ws);
+        this.record({ kind: "presence", name: identity.name, joined: true });
+      }
     } else {
       const spawn = rollSpawn(); // random spot beside the keep-out zone
       const info: PlayerInfo = {
@@ -163,7 +193,13 @@ export class Room {
         x: spawn.x,
         d: spawn.d,
       };
-      this.occupants.set(identity.id, { info, ws, profile, levitatingUntil: 0 });
+      this.occupants.set(identity.id, {
+        info,
+        ws,
+        profile,
+        levitatingUntil: 0,
+        offlineWalkTimer: null,
+      });
       this.broadcast({ t: "player-joined", player: info }, ws);
       this.record({ kind: "presence", name: identity.name, joined: true });
     }
@@ -183,20 +219,64 @@ export class Room {
   leave(playerId: string, ws: WebSocket) {
     const occ = this.occupants.get(playerId);
     if (!occ || occ.ws !== ws) return; // stale socket from a reconnect
-    this.occupants.delete(playerId);
-    this.broadcast({ t: "player-left", id: playerId, name: occ.info.name });
+    // the character does NOT despawn: it goes offline (grayed tag) and
+    // waits around — its player reclaims it on rejoin
+    occ.ws = null;
+    occ.info.offline = true;
+    this.broadcast({ t: "player-offline", id: playerId, name: occ.info.name });
     this.record({ kind: "presence", name: occ.info.name, joined: false });
-    if (this.occupants.size === 0) {
-      // flush in-flight outcomes so the world state stays consistent
+    this.scheduleOfflineWalk(playerId, occ);
+    if (this.connectedCount() === 0) {
+      // last CONNECTED player gone: flush in-flight outcomes so the
+      // world state stays consistent, then tear down — the offline
+      // characters evaporate with the room (world persists, they don't)
       for (const p of this.pending) {
         clearTimeout(p.timer);
         p.fire();
       }
       this.pending.clear();
       if (this.snapshotTimer) clearInterval(this.snapshotTimer);
+      for (const o of this.occupants.values())
+        if (o.offlineWalkTimer) clearTimeout(o.offlineWalkTimer);
       this.orb.stop();
       this.onEmpty();
     }
+  }
+
+  /**
+   * PLACEHOLDER (behaviour, 2026-07-14): after offlineWalkDelayS the
+   * abandoned character walks to a waiting spot — the cheer deck when the
+   * tier has one, else the upper side of the field — via a normal move
+   * intent, so every client animates the walk. It stays there until its
+   * player rejoins.
+   */
+  private scheduleOfflineWalk(playerId: string, occ: Occupant) {
+    if (occ.offlineWalkTimer) clearTimeout(occ.offlineWalkTimer);
+    occ.offlineWalkTimer = setTimeout(() => {
+      occ.offlineWalkTimer = null;
+      if (occ.ws !== null) return; // reclaimed in the meantime
+      const spot = this.waitingSpot();
+      occ.info.x = spot.x;
+      occ.info.d = spot.d;
+      this.broadcast({ t: "move-to", id: playerId, x: spot.x, d: spot.d });
+    }, BALANCE.presence.offlineWalkDelayS * 1000);
+  }
+
+  /** Where abandoned characters wait: a spot on the cheer deck (tier 2+),
+   *  else along the far (upper) sideline, out of the shooting lane. */
+  private waitingSpot(): { x: number; d: number } {
+    const deck = interactivesForTier(this.world.tierId).find(
+      (el) => el.element === "cheer-area" && el.occupiesSpot,
+    );
+    if (deck) {
+      const span = deck.widthM * 0.6;
+      return {
+        x: deck.placement.xM - span / 2 + Math.random() * span,
+        d: deck.placement.dM,
+      };
+    }
+    // PLACEHOLDER (tune): the upper side of the field, spread out a bit
+    return { x: 4 + Math.random() * 6, d: 0.4 };
   }
 
   /**
@@ -208,7 +288,11 @@ export class Room {
    * (never fired — firing would record() and re-save the world).
    */
   destroy(): void {
-    const socks = [...this.occupants.values()].map((o) => o.ws);
+    const socks = [...this.occupants.values()].flatMap((o) =>
+      o.ws ? [o.ws] : [],
+    );
+    for (const o of this.occupants.values())
+      if (o.offlineWalkTimer) clearTimeout(o.offlineWalkTimer);
     this.occupants.clear();
     for (const p of this.pending) clearTimeout(p.timer);
     this.pending.clear();
@@ -263,7 +347,10 @@ export class Room {
 
   handle(playerId: string, msg: ClientMsg) {
     const occ = this.occupants.get(playerId);
-    if (!occ) return;
+    // messages ride a live socket — an offline occupant can't send, and
+    // capturing the non-null socket keeps the cases below honest
+    const sock = occ?.ws;
+    if (!occ || !sock) return;
 
     switch (msg.t) {
       case "move-to": {
@@ -271,7 +358,7 @@ export class Room {
         occ.info.x = c.x;
         occ.info.d = c.d;
         // intent broadcast — the sender already animates locally
-        this.broadcast({ t: "move-to", id: playerId, x: c.x, d: c.d }, occ.ws);
+        this.broadcast({ t: "move-to", id: playerId, x: c.x, d: c.d }, sock);
         break;
       }
       case "pose": {
@@ -281,12 +368,12 @@ export class Room {
         if (!s) break;
         occ.info.x = s.x;
         occ.info.d = s.d;
-        this.broadcast({ t: "pose", id: playerId, s }, occ.ws);
+        this.broadcast({ t: "pose", id: playerId, s }, sock);
         break;
       }
       case "throw": {
         if (!validLaunch(msg.launch, this.world.tierId)) {
-          send(occ.ws, {
+          send(sock, {
             t: "throw-rejected",
             throwId: msg.throwId,
             reason: "invalid",
@@ -295,7 +382,7 @@ export class Room {
         }
         // the budget is the server's, not the client's
         if (!consumeThrow(this.budgetFor(occ.profile), new Date())) {
-          send(occ.ws, {
+          send(sock, {
             t: "throw-rejected",
             throwId: msg.throwId,
             reason: "budget",
@@ -303,7 +390,7 @@ export class Room {
           break;
         }
         void this.storage.saveProfile(occ.profile).catch(logSaveError);
-        send(occ.ws, {
+        send(sock, {
           t: "budget",
           throwsRemaining: remainingThrows(this.budgetFor(occ.profile), new Date()),
         });
@@ -314,7 +401,7 @@ export class Room {
         // the thrower already animates locally — relay to everyone else
         this.broadcast(
           { t: "throw", id: playerId, throwId: msg.throwId, launch },
-          occ.ws,
+          sock,
         );
         // authoritative resolution NOW; the outcome fires when the ball
         // "lands" so score juice lines up with the visual flight
@@ -479,10 +566,11 @@ export class Room {
         // hitting the orb keeps the ball — the slam is a FREE throw
         refundThrow(this.budgetFor(occ.profile), new Date());
         void this.storage.saveProfile(occ.profile).catch(logSaveError);
-        send(occ.ws, {
-          t: "budget",
-          throwsRemaining: remainingThrows(this.budgetFor(occ.profile), new Date()),
-        });
+        if (occ.ws)
+          send(occ.ws, {
+            t: "budget",
+            throwsRemaining: remainingThrows(this.budgetFor(occ.profile), new Date()),
+          });
       }
       this.broadcast({ t: "orb-removed", seq: orbSeq, byId: playerId });
       this.broadcast({
@@ -543,7 +631,7 @@ export class Room {
   private broadcast(msg: ServerMsg, except?: WebSocket) {
     const data = JSON.stringify(msg);
     for (const o of this.occupants.values()) {
-      if (o.ws === except) continue;
+      if (!o.ws || o.ws === except) continue; // offline characters can't hear
       if (o.ws.readyState === o.ws.OPEN) o.ws.send(data);
     }
   }

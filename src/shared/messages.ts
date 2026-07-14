@@ -33,6 +33,9 @@ export interface PlayerInfo {
   headVariant: number; // 1-based index into the head_v* part textures
   x: number; //          court meters (last known/spawn)
   d: number;
+  /** the player disconnected but their character waits around — clients
+   *  gray the name tag (absent = online, keeps old payloads parsing) */
+  offline?: boolean;
 }
 
 /** Per-lobby cosmetic identity, rolled client-side on first entry. */
@@ -143,6 +146,9 @@ export type ServerMsg =
   | { t: "join-rejected"; reason: "full" }
   | { t: "player-joined"; player: PlayerInfo }
   | { t: "player-left"; id: string; name: string }
+  /** the player disconnected; their character STAYS, tag grayed —
+   *  player-joined with the same id later = they reclaimed it */
+  | { t: "player-offline"; id: string; name: string }
   | { t: "move-to"; id: string; x: number; d: number }
   | { t: "pose"; id: string; s: AvatarState }
   | { t: "throw"; id: string; throwId: string; launch: ThrowLaunch }

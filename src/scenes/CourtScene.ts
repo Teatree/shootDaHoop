@@ -34,6 +34,7 @@ import type { Backend } from "../backend/types";
 import {
   ballLookForTier,
   canUpgrade,
+  clampToWalkable,
   effectivePowerForTier,
   getTier,
   hoopGeometryForTier,
@@ -280,16 +281,37 @@ export class CourtScene extends Phaser.Scene {
       );
     });
     this.backend.on("playerJoined", (e) => {
+      const existing = this.remotes.get(e.player.id);
+      if (existing) {
+        // a returning player reclaims their waiting character in place
+        existing.avatar.setOffline(false);
+        this.spawnPuff(existing.avatar.x, existing.avatar.d);
+        this.hud.log("presence", `${esc(e.player.name)} is back at the court.`);
+        return;
+      }
       this.addRemote(e.player);
       this.spawnPuff(e.player.x, e.player.d); // a new character appears
       this.hud.log("presence", `${esc(e.player.name)} joined the court.`);
     });
     this.backend.on("playerLeft", (e) => {
+      // legacy/edge path — normal disconnects now go playerWentOffline
       this.removeRemote(e.id);
       this.hud.log("presence", `${esc(e.name)} left the court.`);
     });
+    this.backend.on("playerWentOffline", (e) => {
+      // the character STAYS and waits — only the tag changes
+      this.remotes.get(e.id)?.avatar.setOffline(true);
+      this.hud.log(
+        "presence",
+        `${esc(e.name)} left the court — their character waits around.`,
+      );
+    });
     this.backend.on("playerMoved", (e) => {
-      if (e.id !== this.selfId) this.remotes.get(e.id)?.avatar.walkTo(e.x, e.d);
+      if (e.id === this.selfId) return;
+      // clamp to the tier's WALKABLE space (court + cheer deck) — the
+      // offline waiting walk targets the off-court deck
+      const c = clampToWalkable(e.x, e.d, this.director.tierId);
+      this.remotes.get(e.id)?.avatar.walkTo(c.x, c.d);
     });
     this.backend.on("playerPosed", (e) => {
       if (e.id !== this.selfId) this.remotes.get(e.id)?.avatar.pushSample(e.s);
@@ -379,8 +401,10 @@ export class CourtScene extends Phaser.Scene {
       for (const p of e.players) {
         if (p.id === this.selfId) continue;
         const r = this.remotes.get(p.id);
-        if (r) r.avatar.setPos(p.x, p.d);
-        else this.addRemote(p); // self-heal: we somehow missed the join
+        if (r) {
+          r.avatar.setPos(p.x, p.d);
+          r.avatar.setOffline(!!p.offline); // tag self-heal
+        } else this.addRemote(p); // self-heal: we somehow missed the join
       }
       for (const [id, r] of this.remotes) {
         if (!e.players.some((p) => p.id === id)) {
@@ -552,6 +576,7 @@ export class CourtScene extends Phaser.Scene {
     if (this.remotes.has(p.id)) return;
     const avatar = new RemoteAvatar(this, p);
     avatar.rig.setBallTint(this.ballTint); // joiners wear the tier's look
+    avatar.setOffline(!!p.offline); // waiting characters arrive grayed
     this.remotes.set(p.id, { avatar, bubbles: new SpeechBubbles(this, avatar) });
   }
 

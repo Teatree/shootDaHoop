@@ -121,6 +121,13 @@ export const BALANCE = {
     clearMaxXM: 14,
   },
 
+  // ── Presence (offline characters wait around) ─────────────────────
+  presence: {
+    // PLACEHOLDER (tune): a disconnected player's character waits this
+    // long, then walks to its waiting spot (cheer deck / far sideline)
+    offlineWalkDelayS: 20,
+  },
+
   // ── Jukebox (Hoop 3 interactive — synced to everyone) ─────────────
   jukebox: {
     songs: 3, //           the three reference song slots (assets/music/)

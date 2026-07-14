@@ -31,6 +31,9 @@ export interface BackendEvents {
   lobbyRemoved: (e: Record<string, never>) => void;
   playerJoined: (e: { player: PlayerInfo }) => void;
   playerLeft: (e: { id: string; name: string }) => void;
+  /** the player disconnected; their character STAYS and waits — gray the
+   *  tag. A later playerJoined with the same id = they reclaimed it. */
+  playerWentOffline: (e: { id: string; name: string }) => void;
   /** a movement intent — every client animates the walk locally */
   playerMoved: (e: { id: string; x: number; d: number }) => void;
   /**
