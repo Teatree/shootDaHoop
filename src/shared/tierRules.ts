@@ -21,6 +21,7 @@ import type {
   HoopChange,
   HoopLook,
   InteractiveElement,
+  SunMood,
 } from "./tierChanges";
 
 // ── Tier lookups & the unlock check ──────────────────────────────────
@@ -299,6 +300,34 @@ export function clampToWalkable(
     return { x: Math.min(x, RIM.x), d: c.d };
   }
   return c;
+}
+
+// ── Atmosphere (camera tint + sun mood) ───────────────────────────────
+
+export interface Atmosphere {
+  overlay: { color: number; alpha: number };
+  sun: SunMood;
+}
+
+/** Tier 1's sky exactly as it is today: no tint, warm suns, base pace. */
+export const BASE_ATMOSPHERE: Atmosphere = {
+  overlay: { color: 0x000000, alpha: 0 },
+  sun: {
+    coreColor: 0xffe08a,
+    glowColor: 0xfff0c0,
+    sizeScale: 1,
+    speedScale: 1,
+    pulsate: false,
+  },
+};
+
+/** Last-wins fold, like the court skin — a reset restores the base sky. */
+export function atmosphereForTier(tierId: number): Atmosphere {
+  let atm = BASE_ATMOSPHERE;
+  for (const t of tiersUpTo(tierId))
+    for (const c of t.changes)
+      if (c.type === "atmosphere") atm = { overlay: c.overlay, sun: c.sun };
+  return atm;
 }
 
 // ── Orb timing (Ambient / Spawn Change) ───────────────────────────────

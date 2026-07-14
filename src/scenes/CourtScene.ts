@@ -38,6 +38,7 @@ import {
   getTier,
   hoopGeometryForTier,
   nextTier,
+  type Atmosphere,
   type HoopGeometry,
 } from "../shared/tierRules";
 import { showNotice } from "../settings";
@@ -84,6 +85,8 @@ export class CourtScene extends Phaser.Scene {
   private jukebox?: Jukebox;
   private idle!: IdleWatch;
   private courtG!: Phaser.GameObjects.Graphics;
+  /** the atmosphere's camera wash — re-fit to the camera every frame */
+  private atmosOverlay!: Phaser.GameObjects.Rectangle;
   /** the applied tier's ball tint — new balls spawn wearing it */
   private ballTint: number = T.ballLooks.classic;
   /** the latest authoritative world state (score + tier) */
@@ -176,7 +179,15 @@ export class CourtScene extends Phaser.Scene {
         this.jukebox?.destroy();
         this.jukebox = undefined;
       },
+      setAtmosphere: (a, fx) =>
+        this.applyAtmosphere(a, fx !== null && fx !== "none"),
     });
+    // the wash sits over the whole world (world objects top out at the
+    // aim preview's 900) but under the DOM HUD, which is above the canvas
+    this.atmosOverlay = this.add
+      .rectangle(0, 0, 4, 4, 0x000000, 0)
+      .setOrigin(0)
+      .setDepth(950);
     this.upgradeBtn = new UpgradeButton(this, () => this.tryUpgrade());
     this.idle = new IdleWatch(T.progressionFx.afkTimeoutS, () => {
       // the AFK player is back — the held transformation plays now
@@ -404,6 +415,29 @@ export class CourtScene extends Phaser.Scene {
     playSfx(this, "sfx_bounce", 0.8);
   }
 
+  /** The tier's atmosphere: sun mood + the camera wash (tweened when
+   *  it lands as a choreography beat, instant for late join/reset). */
+  private applyAtmosphere(a: Atmosphere, animated: boolean) {
+    this.sky.setMood(a.sun);
+    const o = this.atmosOverlay;
+    this.tweens.killTweensOf(o);
+    if (!animated) {
+      o.setFillStyle(a.overlay.color, a.overlay.alpha);
+      return;
+    }
+    // the beat's vfx: a soft white blink as the light itself changes,
+    // then the wash fades in. PLACEHOLDER (tune): 600 ms fade.
+    o.setFillStyle(a.overlay.color, o.fillAlpha);
+    this.tweens.add({
+      targets: o,
+      fillAlpha: a.overlay.alpha,
+      duration: 600,
+      ease: "Sine.easeInOut",
+    });
+    this.cameras.main.flash(250, 255, 255, 255);
+    playSfx(this, "sfx_pop", 0.7);
+  }
+
   /** The tier's ball look, everywhere at once (world, held, UI icons). */
   private applyBallLook(look: BallLookId, animated: boolean) {
     this.ballTint = T.ballLooks[look] ?? T.ballLooks.classic;
@@ -578,6 +612,11 @@ export class CourtScene extends Phaser.Scene {
     this.balls = this.balls.filter((b) => !b.done);
     this.rig.update(dt);
     this.idle.update();
+
+    // the atmosphere wash always covers exactly what the camera sees
+    // (scroll AND zoom — a scrollFactor-0 rect would break under zoom)
+    const wv = this.cameras.main.worldView;
+    this.atmosOverlay.setPosition(wv.x, wv.y).setSize(wv.width, wv.height);
 
     // clicked Upgrade from afar → walking over; press when close enough
     if (this.pendingUpgradePress) {

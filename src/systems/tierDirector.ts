@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { T } from "../tuning";
 import {
+  atmosphereForTier,
   ballLookForTier,
   courtLookForTier,
   getTier,
@@ -8,6 +9,7 @@ import {
   hoopGeometryForTier,
   hoopLookForTier,
   interactivesForTier,
+  type Atmosphere,
   type HoopGeometry,
 } from "../shared/tierRules";
 import type {
@@ -53,6 +55,8 @@ export interface TierDirectorHooks {
   spawnInteractive(el: InteractiveElement, animated: boolean): void;
   /** remove every placed interactive (a world reset back down a tier) */
   clearInteractives(): void;
+  /** retint the world's light (camera wash + sun mood); fx null = instant */
+  setAtmosphere(a: Atmosphere, fx: FxKind | null): void;
 }
 
 export class TierDirector {
@@ -162,6 +166,12 @@ export class TierDirector {
           this.at(at, () => this.hooks.redrawCourt(change.look, change.fx));
           at += fx.changeBeatMs;
           break;
+        case "atmosphere":
+          this.at(at, () =>
+            this.hooks.setAtmosphere(atmosphereForTier(this.applied), change.fx),
+          );
+          at += fx.changeBeatMs;
+          break;
         case "new-animation":
           break; // a data unlock — nothing to stage
         case "ambient-spawn":
@@ -178,6 +188,7 @@ export class TierDirector {
     );
     this.hooks.redrawCourt(courtLookForTier(this.applied), null);
     this.hooks.setBallLook(ballLookForTier(this.applied), null);
+    this.hooks.setAtmosphere(atmosphereForTier(this.applied), null);
     this.hooks.clearInteractives(); // resets tear DOWN; upgrades re-add
     for (const el of interactivesForTier(this.applied))
       this.hooks.spawnInteractive(el, false);

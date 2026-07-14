@@ -89,6 +89,9 @@ export const T = {
     shadowAlphaHigh: 0.24, //sun overhead → tight, dark
     shadowAlphaLow: 0.1, //  sun at the horizon → long, faint
     shadowStretchMax: 1.7, //horizontal ellipse stretch at low sun
+    // the tier-2 atmosphere's sun pulse — PLACEHOLDER (tune)
+    pulsateHz: 0.9, //       pulses per second
+    pulsateAmp: 0.08, //     ±8% radius breathing
   },
 
   // ── Teleport orb power-up: client FEEL only ───────────────────────

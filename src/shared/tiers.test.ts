@@ -4,7 +4,9 @@ import { RIM } from "./court";
 import { HOOP_TIERS } from "./tiers";
 import {
   animationsForTier,
+  atmosphereForTier,
   ballLookForTier,
+  BASE_ATMOSPHERE,
   canUpgrade,
   courtLookForTier,
   effectivePowerForTier,
@@ -164,6 +166,32 @@ describe("looks", () => {
     expect(t2.board).toBe(0x4a4a52); // …dark gray board…
     expect(t2.pole).toBeLessThan(t1.pole); // …darker pole
     expect(t3).not.toEqual(t2); // tier 3 has its own paint job
+  });
+});
+
+describe("atmosphereForTier", () => {
+  it("tier 1 is today's sky exactly: no wash, warm suns, base pace", () => {
+    expect(atmosphereForTier(1)).toEqual(BASE_ATMOSPHERE);
+    expect(BASE_ATMOSPHERE.overlay.alpha).toBe(0);
+  });
+
+  it("tier 2 washes the world red and sets the suns pulsating, redder", () => {
+    const a = atmosphereForTier(2);
+    expect(a.overlay.alpha).toBeGreaterThan(0);
+    expect(a.overlay.alpha).toBeLessThan(0.2); // "very transparent"
+    expect((a.overlay.color >> 16) & 0xff).toBeGreaterThan(0xc0); // red-led
+    expect(a.sun.pulsate).toBe(true);
+    expect(a.sun.sizeScale).toBe(1);
+    expect(a.sun.speedScale).toBe(1);
+  });
+
+  it("tier 3 goes blue-gray: smaller, very light blue, slower suns", () => {
+    const a = atmosphereForTier(3);
+    expect(a.overlay.alpha).toBeGreaterThan(0);
+    expect(a.sun.sizeScale).toBeLessThan(1); //  smaller
+    expect(a.sun.speedScale).toBeLessThan(1); // slower
+    expect(a.sun.pulsate).toBe(false);
+    expect(a.sun.coreColor & 0xff).toBeGreaterThan(0xd0); // strongly blue
   });
 });
 

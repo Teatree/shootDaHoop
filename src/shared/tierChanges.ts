@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════
-//  THE CHANGE-TYPE VOCABULARY — the six reusable building blocks a hoop
+//  THE CHANGE-TYPE VOCABULARY — the seven reusable building blocks a hoop
 //  tier composes its transformation from (see HOOP_PROGRESSION.md).
 //
 //  This is the ENGINE half of the data-driven progression:
@@ -157,10 +157,33 @@ export interface AmbientSpawnChange {
   appearFx: FxKind;
 }
 
+// ── 7. Atmosphere Change ──────────────────────────────────────────────
+// Recolors the world's LIGHT: a very transparent tint over the whole
+// camera (the world "becomes more red") plus a new mood for the sun
+// procession. Applied last-wins per tier, like the court skin.
+
+/** How the suns look and move from this tier on. */
+export interface SunMood {
+  coreColor: number; // the sun disc (0xRRGGBB)
+  glowColor: number; // the halo
+  sizeScale: number; // × the base radii (0.65 = clearly smaller)
+  speedScale: number; // × traverse speed (0.6 = a slower procession)
+  pulsate: boolean; //  slow radius pulse
+}
+
+export interface AtmosphereChange {
+  type: "atmosphere";
+  /** full-screen tint over the world (under the DOM HUD) */
+  overlay: { color: number; alpha: number };
+  sun: SunMood;
+  fx: FxKind;
+}
+
 export type TierChange =
   | HoopChange
   | SceneVisualChange
   | InteractiveElement
   | PermanentEffect
   | NewAnimation
-  | AmbientSpawnChange;
+  | AmbientSpawnChange
+  | AtmosphereChange;

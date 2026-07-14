@@ -1,11 +1,14 @@
 import Phaser from "phaser";
 import { T } from "./tuning";
 import { M } from "./world";
+import { BASE_ATMOSPHERE } from "./shared/tierRules";
+import type { SunMood } from "./shared/tierChanges";
 
 // The desert sky: an endless procession of suns arcing across the horizon.
 // Each "configuration" is randomly a lone big sun, a lone small sun, or a
 // big sun with a small companion. The dominant sun drives every drop
-// shadow on the court via lightDir().
+// shadow on the court via lightDir(). The tier's Atmosphere Change hands
+// in a MOOD — colors, size, pace, pulse — via setMood().
 
 /** Where the light comes from, reduced to what shadows need. */
 export interface LightDir {
@@ -28,6 +31,8 @@ export class SunSystem {
   private p = 0; //          0..1 progress across the sky
   private traverseS = 0;
   private gapLeft = 0;
+  private t = 0; //          wall clock for the pulse
+  private mood: SunMood = { ...BASE_ATMOSPHERE.sun };
   // shadows ease toward the current sun instead of snapping between configs
   private smoothed: LightDir = { dx: 0, elev: 1 };
 
@@ -39,12 +44,23 @@ export class SunSystem {
     this.spawnConfig();
   }
 
+  /** The tier's Atmosphere Change: recolor/resize/repace the procession.
+   *  Applies to the suns in the sky right now AND every one after. */
+  setMood(m: SunMood) {
+    this.mood = { ...m };
+    for (const s of this.suns) {
+      s.core.setFillStyle(m.coreColor, 0.95);
+      s.glow.setFillStyle(m.glowColor, T.sky.glowAlpha);
+    }
+  }
+
   update(dt: number) {
+    this.t += dt;
     if (this.suns.length === 0) {
       this.gapLeft -= dt;
       if (this.gapLeft <= 0) this.spawnConfig();
     } else {
-      this.p += dt / this.traverseS;
+      this.p += (dt * this.mood.speedScale) / this.traverseS;
       if (this.p >= 1) {
         for (const s of this.suns) {
           s.glow.destroy();
@@ -55,9 +71,14 @@ export class SunSystem {
       } else {
         const ax = Phaser.Math.Linear(this.leftEdge, this.rightEdge, this.p);
         const ay = this.horizon - T.sky.arcPeakPx * Math.sin(Math.PI * this.p);
+        // the mood's size, plus the tier-2 pulse breathing on top of it
+        const pulse = this.mood.pulsate
+          ? 1 + T.sky.pulsateAmp * Math.sin(Math.PI * 2 * T.sky.pulsateHz * this.t)
+          : 1;
+        const scale = this.mood.sizeScale * pulse;
         for (const s of this.suns) {
-          s.glow.setPosition(ax + s.offX, ay + s.offY);
-          s.core.setPosition(ax + s.offX, ay + s.offY);
+          s.glow.setPosition(ax + s.offX, ay + s.offY).setScale(scale);
+          s.core.setPosition(ax + s.offX, ay + s.offY).setScale(scale);
         }
       }
     }
@@ -97,10 +118,10 @@ export class SunSystem {
 
     const add = (radius: number, offX: number, offY: number) => {
       const glow = this.scene.add
-        .circle(0, 0, radius * T.sky.glowScale, 0xfff0c0, T.sky.glowAlpha)
+        .circle(0, 0, radius * T.sky.glowScale, this.mood.glowColor, T.sky.glowAlpha)
         .setDepth(-95);
       const core = this.scene.add
-        .circle(0, 0, radius, 0xffe08a, 0.95)
+        .circle(0, 0, radius, this.mood.coreColor, 0.95)
         .setDepth(-95);
       this.suns.push({ glow, core, offX, offY });
     };

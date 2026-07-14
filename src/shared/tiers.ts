@@ -122,6 +122,23 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
         look: "mahogany", // much darker, like mahogany wood
         fx: "splash", //    a splash effect turns the court dark
       },
+
+      // 5. Atmosphere Change — Red Desert. The whole world becomes more
+      //    red: a very transparent red wash over the camera, and the
+      //    suns pulsate, painted redder.
+      {
+        type: "atmosphere",
+        // PLACEHOLDER (tune): "very transparent" red over everything
+        overlay: { color: 0xff2a18, alpha: 0.05 },
+        sun: {
+          coreColor: 0xff9a5a, // redder disc… PLACEHOLDER (tune)
+          glowColor: 0xffb98a, // …and halo
+          sizeScale: 1,
+          speedScale: 1,
+          pulsate: true, // the suns pulsate a bit
+        },
+        fx: "pop",
+      },
     ],
   },
 
@@ -192,7 +209,24 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
         fx: "pop-splash", // pops in with a splash effect
       },
 
-      // 4. Ambient / Spawn Change — Blue Orbs. The existing orb,
+      // 4. Atmosphere Change — Blue-Gray Dusk. The world cools toward
+      //    blue-gray; the suns are smaller, very light blue, and cross
+      //    the sky slower.
+      {
+        type: "atmosphere",
+        // PLACEHOLDER (tune): the blue-gray wash over everything
+        overlay: { color: 0x64748c, alpha: 0.07 },
+        sun: {
+          coreColor: 0xcfe2ff, // very light blue… PLACEHOLDER (tune)
+          glowColor: 0xe6f0ff,
+          sizeScale: 0.65, //     clearly smaller suns
+          speedScale: 0.6, //     …moving slower
+          pulsate: false,
+        },
+        fx: "pop",
+      },
+
+      // 5. Ambient / Spawn Change — Blue Orbs. The existing orb,
       //    unchanged in function, now on a slower random timer with a
       //    longer life, appearing without ceremony.
       {
