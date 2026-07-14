@@ -59,6 +59,9 @@ export interface BackendEvents {
     byName: string;
     placements: { id: string; x: number; d: number }[];
   }) => void;
+  /** OUR Upgrade press was refused — threshold not met on the authority
+   *  (a stale server build after a tiers.ts edit) or presser too far */
+  upgradeRejected: (e: { reason: "threshold" | "proximity" }) => void;
   /** someone pressed the jukebox — the new song, or null = turned OFF */
   jukebox: (e: { state: JukeboxState | null; byName: string }) => void;
   budget: (e: { throwsRemaining: number }) => void;

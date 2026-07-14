@@ -186,9 +186,11 @@ export class LocalBackend implements Backend {
 
   /** The Upgrade press — mirrors server/room.ts (threshold, reset, clear). */
   upgrade(): void {
-    if (!canUpgrade(this.world)) return;
     const next = nextTier(this.world.tierId);
-    if (!next) return;
+    if (!canUpgrade(this.world) || !next) {
+      this.emitter.emit("upgradeRejected", { reason: "threshold" });
+      return;
+    }
     this.world = { sharedScore: 0, tierId: next.id };
     const spot = rollUpgradeClearSpot();
     this.self.x = spot.x;

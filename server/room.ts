@@ -438,14 +438,21 @@ export class Room {
         // hoop (the button sits at its base; the errand walks the
         // presser through the keep-out zone, which the pose clamp opens
         // while an upgrade is available)
-        if (!canUpgrade(this.world)) break;
+        // a refusal is TOLD to the presser — a silent break here once
+        // cost a debugging session (client showed the button, a stale
+        // server build still had the old threshold and ate the press)
         const next = nextTier(this.world.tierId);
-        if (!next) break;
+        if (!canUpgrade(this.world) || !next) {
+          send(sock, { t: "upgrade-rejected", reason: "threshold" });
+          break;
+        }
         if (
           Math.hypot(occ.info.x - RIM.x, occ.info.d - RIM.d) >
           BALANCE.upgrade.proximityM
-        )
+        ) {
+          send(sock, { t: "upgrade-rejected", reason: "proximity" });
           break;
+        }
         // the next tier counts fresh from zero
         this.world = { sharedScore: 0, tierId: next.id };
         // teleport every active player clear of the hoop

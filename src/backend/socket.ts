@@ -115,6 +115,9 @@ export class SocketBackend implements Backend {
           placements: m.placements,
         });
         break;
+      case "upgrade-rejected":
+        this.emitter.emit("upgradeRejected", { reason: m.reason });
+        break;
       case "jukebox":
         this.emitter.emit("jukebox", { state: m.state, byName: m.byName });
         break;

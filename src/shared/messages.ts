@@ -168,6 +168,13 @@ export type ServerMsg =
       byName: string;
       placements: { id: string; x: number; d: number }[];
     }
+  /**
+   * The Upgrade press was refused (sent to the presser only). Client and
+   * server share tiers.ts, so "threshold" here while the client showed
+   * the button usually means the SERVER IS RUNNING A STALE BUILD — tsx
+   * doesn't hot-reload; restart it after editing shared code.
+   */
+  | { t: "upgrade-rejected"; reason: "threshold" | "proximity" }
   /** someone pressed the jukebox — the new song (or null = turned OFF),
    *  synced to everyone */
   | { t: "jukebox"; state: JukeboxState | null; byName: string }
