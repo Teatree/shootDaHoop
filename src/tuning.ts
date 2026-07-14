@@ -43,6 +43,15 @@ export const T = {
     previewAlphaStart: 0.78, // dot alpha at the release point…
     previewAlphaEnd: 0.08, //  …dissipating to this (no hard cutoff)
     previewCapRingPx: 9, //  pulsing ring at the line's end when power = 100%
+    // Boosted trail — active once a tier's ball-range permanent effect
+    // recolors the ball (tier 2+): visibly longer at every power, and a
+    // DISTINCT hue family so the upgrade reads at a glance.
+    // PLACEHOLDER (tune): lengths mirror the +25% travel (~×1.25).
+    boosted: {
+      previewMinLenM: 2.4,
+      previewMaxLenM: 7.9,
+      heatStops: [0xffb356, 0xff5aa0, 0xe03df0], // orange → hot pink → magenta
+    },
   },
 
   // ── Ball flight presentation (physics itself is shared) ──────────

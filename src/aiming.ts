@@ -3,6 +3,7 @@ import { T } from "./tuning";
 import { RIM, screenToFloor, toScreen } from "./world";
 import type { Player } from "./player";
 import type { PowerCurve } from "./shared/tierRules";
+import type { BallLookId } from "./shared/tierChanges";
 
 export interface Shot {
   vx: number; // m/s toward the hoop (+x)
@@ -10,14 +11,15 @@ export interface Shot {
   power: number; // 0..1 fraction of max — drives the preview's meter look
 }
 
-// power-meter heat: cream (soft) → amber (medium) → red (full)
+// power-meter heat: cream (soft) → amber (medium) → red (full);
+// the boosted (tier 2+) stops live in T.aim.boosted
 const HEAT_STOPS = [0xfff3d6, 0xffb84d, 0xff5030];
 
-function heatColor(t: number): number {
+function heatColor(t: number, stops: readonly number[]): number {
   const seg = t < 0.5 ? 0 : 1;
   const f = (t - seg * 0.5) * 2;
-  const a = Phaser.Display.Color.ValueToColor(HEAT_STOPS[seg]);
-  const b = Phaser.Display.Color.ValueToColor(HEAT_STOPS[seg + 1]);
+  const a = Phaser.Display.Color.ValueToColor(stops[seg]);
+  const b = Phaser.Display.Color.ValueToColor(stops[seg + 1]);
   const c = Phaser.Display.Color.Interpolate.ColorWithColor(a, b, 100, f * 100);
   return Phaser.Display.Color.GetColor(c.r, c.g, c.b);
 }
@@ -43,6 +45,9 @@ export class AimController {
     /** the ACTIVE tier's power curve — the ball-range permanent effect
      *  raises it, so a getter, not a constant */
     private readonly power: () => PowerCurve,
+    /** the ACTIVE tier's ball look — a non-classic ball means the
+     *  ball-range effect landed, and the trail shows it too */
+    private readonly trailLook: () => BallLookId,
   ) {
     this.preview = scene.add.graphics().setDepth(900);
 
@@ -153,12 +158,14 @@ export class AimController {
     // in a pulsing ring: you're at the limit.
     const a = T.aim;
     const atMax = shot.power >= 1;
-    const maxLen = Phaser.Math.Linear(
-      a.previewMinLenM,
-      a.previewMaxLenM,
-      shot.power,
-    );
-    const color = heatColor(shot.power);
+    // boosted balls (tier 2+ range effect) draw a longer trail in the
+    // boosted hue family — the upgrade is visible in the aim itself
+    const boosted = this.trailLook() !== "classic";
+    const minLenM = boosted ? a.boosted.previewMinLenM : a.previewMinLenM;
+    const maxLenM = boosted ? a.boosted.previewMaxLenM : a.previewMaxLenM;
+    const stops = boosted ? a.boosted.heatStops : HEAT_STOPS;
+    const maxLen = Phaser.Math.Linear(minLenM, maxLenM, shot.power);
+    const color = heatColor(shot.power, stops);
     const rp = this.player.releasePoint();
     let px: number = rp.x;
     let ph: number = rp.h;
@@ -198,9 +205,9 @@ export class AimController {
     }
 
     if (atMax) {
-      // pulsing cap ring — the visible power limit
+      // pulsing cap ring — the visible power limit, in the family's hottest hue
       const pulse = 0.7 + 0.3 * Math.sin(this.scene.time.now / 90);
-      this.preview.lineStyle(2.5, 0xff5030, 0.9 * pulse);
+      this.preview.lineStyle(2.5, stops[2], 0.9 * pulse);
       this.preview.strokeCircle(endSX, endSY, a.previewCapRingPx * pulse);
     }
   }

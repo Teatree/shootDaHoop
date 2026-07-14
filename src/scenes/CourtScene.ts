@@ -32,6 +32,7 @@ import type {
 } from "../shared/messages";
 import type { Backend } from "../backend/types";
 import {
+  ballLookForTier,
   canUpgrade,
   effectivePowerForTier,
   getTier,
@@ -187,6 +188,7 @@ export class CourtScene extends Phaser.Scene {
       (shot) => this.sendThrow(shot, false),
       (sx, sy) => this.walkClick(sx, sy),
       () => effectivePowerForTier(this.director.tierId),
+      () => ballLookForTier(this.director.tierId),
     );
     this.teleport = new TeleportSystem(this, this.player, {
       aim: this.aim,
