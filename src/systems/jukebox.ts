@@ -8,12 +8,23 @@ import type { JukeboxState } from "../shared/messages";
 
 // The Jukebox (Hoop 3's Interactive Element): a box left of the cheering
 // area, off the court. Very close → a button pops above it; pressing
-// re-rolls a random song that EVERYONE in the world hears on a loop —
-// the authority owns the choice + start time, clients seek into the
-// loop so late joiners land mid-song.
+// re-rolls a random song that EVERYONE in the world hears ONCE — songs
+// don't loop, they just end. The authority owns the choice + start time;
+// clients seek into the song so it ends for everyone around the same
+// moment, and a joiner arriving after the end hears (and sees) nothing.
+//
+// While playing, the box pulses with the song's bass (a WebAudio analyser
+// tap; fixed-tempo fallback) and sends little notes up into the air.
 //
 // Songs are asset SLOTS (assets/music/song1..3.mp3|wav). Missing files
 // are fine: the press still syncs and announces, it just plays silence.
+
+/** PLACEHOLDER (tune): 25% of the player's normal volume, per the owner. */
+const MUSIC_VOLUME = 0.25;
+/** PLACEHOLDER (tune): note spawn cadence + pulse feel. */
+const NOTE_EVERY_S = 0.7;
+const PULSE_AMP = 0.06;
+const FALLBACK_BPM = 100;
 
 export class Jukebox {
   private readonly scene: Phaser.Scene;
@@ -25,7 +36,14 @@ export class Jukebox {
   private box: Phaser.GameObjects.Graphics | null = null;
   private button: ProximityButton | null = null;
   private sound: Phaser.Sound.BaseSound | null = null;
-  private playingSong: number | null = null;
+  /** dedupe key: the authoritative start stamp of the adopted playback —
+   *  NOT the song slot, so a re-pressed same slot restarts and a snapshot
+   *  arriving after the natural end can't resurrect the song */
+  private syncedStartMs: number | null = null;
+  private analyser: AnalyserNode | null = null;
+  private freqData: Uint8Array<ArrayBuffer> | null = null;
+  private noteIn = 0;
+  private t = 0;
 
   constructor(
     scene: Phaser.Scene,
@@ -65,40 +83,82 @@ export class Jukebox {
   }
 
   destroy() {
-    this.stop();
+    this.stopPlayback();
+    this.syncedStartMs = null;
     this.box?.destroy();
     this.box = null;
     this.button?.destroy();
     this.button = null;
   }
 
-  update(_dt: number) {
+  /** A song is audibly playing right now (drives the OFF toggle + vfx). */
+  get isPlaying(): boolean {
+    return this.sound !== null && this.sound.isPlaying;
+  }
+
+  update(dt: number) {
     if (!this.button) return;
     // press-in-passing: no occupancy, just the very-close trigger
     this.button.setNear(this.edgeDistPx() <= this.el.proximityPx + 1);
+
+    this.t += dt;
+    if (this.isPlaying) {
+      // little notes drift up into the air (not on hidden tabs — no
+      // stale bursts on return; the music itself keeps playing)
+      this.noteIn -= dt;
+      if (this.noteIn <= 0 && !document.hidden) {
+        this.noteIn = NOTE_EVERY_S * (0.7 + Math.random() * 0.6);
+        this.spawnNote();
+      }
+      // the speaker pulses with the bass — analyser when WebAudio offers
+      // one, a steady FALLBACK_BPM thump otherwise
+      let level: number;
+      if (this.analyser && this.freqData) {
+        this.analyser.getByteFrequencyData(this.freqData);
+        let sum = 0;
+        for (let i = 0; i < 4; i++) sum += this.freqData[i]; // lowest bins
+        level = sum / (4 * 255);
+      } else {
+        level = Math.max(0, Math.sin(this.t * Math.PI * 2 * (FALLBACK_BPM / 60)));
+      }
+      this.box?.setScale(1 + PULSE_AMP * level);
+    } else if (this.box && this.box.scale !== 1 && !this.scene.tweens.isTweening(this.box)) {
+      this.box.setScale(1);
+    }
   }
 
   /**
-   * Adopt the authoritative loop (event, welcome, snapshot self-heal).
-   * Seeks into the song so every client hears roughly the same beat —
+   * Adopt the authoritative playback (event, welcome, snapshot self-heal).
+   * Seeks to the elapsed position so the song ends for everyone around
+   * the same time; a joiner after the end gets silence and no animation.
    * PLACEHOLDER sync fidelity: clock skew and decode latency drift it.
    */
   sync(state: JukeboxState | null | undefined) {
     if (!state) {
-      this.stop();
+      this.stopPlayback();
+      this.syncedStartMs = null;
       return;
     }
-    if (this.playingSong === state.song) return; // already on this loop
-    this.stop();
-    this.playingSong = state.song;
+    if (this.syncedStartMs === state.startedAtMs) return; // already adopted
+    this.stopPlayback();
+    this.syncedStartMs = state.startedAtMs;
     const key = MUSIC_MANIFEST[state.song];
     const has = key && this.music.some((m) => m.key === key);
     if (!has || !this.scene.cache.audio.exists(key)) return; // silent slot
-    const sound = this.scene.sound.add(key, { loop: true, volume: 0.6 });
+    const sound = this.scene.sound.add(key, {
+      loop: false, // songs don't loop — they just end
+      volume: MUSIC_VOLUME,
+    });
     const durS = sound.duration || 0;
-    const seek = durS > 0 ? ((Date.now() - state.startedAtMs) / 1000) % durS : 0;
-    sound.play({ seek: Math.max(0, seek) });
+    const seekS = (Date.now() - state.startedAtMs) / 1000;
+    if (durS <= 0 || seekS >= durS) {
+      sound.destroy(); // the song already ended out there — stay silent
+      return;
+    }
+    sound.once("complete", () => this.stopPlayback());
+    sound.play({ seek: Math.max(0, seekS) });
     this.sound = sound;
+    this.tapAnalyser(sound);
   }
 
   /** The song slot's display name for the wall line. */
@@ -108,10 +168,59 @@ export class Jukebox {
     return has ? key : `${key} (no file — silence)`;
   }
 
-  private stop() {
+  private stopPlayback() {
     this.sound?.destroy();
     this.sound = null;
-    this.playingSong = null;
+    this.analyser = null;
+    this.freqData = null;
+    this.box?.setScale(1);
+  }
+
+  /** A parallel analyser tap off the sound's gain node — the audio path
+   *  to the speakers is untouched; we only read the spectrum. */
+  private tapAnalyser(sound: Phaser.Sound.BaseSound) {
+    this.analyser = null;
+    this.freqData = null;
+    const sm = this.scene.sound;
+    if (
+      sm instanceof Phaser.Sound.WebAudioSoundManager &&
+      sound instanceof Phaser.Sound.WebAudioSound
+    ) {
+      try {
+        const an = sm.context.createAnalyser();
+        an.fftSize = 64;
+        sound.volumeNode.connect(an);
+        this.analyser = an;
+        this.freqData = new Uint8Array(an.frequencyBinCount);
+      } catch {
+        this.analyser = null; // fixed-tempo fallback takes over
+      }
+    }
+  }
+
+  /** One little ♪ drifting up from the box into the air. */
+  private spawnNote() {
+    const cx = this.el.placement.xM * M;
+    const yTop = floorY(this.el.placement.dM + this.el.depthM / 2) - 50;
+    const n = this.scene.add
+      .text(
+        cx + (Math.random() * 24 - 12),
+        yTop,
+        Math.random() < 0.5 ? "♪" : "♫",
+        { fontFamily: "monospace", fontSize: "16px", color: "#ffd97a" },
+      )
+      .setOrigin(0.5)
+      .setDepth(sortDepth(this.el.placement.dM) - 1)
+      .setAlpha(0.95);
+    this.scene.tweens.add({
+      targets: n,
+      y: yTop - 44 - Math.random() * 20,
+      x: n.x + (Math.random() * 24 - 12),
+      alpha: 0,
+      duration: 1300,
+      ease: "Sine.easeOut",
+      onComplete: () => n.destroy(),
+    });
   }
 
   private edgeDistPx(): number {
@@ -121,34 +230,38 @@ export class Jukebox {
     return Math.hypot(dx, dd) * M;
   }
 
-  /** A chunky little jukebox: arched body, grill, glowing window. */
+  /** A chunky little jukebox: arched body, grill, glowing window.
+   *  Drawn in LOCAL coords around its bottom-center so the bass pulse
+   *  (setScale) breathes from the base, not the scene origin. */
   private drawBox(): Phaser.GameObjects.Graphics {
     const cx = this.el.placement.xM * M;
     const yBot = floorY(this.el.placement.dM + this.el.depthM / 2);
     const w = this.el.widthM * M;
     const h = 46;
-    const x0 = cx - w / 2;
-    const g = this.scene.add.graphics().setDepth(sortDepth(this.el.placement.dM) - 2);
+    const x0 = -w / 2;
+    const g = this.scene.add
+      .graphics()
+      .setPosition(cx, yBot)
+      .setDepth(sortDepth(this.el.placement.dM) - 2);
 
     // body with an arched top
-    g.fillStyle(0x8a3050).fillRoundedRect(x0, yBot - h, w, h, {
+    g.fillStyle(0x8a3050).fillRoundedRect(x0, -h, w, h, {
       tl: 14,
       tr: 14,
       bl: 2,
       br: 2,
     });
-    g.lineStyle(2, 0x5c1e34).strokeRoundedRect(x0, yBot - h, w, h, {
+    g.lineStyle(2, 0x5c1e34).strokeRoundedRect(x0, -h, w, h, {
       tl: 14,
       tr: 14,
       bl: 2,
       br: 2,
     });
     // glowing window
-    g.fillStyle(0xffd97a, 0.9).fillRoundedRect(x0 + 6, yBot - h + 6, w - 12, 12, 5);
+    g.fillStyle(0xffd97a, 0.9).fillRoundedRect(x0 + 6, -h + 6, w - 12, 12, 5);
     // speaker grill
     g.fillStyle(0x5c1e34);
-    for (let i = 0; i < 3; i++)
-      g.fillRect(x0 + 7, yBot - 20 + i * 5, w - 14, 2);
+    for (let i = 0; i < 3; i++) g.fillRect(x0 + 7, -20 + i * 5, w - 14, 2);
     return g;
   }
 }

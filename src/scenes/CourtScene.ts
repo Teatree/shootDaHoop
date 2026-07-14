@@ -137,6 +137,12 @@ export class CourtScene extends Phaser.Scene {
   }
 
   create() {
+    // hidden/blurred tabs keep HEARING the jukebox: this flag only stops
+    // the SoundManager pausing — Phaser's game-loop pause on blur (which
+    // the AFK catch-up and snap-to-now behaviours rely on) is untouched.
+    // Note: with the clock paused, a song's `complete` handler may only
+    // run on tab return; WebAudio itself plays to the end regardless.
+    this.sound.pauseOnBlur = false;
     ensurePlaceholderTextures(this);
     drawBackdrop(this);
     this.courtG = drawCourt(this, "standard");
