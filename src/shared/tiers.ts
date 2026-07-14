@@ -50,7 +50,7 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
     id: 2,
     name: "Taller Rim, Cheering & Mahogany",
     // ── PLACEHOLDER (tune): ≈ 4–10 made shots at 100–500 pts each ──
-    threshold: 1500,
+    threshold: 100,
     changes: [
       // 1. Hoop Change — taller hoop, wider rim.
       {
@@ -123,16 +123,17 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
         fx: "splash", //    a splash effect turns the court dark
       },
 
-      // 5. Atmosphere Change — Red Desert. The whole world becomes more
-      //    red: a very transparent red wash over the camera, and the
-      //    suns pulsate, painted redder.
+      // 5. Atmosphere Change — Red Desert. The whole world becomes
+      //    OBVIOUSLY red (owner ask 2026-07-15, was a barely-visible
+      //    0.05 wash), and the suns turn deep crimson so they still
+      //    read clearly against the reddened sky.
       {
         type: "atmosphere",
-        // PLACEHOLDER (tune): "very transparent" red over everything
-        overlay: { color: 0xff2a18, alpha: 0.05 },
+        // PLACEHOLDER (tune): a clearly visible red over everything
+        overlay: { color: 0xe03018, alpha: 0.16 },
         sun: {
-          coreColor: 0xff9a5a, // redder disc… PLACEHOLDER (tune)
-          glowColor: 0xffb98a, // …and halo
+          coreColor: 0xd83018, // deep crimson disc — pops on the red wash
+          glowColor: 0xff7a55, // hot halo… PLACEHOLDER (tune)
           sizeScale: 1,
           speedScale: 1,
           pulsate: true, // the suns pulsate a bit
@@ -149,7 +150,7 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
     id: 3,
     name: "Double Hoop, Jukebox, Glass & Orbs",
     // ── PLACEHOLDER (tune): a longer communal grind than tier 2 ──
-    threshold: 4000,
+    threshold: 250,
     changes: [
       // 1. Hoop Change — Double Hoop: one post carrying two stacked
       //    rims, each hittable independently.
