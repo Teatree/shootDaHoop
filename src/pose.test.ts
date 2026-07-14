@@ -76,7 +76,7 @@ describe("computePose", () => {
     // with the period well under a second ("quick rhythm")
     const handAt = (t: number) =>
       computePose(at({ kind: "cheer", t })).handL.y;
-    const period = 1 / 3.0; // CHEER_HZ
+    const period = 1 / 2.4; // CHEER_HZ — 20% slower per owner feedback
     expect(handAt(0.1)).toBeCloseTo(handAt(0.1 + period), 5);
     expect(handAt(0.1)).not.toBeCloseTo(handAt(0.1 + period / 2), 0);
   });
