@@ -99,6 +99,11 @@ so once you've seen one you can author any of them:
 - **Ambient / Spawn Change** — changes background spawns or their cadence (e.g., an
   orb starting to appear on a timer). Carries: spawn area, frequency, lifetime,
   and appearance behaviour.
+- **Atmosphere Change** — recolors the world's *light*: a very transparent tint
+  rendered over the whole camera (under the HUD) plus a new **mood for the suns**
+  (disc/halo colour, size scale, traverse-speed scale, optional pulse). Carries:
+  the overlay colour+alpha, the sun mood, and a transition fx. Applied last-wins
+  per tier, like the court skin; a world reset restores the clear tier-1 sky.
 
 Everything below is these blocks with specific parameters filled in.
 
@@ -158,6 +163,12 @@ Everything below is these blocks with specific parameters filled in.
   only).
 - Animation: a **splash effect** that turns the court dark.
 
+**5. Atmosphere Change — Red Desert.**
+- Look: the **whole background becomes a bit more red** — a **very transparent
+  red** wash rendered over the camera, so the world's light itself reads redder.
+- Suns: the suns **pulsate a bit** and are painted **more red** (disc + halo).
+- Animation: lands as its own beat — a soft flash, then the wash fades in.
+
 ---
 
 ## Hoop 3 — Double Hoop, Jukebox, Glass & Orbs
@@ -180,20 +191,38 @@ Everything below is these blocks with specific parameters filled in.
 - Placement: **left of the Cheering Area**, off to the side, **off the court.**
 - Proximity trigger: like the Cheering Area — when a character is **very close**, a
   button appears **above the jukebox.**
-- Resulting action: pressing it plays a **random song, on a loop**, **heard by
-  everyone in the world (not local).** Three reference songs will be provided;
-  **pressing changes which song is playing** (cycles/re-rolls among them).
+- Resulting action: pressing it plays a **random song, ONCE** — songs **don't
+  loop, they just end** — **heard by everyone in the world (not local).** Three
+  reference songs will be provided; **pressing changes which song is playing**
+  (re-rolls among them, always different).
+- Late joiners hear the song **from where it left off** (not the start), so it
+  ends for everyone around the same time; a joiner arriving **after** the song
+  should have ended hears **no sound and sees no animations.** A player who
+  clicks away from the tab or browser **still hears the music.**
+- OFF toggle: while a song is playing AND the player is close, a **small
+  toggle-icon button appears next to the Jukebox button**; pressing it **turns
+  the jukebox off for everyone** (synced, like the press).
+- Presentation while playing: the box **sends little notes up into the air** and
+  the **speaker pulsates following the song's bass/tempo.**
+- Volume: music defaults to **25% of the player's normal volume.**
 - Occupies a spot: **no** — unlike the Cheering Area, characters **don't walk into
   a dedicated space**; they press it in passing from nearby.
 - Appearance animation: **pops into existence.**
-- Sync note: song choice + playback is **synced to everyone.**
+- Sync note: song choice + playback + the OFF press are **synced to everyone.**
 
 **3. Scene Visual Change — Glass Court.**
 - Look: the same full-court area, now **turned to glass and made fancier** than the
   mahogany version.
 - Animation: **pops in with a splash effect**, then the glass court appears.
 
-**4. Ambient / Spawn Change — Blue Orbs.**
+**4. Atmosphere Change — Blue-Gray Dusk.**
+- Look: the **whole background (and area) turns a bit blue-gray** — a very
+  transparent blue-gray wash over the camera.
+- Suns: **smaller** and **very light blue**, and they **move slower** across the
+  sky.
+- Animation: lands as its own beat — a soft flash, then the wash fades in.
+
+**5. Ambient / Spawn Change — Blue Orbs.**
 - Behaviour: the **Blue Orb is the existing in-game interactive object, unchanged
   in function.** After Hoop 3 it **starts appearing on a timer.**
 - Spawn area: **same as today.**
@@ -214,13 +243,13 @@ You do **not** touch the upgrade loop, the sync, or the rendering. To add Hoop N
    walking / …) and describe its geometry, upgrade animation, and camera re-fit.
 4. **Compose the ordered change list** from the change-type vocabulary — each entry
    is one **Scene Visual Change**, **Interactive Element**, **Permanent Effect**,
-   **New Animation**, or **Ambient/Spawn Change**, with its parameters filled in.
-   Order them as you want the transformation to choreograph.
+   **New Animation**, **Ambient/Spawn Change**, or **Atmosphere Change**, with its
+   parameters filled in. Order them as you want the transformation to choreograph.
 5. That's the whole definition. Because the engine already knows how to play each
    change-type, a well-formed recipe "just works" through the upgrade loop, syncs
    to everyone, and replays for AFK returners.
 
-If a hoop needs a genuinely new *kind* of change (something none of the six
+If a hoop needs a genuinely new *kind* of change (something none of the seven
 change-types cover), that's the one case that touches engine code: add the new
 change-type to the vocabulary once, then every future hoop can use it as data.
 
@@ -238,7 +267,11 @@ for the full list. Where each one lives:
 - The **three reference songs** → drop files into `public/assets/music/`
   (`song1..3.mp3|wav`, see the README there; silent until provided).
   Press behaviour → re-roll, always different (`server/room.ts` "jukebox"
-  case + `BALANCE.jukebox`).
+  case + `BALANCE.jukebox`); OFF toggle → `"jukebox-off"` case; play-once +
+  25% volume + notes/pulse feel → `src/systems/jukebox.ts` constants.
+- **Atmosphere values** (tier 2 red wash + pulsating red suns, tier 3
+  blue-gray wash + small pale slow suns) → the `atmosphere` blocks in
+  `src/shared/tiers.ts`; pulse feel in `T.sky.pulsateHz/Amp`.
 - **Teleport destinations** on upgrade → `BALANCE.upgrade.clearMinXM/MaxXM`
   band, rolled per player in `rollUpgradeClearSpot` (`src/shared/court.ts`).
 - **AFK catch-up** presentation → full choreography replay on return

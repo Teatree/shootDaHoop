@@ -54,10 +54,11 @@ server/room.ts              AUTHORITY: threshold, upgrade press, validation
 src/scenes/CourtScene.ts    Implements the director's hooks (touches Phaser)
 ```
 
-- **`tierChanges.ts`** — the six reusable building blocks a tier composes its
+- **`tierChanges.ts`** — the seven reusable building blocks a tier composes its
   transformation from: `hoop-change`, `scene-visual`, `interactive`,
-  `permanent-effect`, `new-animation`, `ambient-spawn`. Adding a hoop never
-  touches this file; only a genuinely *new kind* of change does.
+  `permanent-effect`, `new-animation`, `ambient-spawn`, `atmosphere` (added
+  2026-07-14: camera wash + sun mood). Adding a hoop never touches this file;
+  only a genuinely *new kind* of change does.
 - **`tiers.ts`** — `HOOP_TIERS`: each tier is Identity → Unlock threshold →
   ordered change list. The *order* of the list is the choreography of the
   transformation. Thresholds count **from the shared-score reset after the
@@ -74,8 +75,9 @@ src/scenes/CourtScene.ts    Implements the director's hooks (touches Phaser)
   a world reaches a tier: `applyInstant` (late join, snapshot self-heal, world
   reset) and `playUpgrade` (the live choreography). Also holds the AFK
   defer/replay queue. The scene supplies hooks (`rebuildHoop`, `redrawCourt`,
-  `setBallLook`, `spawnInteractive`, `hoopFx`, `clearInteractives`) that actually
-  touch Phaser objects; the director decides *what* plays and *when*.
+  `setBallLook`, `spawnInteractive`, `hoopFx`, `clearInteractives`,
+  `setAtmosphere`) that actually touch Phaser objects; the director decides
+  *what* plays and *when*.
 - **`server/room.ts`** — holds `world = { sharedScore, tierId }`. Score
   accumulates on made shots; the tier only advances when a player presses
   Upgrade (`canUpgrade` + proximity check), which resets `sharedScore` to 0,
@@ -245,6 +247,7 @@ as data. Exact touch points by case:
 | A new **character animation** | `anim` union in `NewAnimation` → the pose/anim system (see `docs/character-rig.md`); telemetry carries poses, so remote players see it for free |
 | A new **hoop behavior** (moving rim, walking hoop…) | New fields on `HoopChange` + new `HoopBeat` names → `foldHoop`/`buildGeometry`/`hoopChoreoGeometries` in `tierRules.ts` → physics reads `hoopGeometryForTier`, so make the *fold* express the motion (e.g. time-parameterized rim x) and keep it pure/deterministic-per-input |
 | A new **permanent effect** | New `effect` variant on `PermanentEffect` → a new fold selector in `tierRules.ts` → consume it where the value applies (server validation AND client feel — both, or the server will reject what the client allows) |
+| A new **atmosphere mood** (another wash/sun feel) | Usually pure data: an `atmosphere` block in the tier recipe (overlay color+alpha, sun core/glow/size/speed/pulsate). New *capabilities* (e.g. clouds, fog) extend `SunMood`/`AtmosphereChange` in `tierChanges.ts` → `atmosphereForTier` fold → `CourtScene.applyAtmosphere` + `SunSystem.setMood` |
 | A genuinely new **kind of change** | Add the shape to `tierChanges.ts` (block #7…), add it to the `TierChange` union → give `TierDirector.playUpgrade`/`applyFinalState` a case → add a fold selector in `tierRules.ts` if it affects gameplay values |
 
 Rules of thumb for extensions:

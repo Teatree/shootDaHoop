@@ -123,14 +123,28 @@ last-joined name/shirt but nothing reads it back.
 
 ## Presence vs. persistence — NEW (important)
 
-- **Presence** (who is connected now, whose avatar is visible) is **ephemeral.**
-  On disconnect: remove the avatar, broadcast a leave, log it.
+- **A disconnect does NOT despawn the character** (2026-07-14). The occupant goes
+  **offline**: `ws = null` server-side, `PlayerInfo.offline = true`, and a
+  `player-offline` broadcast grays the name tag (+20% transparency) on every
+  client. The character waits around; after `BALANCE.presence.offlineWalkDelayS`
+  (20 s PLACEHOLDER) the server broadcasts a `move-to` walking it to a **waiting
+  spot** — a cheer-deck spot when the tier has one, else the far (upper)
+  sideline — where it stays until its player rejoins.
+- **Rejoining reclaims the character in place**: same identity id → the walk
+  timer is cancelled, the socket is adopted, and a `player-joined` re-broadcast
+  un-grays the tag. The returning player resumes at the character's current
+  position (possibly the waiting spot).
+- **Room lifecycle counts CONNECTED players only**: snapshots pause,
+  `maxPlayers` ignores waiting characters, and when the last connected player
+  leaves the room still tears down — **offline characters evaporate with the
+  room** (the world bundle persists; avatars don't). `player-left` remains in
+  the vocabulary as a legacy/edge path only.
 - **Membership / progress** (the player's profile and the world's shared progress)
   is **persistent.** A player returns to the *same* world and continues — this is
   a persistent hangout, not a disposable match.
-- On reconnect: re-add the avatar and re-sync the player from the latest world
-  snapshot. No dedicated "reconnection protocol" — **the snapshot is the recovery
-  mechanism.**
+- On reconnect: re-sync from the latest world snapshot. No dedicated
+  "reconnection protocol" — **the snapshot is the recovery mechanism** (it also
+  self-heals the offline flag on every tag).
 
 ---
 
@@ -149,7 +163,9 @@ is local.**
   **shared progression change** (cumulative score, hoop-tier unlock).
 - **Shared world state** — current hoop tier, cumulative shared score, unlocked
   amenities / visual chapter. Part of the snapshot.
-- **Presence** — join / leave / idle.
+- **Presence** — join / went-offline (`player-offline`) / reclaim / idle.
+- **Jukebox** — the synced song press AND the `jukebox-off` toggle (the
+  `jukebox` event's state is nullable; null = turned off for everyone).
 - **Chat** — relayed to the log ("wall").
 - **Character appearance** — full cosmetics on join: shirt colour (hard
   tint), skin tint (shared by head + hands), trouser tint, head variant.
