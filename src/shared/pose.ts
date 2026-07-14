@@ -97,7 +97,7 @@ const WAGGLE_PX = 1.5;
 // cheering — bob and throw the hands in the air in a QUICK rhythm
 // (Hoop 2's New Animation). Hands pump between shoulder height and full
 // stretch, slightly out of phase so it reads alive, not robotic.
-const CHEER_HZ = 3.0; //     pumps per second — the "quick rhythm"
+const CHEER_HZ = 2.4; //     pumps per second — 20% slower per owner feedback 2026-07-14
 const CHEER_BOB_PX = 4; //   body hop per pump
 const CHEER_LOW_Y = 42; //   hands at the pump's bottom (shoulder-ish)
 const CHEER_PHASE = 0.55; // right hand trails the left by this (radians)

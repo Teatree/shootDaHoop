@@ -31,6 +31,8 @@ export class CheerArea {
   private phase: Phase = "idle";
   private target = { x: 0, d: 0 };
   private afterLeave: (() => void) | null = null;
+  /** cheering crowds look around: seconds until the next facing flip */
+  private flipIn = 0;
 
   constructor(
     scene: Phaser.Scene,
@@ -106,6 +108,17 @@ export class CheerArea {
       this.button.setNear(near);
     }
 
+    // standing and cheering: every so often the character turns to face
+    // the other way, like a crowd looking around (facing streams in the
+    // telemetry, so everyone sees the flips)
+    if (this.phase === "occupying") {
+      this.flipIn -= _dt;
+      if (this.flipIn <= 0) {
+        this.player.flipFacing();
+        this.flipIn = this.rollFlipIn();
+      }
+    }
+
     // scripted walk in/out (the player's own walkTo clamps to the court,
     // so the deck errand drives the position directly)
     if (this.phase === "entering" || this.phase === "leaving") {
@@ -140,6 +153,12 @@ export class CheerArea {
     this.player.control = "none"; // walk/aim input routes via leaveThen
     // the cheer is ALREADY playing while the character walks up
     this.player.poseOverride = "cheer";
+    this.flipIn = this.rollFlipIn();
+  }
+
+  /** PLACEHOLDER (tune): a flip every 10–40 s, re-rolled each time. */
+  private rollFlipIn(): number {
+    return 10 + Math.random() * 30;
   }
 
   private beginLeave() {

@@ -90,6 +90,12 @@ export class Player {
     if (Math.abs(x - this.x) > 0.01) this.facingRight = x >= this.x;
   }
 
+  /** Scripted turns (the cheer crowd looking around) — walk/aim input
+   *  keeps overriding this the moment it runs again. */
+  flipFacing() {
+    this.facingRight = !this.facingRight;
+  }
+
   /** Right-click pressed: plant into the shooting stance immediately. */
   enterStance() {
     this.stop();
