@@ -112,12 +112,17 @@ export class TierDirector {
   playDeferred() {
     const t = this.deferred;
     this.deferred = null;
-    if (t === null) return;
-    // PLACEHOLDER (presentation): the catch-up is the FULL choreography.
-    // If the world upgraded more than once while away, the intermediate
-    // recipes can't chain — snap through them and play only the last leg.
-    if (t === this.applied + 1) this.playUpgrade(t);
-    else this.applyInstant(t);
+    if (t === null || t <= this.applied) return;
+    // PLACEHOLDER (presentation): the catch-up plays the FINAL rung's
+    // full choreography. If the world upgraded more than once while
+    // away, the intermediate recipes can't chain — snap through them
+    // first, then play the last leg.
+    if (t > this.applied + 1) {
+      this.cancelPlayback();
+      this.applied = t - 1;
+      this.applyFinalState();
+    }
+    this.playUpgrade(t);
   }
 
   /** The live upgrade moment: play the tier's ordered change list. */

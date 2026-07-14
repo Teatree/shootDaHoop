@@ -115,8 +115,32 @@ export class CourtScene extends Phaser.Scene {
     /** per-lobby cosmetics (name, shirt, skin, head), resolved by main.ts */
     private readonly identity: Cosmetics,
     private readonly backend: Backend,
+    /** the lobby id (null offline) — keys the per-lobby seen-tier store */
+    private readonly lobby: string | null = null,
   ) {
     super("court");
+  }
+
+  // ── the seen-tier store: which tier this player last SAW here ──────
+  // A reload or rejoin compares it against the world's tier: if the
+  // world upgraded while the player was away, the missed transformation
+  // plays as a catch-up show instead of silently loading the new world
+  // (the AFK catch-up promise of HOOP_PROGRESSION.md, extended to
+  // players who closed the tab entirely).
+
+  private get seenTierKey(): string {
+    return this.lobby
+      ? `shootDaHoop.seenTier.${this.lobby}`
+      : "shootDaHoop.seenTier";
+  }
+
+  private loadSeenTier(): number | null {
+    const n = Number(localStorage.getItem(this.seenTierKey));
+    return Number.isInteger(n) && n >= 1 ? n : null;
+  }
+
+  private rememberSeenTier() {
+    localStorage.setItem(this.seenTierKey, String(this.director.tierId));
   }
 
   private get playerName(): string {
@@ -240,8 +264,21 @@ export class CourtScene extends Phaser.Scene {
       this.selfId = e.selfId;
       this.renderHistory(e.history);
       this.hud.log("presence", `${esc(this.playerName)} joined the court.`);
-      // a late joiner loads straight into the upgraded world
-      this.director.applyInstant(e.world.tierId);
+      const seen = this.loadSeenTier();
+      if (seen !== null && seen < e.world.tierId) {
+        // the world upgraded while this player was AWAY (tab closed):
+        // rebuild it as they last saw it, hold, and play the missed
+        // transformation — the AFK catch-up, surviving a reload
+        this.director.applyInstant(seen);
+        this.director.deferUpgrade(e.world.tierId);
+        // PLACEHOLDER (tune): a beat to land in the old world first
+        this.time.delayedCall(1000, () => {
+          if (this.director.hasDeferred) this.playUpgradeShow(null);
+        });
+      } else {
+        // a first-time joiner loads straight into the upgraded world
+        this.director.applyInstant(e.world.tierId);
+      }
       this.setWorld(e.world);
       this.jukebox?.sync(e.world.jukebox); // land mid-song like everyone
       this.hud.setThrowsRemaining(e.throwsRemaining);
@@ -381,6 +418,17 @@ export class CourtScene extends Phaser.Scene {
       this.hud.log("world", `${esc(e.name)} reset the court score.`);
     });
     this.backend.on("upgraded", (e) => this.onUpgraded(e));
+    this.backend.on("upgradeRejected", (e) => {
+      // the authority refused OUR press — say so instead of the old
+      // silent nothing (the character walked up and… stood there)
+      this.hud.log(
+        "world",
+        e.reason === "proximity"
+          ? "The upgrade press missed — walk right up to the hoop."
+          : "The court refused the upgrade — score below the threshold. " +
+            "(Changed tiers.ts? Restart the server: tsx doesn't hot-reload.)",
+      );
+    });
     this.backend.on("jukebox", (e) => {
       this.jukebox?.sync(e.state);
       this.hud.log(
@@ -487,9 +535,9 @@ export class CourtScene extends Phaser.Scene {
   /** Track the authoritative world; the Upgrade button follows it. */
   private setWorld(w: WorldState) {
     this.world = w;
-    this.hud.setScore(w.sharedScore);
     this.upgradeBtn.setAvailable(canUpgrade(w));
     this.updateHoopScreen();
+    this.rememberSeenTier();
   }
 
   /** The hoop-foot screen: shared score / next threshold (or score alone
@@ -570,6 +618,7 @@ export class CourtScene extends Phaser.Scene {
     // the tier's ordered change list plays out as choreography
     if (tierId !== null) this.director.playUpgrade(tierId);
     else this.director.playDeferred();
+    this.rememberSeenTier(); // they're watching it — it counts as seen
   }
 
   private addRemote(p: PlayerInfo) {

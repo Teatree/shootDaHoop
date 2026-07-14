@@ -131,6 +131,7 @@ async function boot() {
         { images, audio, music },
         identity,
         chooseBackend(params, lobby, identity),
+        lobby,
       ),
     ],
   });
