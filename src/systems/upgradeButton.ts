@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { M, RIM, floorY } from "../world";
+import { BUTTON_DEPTH } from "./proximityButton";
 
 // The beckoning "Upgrade" button (HOOP_PROGRESSION.md): once the shared
 // score reaches the next tier's threshold it appears under the hoop —
@@ -47,12 +48,14 @@ export class UpgradeButton {
 
     this.container = scene.add
       .container(sx, sy, [g, label, arrow])
-      .setDepth(80)
+      .setDepth(BUTTON_DEPTH) // over the hoop (sortDepth ≈ 130), owner ask
       .setVisible(false)
       .setAlpha(0);
     this.container.setSize(w, h + 18);
+    // Container hitArea lives in top-left space (see proximityButton.ts);
+    // y starts at 9 so the box spans panel top (−h/2) → arrow bottom.
     this.container.setInteractive(
-      new Phaser.Geom.Rectangle(-w / 2, -h / 2, w, h + 18),
+      new Phaser.Geom.Rectangle(0, 9, w, h + 18),
       Phaser.Geom.Rectangle.Contains,
     );
     (this.container.input as Phaser.Types.Input.InteractiveObject).cursor =

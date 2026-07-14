@@ -51,7 +51,7 @@ export class CheerArea {
     this.button = new ProximityButton(
       this.scene,
       this.el.placement.xM * M,
-      floorY(this.el.placement.dM - this.el.depthM / 2) - 126, // well above the bench
+      floorY(this.el.placement.dM - this.el.depthM / 2) - 86, // above the bench (owner: down 40 px, 2026-07-14)
       "🙌 CHEER",
       () => this.enter(),
     );

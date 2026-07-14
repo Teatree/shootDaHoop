@@ -6,6 +6,10 @@ import Phaser from "phaser";
 // the trigger distance. The OWNER decides when it's near (each element
 // measures its own edge-to-edge distance) — this class only presents.
 
+/** Buttons float above every world object (hoop tops out ≈ sortDepth 160)
+ *  but below the aim preview (900). PLACEHOLDER (tune). */
+export const BUTTON_DEPTH = 500;
+
 export class ProximityButton {
   private readonly container: Phaser.GameObjects.Container;
   private shown = false;
@@ -33,12 +37,16 @@ export class ProximityButton {
 
     this.container = scene.add
       .container(sx, sy, [g, text])
-      .setDepth(80)
+      .setDepth(BUTTON_DEPTH)
       .setVisible(false)
       .setAlpha(0);
     this.container.setSize(w, h);
+    // Container hit tests add displayOrigin (= size·0.5) to the local
+    // point, so the hitArea rect lives in TOP-LEFT space: (0,0,w,h) is
+    // the centered w×h box. A (-w/2,-h/2) rect only catches the
+    // top-left quadrant.
     this.container.setInteractive(
-      new Phaser.Geom.Rectangle(-w / 2, -h / 2, w, h),
+      new Phaser.Geom.Rectangle(0, 0, w, h),
       Phaser.Geom.Rectangle.Contains,
     );
     (this.container.input as Phaser.Types.Input.InteractiveObject).cursor =
