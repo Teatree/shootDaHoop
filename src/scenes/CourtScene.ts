@@ -192,6 +192,7 @@ export class CourtScene extends Phaser.Scene {
       (sx, sy) => this.walkClick(sx, sy),
       () => effectivePowerForTier(this.director.tierId),
       () => ballLookForTier(this.director.tierId),
+      () => this.throwsRemaining !== null && this.throwsRemaining <= 0,
     );
     this.teleport = new TeleportSystem(this, this.player, {
       aim: this.aim,

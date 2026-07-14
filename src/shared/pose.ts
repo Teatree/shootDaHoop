@@ -16,7 +16,9 @@ export type PoseKind =
   | "fall"
   | "lie"
   | "getup"
-  | "cheer"; // unlocked with Hoop 2 (shared/tiers.ts New Animation)
+  | "cheer" // unlocked with Hoop 2 (shared/tiers.ts New Animation)
+  | "point" //    out of balls: the front arm tracks the aim, no trail
+  | "airpunch"; // …and releasing punches the air (t = 0..1 progress)
 
 export interface PoseState {
   kind: PoseKind;
@@ -94,6 +96,14 @@ const HANDS_UP: V2 = { x: 8, y: 68 }; // beside and just above the crown
 const WAGGLE_HZ = 12;
 const WAGGLE_PX = 1.5;
 
+// pointing / air-punching — the out-of-balls aim: the FRONT hand (handL,
+// drawn over the body) extends from the shoulder along the aim direction;
+// the punch jabs it further out and snaps back. PLACEHOLDER (tune).
+const POINT_SHOULDER: V2 = { x: 4, y: 44 }; // arm origin, feet-relative
+const POINT_REACH = 24; //  arm extension while pointing
+const PUNCH_EXTRA = 12; //  extra reach at the punch's peak
+const PUNCH_TILT = 4; //    forward lean at the peak, degrees
+
 // cheering — bob and throw the hands in the air in a QUICK rhythm
 // (Hoop 2's New Animation). Hands pump between shoulder height and full
 // stretch, slightly out of phase so it reads alive, not robotic.
@@ -169,6 +179,40 @@ export function computePose(s: PoseState): RigPose {
       // come down once the figure is fully upright (kind returns to idle)
       return handsUpPose(0);
 
+    case "point": {
+      const dir = pointDir(s);
+      return {
+        lower: ZERO,
+        upper: ZERO,
+        head: { x: 2, y: 1 }, // looking along the arm
+        handL: off("handL", {
+          x: POINT_SHOULDER.x + dir.x * POINT_REACH,
+          y: POINT_SHOULDER.y + dir.y * POINT_REACH,
+        }),
+        handR: ZERO,
+        tilt: 0,
+        ball: null,
+      };
+    }
+
+    case "airpunch": {
+      const dir = pointDir(s);
+      const jab = Math.sin(Math.PI * clamp01(s.t)); // out and back
+      const reach = POINT_REACH + PUNCH_EXTRA * jab;
+      return {
+        lower: ZERO,
+        upper: { x: jab * 2, y: 0 },
+        head: { x: 2 + jab * 2, y: 1 },
+        handL: off("handL", {
+          x: POINT_SHOULDER.x + dir.x * reach,
+          y: POINT_SHOULDER.y + dir.y * reach,
+        }),
+        handR: ZERO,
+        tilt: PUNCH_TILT * jab,
+        ball: null,
+      };
+    }
+
     case "cheer": {
       const ph = s.t * Math.PI * 2 * CHEER_HZ;
       const pumpL = (Math.sin(ph) + 1) / 2; //             0..1
@@ -199,6 +243,12 @@ export function bodyAim(angle: number): { facing: 1 | -1; aimAngle: number } {
   return Math.cos(angle) >= 0
     ? { facing: 1, aimAngle: angle }
     : { facing: -1, aimAngle: Math.PI - angle };
+}
+
+/** The point/punch arm direction from the streamed body-relative angle. */
+function pointDir(s: PoseState): V2 {
+  const a = s.aimAngle ?? 0.9; // default: the classic 45°-ish launch
+  return { x: Math.cos(a), y: Math.sin(a) };
 }
 
 /** Charged hold point: base position pulled back against the aim dir. */

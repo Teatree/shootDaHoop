@@ -30,6 +30,8 @@ function heatColor(t: number, stops: readonly number[]): number {
 // Left-click → walk.
 export class AimController {
   private aiming = false;
+  /** out-of-balls right-click hold: the arm points, no trail */
+  private pointing = false;
   private startX = 0;
   private startY = 0;
   private curX = 0;
@@ -48,6 +50,8 @@ export class AimController {
     /** the ACTIVE tier's ball look — a non-classic ball means the
      *  ball-range effect landed, and the trail shows it too */
     private readonly trailLook: () => BallLookId,
+    /** the daily budget is spent — right-click points instead of aiming */
+    private readonly outOfThrows: () => boolean,
   ) {
     this.preview = scene.add.graphics().setDepth(900);
 
@@ -68,22 +72,34 @@ export class AimController {
     );
 
     scene.input.on("pointermove", (p: Phaser.Input.Pointer) => {
-      if (this.aiming) {
+      if (this.aiming || this.pointing) {
         this.curX = p.x;
         this.curY = p.y;
       }
     });
 
     scene.input.on("pointerup", (p: Phaser.Input.Pointer) => {
-      if (this.aiming && p.button === 2) this.release();
+      if (p.button !== 2) return;
+      if (this.aiming) this.release();
+      else if (this.pointing) {
+        // out of balls: letting go punches the air instead of throwing
+        this.pointing = false;
+        this.player.exitPointWithPunch();
+      }
     });
   }
 
   private begin(p: Phaser.Input.Pointer) {
     if (this.player.control === "none") return;
-    this.aiming = true;
     this.startX = this.curX = p.x;
     this.startY = this.curY = p.y;
+    if (this.outOfThrows()) {
+      // no ball to charge: the arm tracks the aim, the trail stays off
+      this.pointing = true;
+      this.player.enterPoint();
+      return;
+    }
+    this.aiming = true;
     this.player.enterStance(); // stops any walk instantly
   }
 
@@ -101,6 +117,10 @@ export class AimController {
 
   /** Abort the current aim without throwing (e.g. levitation ran out). */
   cancel() {
+    if (this.pointing) {
+      this.pointing = false;
+      this.player.exitPoint(); // no punch — control was taken away
+    }
     if (!this.aiming) return;
     this.aiming = false;
     this.preview.clear();
@@ -141,6 +161,18 @@ export class AimController {
   }
 
   update() {
+    if (this.pointing) {
+      // the raised arm follows the cursor exactly where the aim would go
+      const cam = this.scene.cameras.main;
+      const wp = cam.getWorldPoint(this.curX, this.curY);
+      const rp = this.player.releasePoint();
+      const rs = toScreen(rp.x, rp.d, rp.h);
+      const dx = wp.x - rs.sx;
+      const dy = wp.y - rs.sy;
+      if (Math.hypot(dx, dy) >= 1)
+        this.player.setPointAim(Math.atan2(-dy, dx)); // screen y is down
+      return;
+    }
     if (!this.aiming) return;
     this.preview.clear();
     const shot = this.computeShot();

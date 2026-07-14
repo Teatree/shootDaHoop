@@ -81,6 +81,30 @@ describe("computePose", () => {
     expect(handAt(0.1)).not.toBeCloseTo(handAt(0.1 + period / 2), 0);
   });
 
+  it("point: the front arm extends along the aim, no ball, other hand rests", () => {
+    const fwd = computePose(at({ kind: "point", aimAngle: 0 }));
+    const up = computePose(at({ kind: "point", aimAngle: Math.PI / 2 }));
+    const armY = (p: ReturnType<typeof computePose>) =>
+      PART_ANCHORS.handL.y + p.handL.y;
+    const armX = (p: ReturnType<typeof computePose>) =>
+      PART_ANCHORS.handL.x + p.handL.x;
+    expect(armX(fwd)).toBeGreaterThan(armX(up)); // forward aim reaches out…
+    expect(armY(up)).toBeGreaterThan(armY(fwd)); // …upward aim reaches up
+    expect(armY(up)).toBeGreaterThan(PART_ANCHORS.head.y); // clearly raised
+    expect(fwd.handR).toEqual({ x: 0, y: 0 }); // the back hand rests
+    expect(fwd.ball).toBeNull(); // nothing in hand — that's the point
+  });
+
+  it("airpunch: jabs out at the peak and returns by the end", () => {
+    const rest = computePose(at({ kind: "point", aimAngle: 0 }));
+    const peak = computePose(at({ kind: "airpunch", aimAngle: 0, t: 0.5 }));
+    const done = computePose(at({ kind: "airpunch", aimAngle: 0, t: 1 }));
+    expect(peak.handL.x).toBeGreaterThan(rest.handL.x); // extra reach
+    expect(peak.tilt).toBeGreaterThan(0); //               leans into it
+    expect(done.handL.x).toBeCloseTo(rest.handL.x, 5); // back to the point
+    expect(done.tilt).toBeCloseTo(0, 5);
+  });
+
   it("aim: charging pulls the hold back against the aim direction", () => {
     const soft = computePose(at({ kind: "aim", aimAngle: 0, aimPower: 0 }));
     const full = computePose(at({ kind: "aim", aimAngle: 0, aimPower: 1 }));

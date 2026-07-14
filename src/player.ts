@@ -8,6 +8,8 @@ import type { AvatarState } from "./shared/messages";
 
 /** the throw follow-through sweep, seconds */
 const THROW_ANIM_S = 0.15;
+/** the out-of-balls air punch, seconds — PLACEHOLDER (tune) */
+const PUNCH_ANIM_S = 0.35;
 
 export class Player {
   // court position, meters — spawn at the free-throw spot, but never
@@ -41,6 +43,11 @@ export class Player {
   private lastKind: PoseState["kind"] = "idle";
   private throwT = Infinity; // < THROW_ANIM_S while the sweep plays
   private throwAim = { angle: 0.9, power: 0.5 };
+  // out-of-balls aim: the arm points where the trail would have gone
+  private pointing = false;
+  private pointAim = 0.9; //  WORLD angle — bodyAim splits facing on stream
+  private punchT = Infinity; // < PUNCH_ANIM_S while the punch plays
+  private punchAim = 0.9; //  body-relative, frozen at release
 
   private readonly shadow: Phaser.GameObjects.Ellipse;
   private readonly label: Phaser.GameObjects.Text;
@@ -108,6 +115,32 @@ export class Player {
     this.aimInfo = null;
   }
 
+  // ── the out-of-balls right-click: point, then punch the air ────────
+
+  /** Right-click held with an empty budget: raise the front arm. */
+  enterPoint() {
+    this.stop();
+    this.pointing = true;
+  }
+
+  /** AimController streams the live cursor direction (world angle). */
+  setPointAim(angle: number) {
+    this.pointAim = angle;
+  }
+
+  /** Released: the arm punches the air along where it pointed. */
+  exitPointWithPunch() {
+    if (!this.pointing) return;
+    this.pointing = false;
+    this.punchAim = bodyAim(this.pointAim).aimAngle;
+    this.punchT = 0;
+  }
+
+  /** Abort the point without the punch (control taken away mid-hold). */
+  exitPoint() {
+    this.pointing = false;
+  }
+
   /** The ball just left the hands — play the follow-through sweep. */
   startThrow(angle: number, power: number) {
     // backwards throws turn the whole character around (world → body space)
@@ -145,6 +178,10 @@ export class Player {
           aimAngle: this.throwAim.angle,
           aimPower: this.throwAim.power,
         };
+      case "point":
+        return { kind, t: 0, aimAngle: bodyAim(this.pointAim).aimAngle };
+      case "airpunch":
+        return { kind, t: this.punchT / PUNCH_ANIM_S, aimAngle: this.punchAim };
       case "fall":
       case "cheer":
         return { kind, t: this.stateT }; // drives the waggle / pump rhythm
@@ -180,9 +217,13 @@ export class Player {
     if (light) this.light = light;
     this.stateT += dt;
     this.throwT += dt;
-    // aiming backwards spins the character to face the aim direction
+    this.punchT += dt;
+    // aiming backwards spins the character to face the aim direction —
+    // the out-of-balls point turns the body exactly the same way
     if (this.aiming && this.aimInfo)
       this.facingRight = bodyAim(this.aimInfo.angle).facing === 1;
+    if (this.pointing)
+      this.facingRight = bodyAim(this.pointAim).facing === 1;
     if (this.walking && !this.aiming) {
       const dx = this.targetX - this.x;
       const dd = this.targetD - this.d;
@@ -205,6 +246,8 @@ export class Player {
     if (this.tpKind) return this.tpKind; //         fall / lie
     if (this.poseOverride) return this.poseOverride; // cheering
     if (Math.abs(this.rig.angle) > 0.5) return "getup"; // standing back up
+    if (this.punchT < PUNCH_ANIM_S) return "airpunch"; // out-of-balls jab
+    if (this.pointing) return "point"; //           out-of-balls aim hold
     if (this.throwT < THROW_ANIM_S) return "throw";
     if (this.aiming) return "aim";
     if (this.walking) return "walk";
