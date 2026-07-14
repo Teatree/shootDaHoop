@@ -433,9 +433,16 @@ export function createHoop(
     .setDepth(sortDepth(RIM.d) - 1);
 
   const armColor = darken(look.pole);
+  const housingR = 52;
   const g = scene.add.graphics().setDepth(sortDepth(RIM.d));
-  // pole (behind the board, down to the floor)
-  g.fillStyle(look.pole).fillRect(boardX + boardW + 2, boardTop + 14, 7, baseY - boardTop - 14);
+  // pole (behind the board, down INTO the foot housing — the housing is
+  // a separate lower-depth object, so the pole must stop at its crown)
+  g.fillStyle(look.pole).fillRect(
+    boardX + boardW + 2,
+    boardTop + 14,
+    7,
+    baseY - housingR + 6 - (boardTop + 14),
+  );
   g.fillStyle(armColor).fillRect(boardX - 2, boardTop + 22, boardW + 8, 5); // arm
   // backboard
   g.fillStyle(look.board).fillRect(boardX, boardTop, boardW, boardBot - boardTop);
@@ -444,20 +451,23 @@ export function createHoop(
   // the score contraption at the pole's foot: a semicircular housing
   // wrapped around the pole base with a rectangular screen inside that
   // shows "current / required" toward the next upgrade — part of the
-  // hoop itself, rebuilt (and repainted) with it every tier.
+  // hoop itself, rebuilt (and repainted) with it every tier. Drawn just
+  // BELOW the character/ball band at the rim lane, so anyone walking up
+  // to the hoop (and any bouncing ball) covers the screen, not the
+  // other way round.
   // PLACEHOLDER (tune): housing radius, screen size, font size.
   const footCx = boardX + boardW + 2 + 3.5; // pole center
-  const housingR = 52;
-  g.fillStyle(armColor);
-  g.beginPath();
-  g.slice(footCx, baseY, housingR, Math.PI, Math.PI * 2);
-  g.fillPath();
-  g.lineStyle(2, look.boardEdge);
-  g.beginPath();
-  g.slice(footCx, baseY, housingR, Math.PI, Math.PI * 2);
-  g.strokePath();
-  g.fillStyle(0x101418).fillRect(footCx - 44, baseY - 28, 88, 22);
-  g.lineStyle(2, 0x2a3a44).strokeRect(footCx - 44, baseY - 28, 88, 22);
+  const foot = scene.add.graphics().setDepth(sortDepth(RIM.d) - 0.5);
+  foot.fillStyle(armColor);
+  foot.beginPath();
+  foot.slice(footCx, baseY, housingR, Math.PI, Math.PI * 2);
+  foot.fillPath();
+  foot.lineStyle(2, look.boardEdge);
+  foot.beginPath();
+  foot.slice(footCx, baseY, housingR, Math.PI, Math.PI * 2);
+  foot.strokePath();
+  foot.fillStyle(0x101418).fillRect(footCx - 44, baseY - 28, 88, 22);
+  foot.lineStyle(2, 0x2a3a44).strokeRect(footCx - 44, baseY - 28, 88, 22);
   const scoreText = scene.add
     .text(footCx, baseY - 17, "", {
       fontFamily: '"Courier New", Courier, monospace',
@@ -467,7 +477,7 @@ export function createHoop(
     })
     .setOrigin(0.5)
     .setResolution(2)
-    .setDepth(sortDepth(RIM.d) + 1);
+    .setDepth(sortDepth(RIM.d) - 0.4);
 
   const rims: HoopRimParts[] = geom.rims.map((rim) => {
     const rimY = baseY - rim.h * M;
@@ -515,12 +525,19 @@ export function createHoop(
     primary,
     shadow,
     setScoreDisplay(current: number, required: number | null) {
+      // threshold reached → the screen stops counting and celebrates:
+      // stars instead of numbers, until the upgrade is pressed
       scoreText.setText(
-        required === null ? `${current}` : `${current} / ${required}`,
+        required === null
+          ? `${current}`
+          : current >= required
+            ? "★ ★ ★"
+            : `${current} / ${required}`,
       );
     },
     destroy() {
       g.destroy();
+      foot.destroy();
       for (const r of rims) r.net.destroy();
       shadow.destroy();
       scoreText.destroy();

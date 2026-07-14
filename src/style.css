@@ -37,30 +37,6 @@ body {
   image-rendering: pixelated;
 }
 
-/* Score — top-center, large and prominent */
-#score {
-  position: absolute;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 44px;
-  font-weight: bold;
-  color: #fff3d6;
-  text-shadow:
-    3px 3px 0 #5a3d28,
-    -1px -1px 0 #5a3d28,
-    1px -1px 0 #5a3d28,
-    -1px 1px 0 #5a3d28;
-  letter-spacing: 2px;
-  pointer-events: none;
-  user-select: none;
-  transition: transform 0.08s ease-out;
-}
-
-#score.bump {
-  transform: translateX(-50%) scale(1.25);
-}
-
 /* Ball inventory — bottom-left of the viewport, 5 cosmetic slots */
 #ball-slots {
   position: absolute;

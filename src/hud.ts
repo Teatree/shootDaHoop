@@ -1,5 +1,6 @@
-// DOM-side HUD: score (top-center), the court-wall log (right 30%),
-// and the MMORPG chat input (bottom-center).
+// DOM-side HUD: the court-wall log (right 30%) and the MMORPG chat
+// input (bottom-center). The score lives IN the world — on the hoop's
+// foot screen (placeholders.ts) — not up here.
 //
 // Log event types:
 //   'throw'    — shot outcomes (distance, miss/hit/swish, points)
@@ -24,7 +25,6 @@ const FILTERS = [
 ] as const;
 
 export interface HUD {
-  setScore(n: number): void;
   /** dim ball slots beyond the server's remaining daily throw budget */
   setThrowsRemaining(n: number): void;
   /** the tier's ball look on the UI icons; splash = play the upgrade pop */
@@ -54,7 +54,6 @@ const EMOJIS = [
 ];
 
 export function initHUD(): HUD {
-  const scoreEl = el<HTMLDivElement>("score");
   const feedEl = el<HTMLDivElement>("log-feed");
   const chatEl = el<HTMLInputElement>("chat-input");
   const sendEl = el<HTMLButtonElement>("chat-send");
@@ -153,15 +152,6 @@ export function initHUD(): HUD {
         void box.offsetWidth; // retrigger the animation
         box.classList.add("splash");
       }
-    },
-
-    setScore(n: number) {
-      scoreEl.textContent = String(n);
-      scoreEl.classList.remove("bump");
-      // retrigger the pop animation
-      void scoreEl.offsetWidth;
-      scoreEl.classList.add("bump");
-      setTimeout(() => scoreEl.classList.remove("bump"), 120);
     },
 
     log(type: LogType, html: string, extraClass?: string, onClick?: () => void) {
