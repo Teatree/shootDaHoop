@@ -190,10 +190,12 @@ Everything below is these blocks with specific parameters filled in.
   **upper is slimmer, the lower is wider** — with **enough vertical gap to hit each
   independently.** The **upper hoop protrudes ~20 px further left** (further out)
   than the lower one, which is what enables a **"double shot."**
-- Raised second hoop (owner, 2026-07-15): the **second (upper) hoop sits ONE
-  FULL HOOP TALLNESS higher** — one whole floor-to-rim height above the
-  structure. The **hoop wall (backboard) does NOT move**; only the rim and its
-  tie-arm go up, with the post climbing to carry it.
+- Raised second hoop (owner, 2026-07-15; revised same day — a full hoop height
+  was too high): the **second (upper) hoop sits exactly 2 "rim with net"
+  heights above the LOWER rim** (one unit = the rim plus its hanging net). The
+  **hoop wall (backboard) does NOT move**, and a **pole-coloured strut ties the
+  rim back to the post** so it doesn't read as hovering — **render-only, no
+  collision.**
 - Paint (owner, 2026-07-15): the hoop turns **dark red** (from Hoop 2's black
   and gray), and the **rims are pink/magenta** so they read well on the new
   light-gray background.
@@ -207,9 +209,10 @@ Everything below is these blocks with specific parameters filled in.
 - Proximity trigger: like the Cheering Area — when a character is **very close**, a
   button appears **above the jukebox.**
 - Resulting action: pressing it plays a **random song, ONCE** — songs **don't
-  loop, they just end** — **heard by everyone in the world (not local).** Three
-  reference songs will be provided; **pressing changes which song is playing**
-  (re-rolls among them, always different).
+  loop, they just end** — **heard by everyone in the world (not local).** The
+  three songs are provided (2026-07-15: boombap / 80s breakdance / g-funk,
+  hour-long mixes shipped as streamed Opus); **pressing changes which song is
+  playing** (re-rolls among them, always different).
 - Late joiners hear the song **from where it left off** (not the start), so it
   ends for everyone around the same time; a joiner arriving **after** the song
   should have ended hears **no sound and sees no animations.** A player who
@@ -235,8 +238,9 @@ owner, 2026-07-15)*.
 - Look: the **whole background just recolours to LIGHT GRAY** — the sky bands,
   the dunes and the sand all go light gray (a recolour veil over the drawn
   backdrop), plus a faint neutral wash over the scene.
-- Suns: unchanged from the dusk design — **smaller**, **very light blue**, and
-  they **move slower** across the sky; they stay visible on the gray sky.
+- Suns: **smaller** and they **move slower** across the sky; **still blueish
+  but clearly visible over the light-gray background** (owner, 2026-07-15 —
+  a proper medium blue; the original very-light-blue vanished into the gray).
 - Animation: **gradual** — the recolour **fades in across the WHOLE upgrade
   choreography**, alongside the other sequences (no beat of its own, no flash).
 

@@ -383,3 +383,26 @@ object missing `shirtColor`/`headVariant` renders as a broken box).
   One physics test needed a longer arc (`t = 2.2` not `1.6`): the old
   arc's apex cleared the raised rim by only 4 cm and never dropped
   through — a good reminder that `arcTo(…, t)` picks the apex margin.
+
+---
+
+## 8. Owner-feedback batch #3, 2026-07-15 (same day, after seeing #2)
+
+- **The raise came back down.** "1 full hoop tallness" was too high in
+  play; the upper rim now sits exactly **2 rim-with-net heights above
+  the LOWER rim** (`upper.rimNetsAboveLower: 2` replaces
+  `raiseByHoopHeights`; one unit = the 5 px rim stroke + the 2×r net the
+  renderer hangs). The wall stays pinned, and a **pole-coloured strut**
+  (render-only, drawn before the board so the board covers the stretch
+  behind it) ties the top rim to the post — no more hovering. The
+  batch-2 camera/pole fixes stay: they're no-ops when the rim is back
+  under the board top, and they'd cover any future raise.
+- **Tier-3 suns are a proper medium blue** (`0x5d8fd8`/`0xa9c8f2`) — the
+  spec's "very light blue" vanished into the new light-gray sky. Test
+  pins blueness AND a real brightness margin vs `atmosphere.sky`.
+- **The jukebox got its real tracks** — see
+  `docs/onboarding-and-media.md` for the Opus conversion and the
+  decode-blowup lesson (hour-long mixes must be STREAMED via
+  HTMLAudioElement, never `this.load.audio()`d).
+- Also in the batch (not tier work): the first-entry controls pop-up
+  with the held join, and the tab title. Same doc.
