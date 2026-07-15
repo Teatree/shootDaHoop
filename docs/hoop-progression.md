@@ -443,3 +443,31 @@ Three BUGS plus a jukebox pass and two sweeps:
   ones - comments, strings, docs, anywhere.
 - **Log filters default OFF** for fresh players (hud.ts default +
   index.html unchecked); a saved localStorage choice still wins.
+
+---
+
+## 10. Owner-feedback batch #5, 2026-07-16 (second of the day)
+
+- **The orb is Hoop-3-only now.** `orbTimingForTier` returns NULL below
+  the first Ambient/Spawn Change (the BALANCE.orb cadence default is
+  gone); both authorities (server OrbAuthority + LocalBackend) idle the
+  spawn clock on null and re-check every 5 s, so an upgrade turns the
+  orb on live and a world reset winds it down. Recoloured purple
+  (`powerup.ts`, reads on the gray sky next to the BLUE suns) and the
+  spawn band moved up 70 px (`BALANCE.orb.aboveHoopM` 3.125 -> 5.3125).
+- **Jukebox volume varies with distance.** The owner's "volume seems to
+  always be the same" - measured first: element.volume DOES apply
+  through `createMediaElementSource` (RMS 0.217 -> 0.006), so the
+  constant wasn't broken; what never varied was the LOUDNESS AS YOU MOVE.
+  `Jukebox.update` now shapes `audio.volume` by the player's distance to
+  the box: full MUSIC_VOLUME within 2.5 m easing to 25% of it at 16 m+
+  (never zero - the song is still world-wide). All PLACEHOLDER.
+- **The SHARE button** (`src/share.ts` + `#share-btn`): top-center,
+  where the score display used to live; hidden until the player's first
+  throw resolves. Tracks OWN outcomes as an emoji roll (basketball =
+  hit, heavy X = miss, capped at the newest 25) and copies
+  "This is how I did: <roll>" + the lobby link (plain court URL
+  offline) via the exported `settings.copyText`.
+- Gotcha for future text edits: PowerShell's `Get-Content -Raw` +
+  `-replace` + `Set-Content` MOJIBAKES BOM-less UTF-8 (â†' arrows) -
+  use `[IO.File]::ReadAllText/WriteAllText` with `UTF8Encoding($false)`.
