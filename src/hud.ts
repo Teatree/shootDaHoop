@@ -1,16 +1,16 @@
 // DOM-side HUD: the court-wall log (right 30%) and the MMORPG chat
-// input (bottom-center). The score lives IN the world — on the hoop's
-// foot screen (placeholders.ts) — not up here.
+// input (bottom-center). The score lives IN the world - on the hoop's
+// foot screen (placeholders.ts) - not up here.
 //
 // Log event types:
-//   'throw'    — shot outcomes (distance, miss/hit/swish, points)
-//   'chat'     — player chat lines (styled more prominently)
-//   'presence' — connection events: join / leave / errors / rejections
-//   'world'    — shared-world moments: score resets, tier unlocks
+//   'throw'    - shot outcomes (distance, miss/hit/swish, points)
+//   'chat'     - player chat lines (styled more prominently)
+//   'presence' - connection events: join / leave / errors / rejections
+//   'world'    - shared-world moments: score resets, tier unlocks
 //
 // The wall header has a filter dropdown. Only two categories can be
-// hidden — misses ('throw' lines carrying the 'miss' class) and
-// connection events ('presence') — everything else always shows.
+// hidden - misses ('throw' lines carrying the 'miss' class) and
+// connection events ('presence') - everything else always shows.
 // Hiding is pure CSS (a class on the feed), so it applies retroactively
 // and lines keep arriving underneath while filtered out.
 
@@ -45,7 +45,7 @@ function el<T extends HTMLElement>(id: string): T {
   return e as T;
 }
 
-// A small, friendly palette — DOM log and Phaser bubbles both render these.
+// A small, friendly palette - DOM log and Phaser bubbles both render these.
 const EMOJIS = [
   "😀", "😂", "😅", "😊", "😉", "😍", "😎", "🤔",
   "😴", "😭", "😡", "🥳", "🙃", "😬", "🤯", "😤",
@@ -96,8 +96,10 @@ export function initHUD(): HUD {
   const filterBtn = el<HTMLButtonElement>("log-filter-btn");
   const filterPop = el<HTMLDivElement>("log-filter-pop");
 
-  // shown-state per category, everything visible by default
-  let shown: Record<string, boolean> = { miss: true, presence: true };
+  // shown-state per category - both HIDDEN by default for a fresh
+  // player (owner 2026-07-16: the two ticks start off); a saved choice
+  // (below) overrides
+  let shown: Record<string, boolean> = { miss: false, presence: false };
   try {
     shown = { ...shown, ...JSON.parse(localStorage.getItem(FILTER_STORE) ?? "{}") };
   } catch {
