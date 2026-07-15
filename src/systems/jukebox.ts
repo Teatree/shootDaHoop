@@ -29,6 +29,15 @@ import type { JukeboxState } from "../shared/messages";
 
 /** PLACEHOLDER (tune): owner 2026-07-16 - half of the previous 25%. */
 const MUSIC_VOLUME = 0.125;
+// Distance attenuation (owner bug 2026-07-16: "the volume seems to
+// always be the same" - the box is a WORLD object, so standing beside
+// it should be louder than hearing it from across the court). Full
+// MUSIC_VOLUME within NEAR, easing down to FAR_FRAC of it at FAR and
+// beyond - never to zero: the song is still "heard by everyone in the
+// world" (HOOP_PROGRESSION.md). PLACEHOLDER (tune): all three.
+const VOL_NEAR_M = 2.5;
+const VOL_FAR_M = 16;
+const VOL_FAR_FRAC = 0.25;
 /** PLACEHOLDER (tune): note spawn cadence + pulse feel. */
 const NOTE_EVERY_S = 0.7;
 const PULSE_AMP = 0.06;
@@ -122,6 +131,7 @@ export class Jukebox {
     this.button.setLabel(this.isPlaying ? "⏸" : "▶");
 
     this.t += dt;
+    if (this.audio) this.audio.volume = this.volumeAtPlayer();
     if (this.isPlaying) {
       // little notes drift up into the air (not on hidden tabs - no
       // stale bursts on return; the music itself keeps playing)
@@ -167,7 +177,7 @@ export class Jukebox {
     if (!entry) return; // silent slot
     const audio = new Audio(entry.url);
     audio.preload = "auto";
-    audio.volume = MUSIC_VOLUME;
+    audio.volume = this.volumeAtPlayer(); // update() keeps tracking distance
     audio.loop = false; // songs don't loop - they just end
     this.audio = audio;
     // duration is only known once the metadata streams in; seek then
@@ -276,6 +286,17 @@ export class Jukebox {
       ease: "Sine.easeOut",
       onComplete: () => n.destroy(),
     });
+  }
+
+  /** MUSIC_VOLUME shaped by how far the player stands from the box. */
+  private volumeAtPlayer(): number {
+    const { xM, dM } = this.el.placement;
+    const dist = Math.hypot(this.player.x - xM, this.player.d - dM);
+    const f = Math.min(
+      1,
+      Math.max(0, (dist - VOL_NEAR_M) / (VOL_FAR_M - VOL_NEAR_M)),
+    );
+    return MUSIC_VOLUME * (1 - f * (1 - VOL_FAR_FRAC));
   }
 
   private edgeDistPx(): number {
