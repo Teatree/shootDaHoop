@@ -501,6 +501,17 @@ export function createHoop(
     baseY - housingR + 6 - poleTop,
   );
   g.fillStyle(armColor).fillRect(boardX - 2, boardTop + 22, boardW + 8, 5); // arm
+  // a POLE-COLOURED strut ties the raised top rim of a double hoop back
+  // to the post, so the rim doesn't read as hovering (owner 2026-07-15).
+  // Render-only — physics never sees it. Drawn BEFORE the board so the
+  // board covers the stretch behind it.
+  const strutRim = geom.rims.length > 1 ? geom.rims[0] : null;
+  if (strutRim) {
+    const y = baseY - strutRim.h * M;
+    const back = (strutRim.x + strutRim.r) * M;
+    const poleCx = boardX + boardW + 2 + 3.5; // the post's center line
+    g.fillStyle(look.pole).fillRect(back, y - 2, poleCx - back, 5);
+  }
   // backboard
   g.fillStyle(look.board).fillRect(boardX, boardTop, boardW, boardBot - boardTop);
   g.lineStyle(2, look.boardEdge).strokeRect(boardX, boardTop, boardW, boardBot - boardTop);
@@ -547,8 +558,9 @@ export function createHoop(
     g.lineTo(rimR, rimY);
     g.strokePath();
     g.fillStyle(look.rim).fillCircle(rimL, rimY, 3); // front hook
-    // an arm tying a protruding rim back to the pole
-    if (rim.x + rim.r + 4 < geom.boardX) {
+    // an arm tying a protruding rim back to the board (the strutted top
+    // rim already carries its pole strut — don't double-draw)
+    if (rim !== strutRim && rim.x + rim.r + 4 < geom.boardX) {
       g.fillStyle(armColor).fillRect(rimR, rimY - 2, boardX - rimR, 4);
     }
 

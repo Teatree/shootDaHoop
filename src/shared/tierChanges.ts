@@ -51,10 +51,11 @@ export interface HoopLook {
 export interface DoubleHoopSpec {
   /** slimmer top rim; its FRONT tip protrudes this many world px further
    *  left (further out) than the lower rim's front tip — the "double shot".
-   *  raiseByHoopHeights lifts the upper rim by that many FULL hoop
-   *  heights (the folded floor-to-rim height) — the backboard ("hoop
-   *  wall") does NOT follow it; only the rim + its tie-arm go up. */
-  upper: { rScale: number; protrudeLeftPx: number; raiseByHoopHeights?: number };
+   *  rimNetsAboveLower places the upper rim that many "rim with net"
+   *  heights (the lower rim's stroke + hanging net) ABOVE THE LOWER RIM —
+   *  the backboard ("hoop wall") does NOT follow it; only the rim and its
+   *  pole strut go up. */
+  upper: { rScale: number; protrudeLeftPx: number; rimNetsAboveLower?: number };
   /** wider bottom rim (rScale relative to the folded single-rim width) */
   lower: { rScale: number };
   /** vertical gap between the two rims — must clear the ball so each can

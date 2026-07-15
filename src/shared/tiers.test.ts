@@ -64,10 +64,11 @@ describe("hoopGeometryForTier", () => {
     const g = hoopGeometryForTier(3);
     expect(g.rims.map((r) => r.id)).toEqual(["upper", "lower"]);
     const [upper, lower] = g.rims;
-    // owner 2026-07-15: the second (upper) hoop sits ONE FULL HOOP
-    // TALLNESS higher — structure height topH, rim raised to 2×topH
-    const topH = BALANCE.hoop.rimHeightM * 1.4 * 1.1;
-    expect(upper.h).toBeCloseTo(topH * 2, 10);
+    // owner 2026-07-15 (revised down from "1 full hoop height"): the
+    // second (upper) hoop sits exactly 2 rim-with-net heights above the
+    // LOWER rim — one unit = the rim stroke (5 px) + the hanging net (2×r)
+    const rimNetM = 5 / BALANCE.court.meterPx + 2 * lower.r;
+    expect(upper.h).toBeCloseTo(lower.h + 2 * rimNetM, 10);
     // the upper is the slimmer one, the lower the wider one
     expect(upper.r).toBeLessThan(lower.r);
     // lower keeps the tier-2 rim width
@@ -78,12 +79,12 @@ describe("hoopGeometryForTier", () => {
     const g = hoopGeometryForTier(3);
     const topH = BALANCE.hoop.rimHeightM * 1.4 * 1.1;
     const k = 1.4 * 1.1; // the structure's cumulative height scale
-    // board extents stay pinned to the UNRAISED structure height
+    // board extents stay pinned to the UNRAISED structure height,
+    // whatever the upper rim's raise is
     expect(g.boardTopM).toBeCloseTo(
       topH + (BALANCE.hoop.boardTopM - BALANCE.hoop.rimHeightM) * k,
       10,
     );
-    expect(g.boardTopM).toBeLessThan(g.rims[0].h); // rim above the wall
   });
 
   it("tier 3 upper rim protrudes exactly 20 px further left", () => {
@@ -215,13 +216,23 @@ describe("atmosphereForTier", () => {
     expect(a.sun.speedScale).toBe(1);
   });
 
-  it("tier 3: smaller, very light blue, slower suns", () => {
+  it("tier 3: smaller, slower, BLUE suns that read on the gray sky", () => {
     const a = atmosphereForTier(3);
     expect(a.overlay.alpha).toBeGreaterThan(0);
     expect(a.sun.sizeScale).toBeLessThan(1); //  smaller
     expect(a.sun.speedScale).toBeLessThan(1); // slower
     expect(a.sun.pulsate).toBe(false);
-    expect(a.sun.coreColor & 0xff).toBeGreaterThan(0xd0); // strongly blue
+    const [r, g, b] = [
+      (a.sun.coreColor >> 16) & 0xff,
+      (a.sun.coreColor >> 8) & 0xff,
+      a.sun.coreColor & 0xff,
+    ];
+    expect(b).toBeGreaterThan(r); // still blueish…
+    // …but clearly visible on the light-gray sky: darker than the sky
+    // by a real margin (the old very-light-blue vanished into it)
+    const sky = a.sky;
+    const skyAvg = (((sky >> 16) & 0xff) + ((sky >> 8) & 0xff) + (sky & 0xff)) / 3;
+    expect((r + g + b) / 3).toBeLessThan(skyAvg - 40);
   });
 
   it("the sky: base cream through tier 2, LIGHT GRAY at tier 3, gradual", () => {

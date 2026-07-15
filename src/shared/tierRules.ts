@@ -117,16 +117,21 @@ function buildGeometry(f: HoopFold): HoopGeometry {
   const dbl = f.dbl;
   const lowerR = f.rimR * dbl.lower.rScale;
   const lowerX = RIM.x;
+  const lowerH = topH - dbl.gapM;
   const upperR = f.rimR * dbl.upper.rScale;
+  // "one rim with its net" = the lower rim's stroke (~5 px in the
+  // renderer) plus its hanging net (the renderer draws it 2×r deep) —
+  // the raise unit for rimNetsAboveLower (owner 2026-07-15: the upper
+  // rim sits 2 of these above the LOWER rim; the board does not follow)
+  const rimNetM = 5 / BALANCE.court.meterPx + 2 * lowerR;
   const upper: RimSpec = {
     id: "upper",
     // the upper rim's FRONT (left) tip protrudes further out than the
     // lower's front tip — this is what enables the double shot
     x: lowerX - lowerR - dbl.upper.protrudeLeftPx / BALANCE.court.meterPx + upperR,
-    // the raise lifts the rim by N full hoop heights; the BOARD does not
-    // follow it (owner 2026-07-15: "don't change the hoop wall") — board
-    // extents below stay pinned to the unraised structure height (topH)
-    h: topH * (1 + (dbl.upper.raiseByHoopHeights ?? 0)),
+    h: dbl.upper.rimNetsAboveLower !== undefined
+      ? lowerH + dbl.upper.rimNetsAboveLower * rimNetM
+      : topH,
     r: upperR,
   };
   if (f.dblStage === "upper-only") {
@@ -140,7 +145,7 @@ function buildGeometry(f: HoopFold): HoopGeometry {
       boardTopM: topH + aboveM,
     };
   }
-  const lower: RimSpec = { id: "lower", x: lowerX, h: topH - dbl.gapM, r: lowerR };
+  const lower: RimSpec = { id: "lower", x: lowerX, h: lowerH, r: lowerR };
   return {
     rims: [upper, lower],
     boardX: Math.max(upper.x + upper.r, lower.x + lower.r) + BALANCE.hoop.boardGapM,

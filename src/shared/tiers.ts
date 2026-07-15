@@ -169,11 +169,13 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
         doubleHoop: {
           // upper is slimmer and protrudes ~20 px further left (further
           // out) than the lower — what enables the "double shot".
-          // owner 2026-07-15: the second (upper) hoop sits ONE FULL HOOP
-          // TALLNESS higher; the hoop wall (backboard) stays put.
-          upper: { rScale: 0.8, protrudeLeftPx: 20, raiseByHoopHeights: 1 }, // rScale PLACEHOLDER (tune)
+          // owner 2026-07-15 (revised: "1 full hoop height" was too high):
+          // the second (upper) hoop sits exactly 2 rim-with-net heights
+          // above the LOWER rim; the hoop wall (backboard) stays put, and
+          // a pole-coloured strut ties the rim to the post (render-only).
+          upper: { rScale: 0.8, protrudeLeftPx: 20, rimNetsAboveLower: 2 }, // rScale PLACEHOLDER (tune)
           lower: { rScale: 1.0 }, // keeps the tier-2 width → the wider one
-          gapM: 2.0, // PLACEHOLDER (tune): enough vertical gap to hit each
+          gapM: 2.0, // PLACEHOLDER (tune): the lower rim's drop below the structure top
         },
         choreo: [
           // pop with splash: first it gets taller…
@@ -224,8 +226,11 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
         // characters toward gray too, without dimming them
         overlay: { color: 0xc9cdd2, alpha: 0.1 },
         sun: {
-          coreColor: 0xcfe2ff, // very light blue… PLACEHOLDER (tune)
-          glowColor: 0xe6f0ff,
+          // owner 2026-07-15: still blueish, but clearly VISIBLE on the
+          // light-gray sky (the old very-light-blue vanished into it).
+          // PLACEHOLDER (tune): a proper medium blue + a paler halo
+          coreColor: 0x5d8fd8,
+          glowColor: 0xa9c8f2,
           sizeScale: 0.65, //     clearly smaller suns
           speedScale: 0.6, //     …moving slower
           pulsate: false,
