@@ -4,11 +4,11 @@
 
 Hoop progression is the game's **shared, per-world sense of growth.** Every made
 shot adds to a communal score; when the world has scored enough, the hoop can be
-**upgraded** — and an upgrade is never just "a bigger number." Each upgrade
+**upgraded** - and an upgrade is never just "a bigger number." Each upgrade
 **transforms the court around the players**: the hoop itself changes shape or
 behaviour, the environment reskins, new interactive objects and mechanics appear,
 and some upgrades grant permanent gameplay boons. The upgrade is a **communal
-act** — any single player walks up and triggers it, and everyone in the world
+act** - any single player walks up and triggers it, and everyone in the world
 experiences the transformation together (with returning AFK players getting a
 catch-up replay of the moment).
 
@@ -28,22 +28,22 @@ syncing, and rendering already know how to play any recipe.
 How an upgrade happens, regardless of which tier is being unlocked:
 
 1. **Accumulate.** Every made shot adds `N` to the world's shared score. (`N` and
-   each tier's threshold are config values — see *Open items*.)
+   each tier's threshold are config values - see *Open items*.)
 2. **Call to upgrade.** Once the shared score reaches the next tier's threshold, an
-   animated **"Upgrade" button appears under the hoop**. It is *beckoning* —
+   animated **"Upgrade" button appears under the hoop**. It is *beckoning* -
    animated to visibly "call" a player over to press it.
 3. **Trigger (communal).** **Any** player can walk up to the hoop and press the
    button. It doesn't matter who scored the points; whoever presses it triggers
    the upgrade for the whole world.
 4. **Transform.** On trigger:
-   - **A burst of VFX** fires — lots, all at once.
+   - **A burst of VFX** fires - lots, all at once.
    - **The shared score resets** (the next tier counts fresh from zero).
    - **All active players are teleported clear of the hoop**, giving the
      transformation room to play.
    - The tier's ordered **change list** plays out (its hoop change, scene changes,
-     new mechanics — see each tier below).
+     new mechanics - see each tier below).
 5. **AFK catch-up.** A player who was AFK during the upgrade sees, on return,
-   **roughly the same success animation** the triggering player saw — so nobody
+   **roughly the same success animation** the triggering player saw - so nobody
    misses the payoff of a milestone the community hit. This includes players who
    **left entirely** (closed the tab): on rejoin they load into the world as they
    last saw it, and a moment later the missed transformation plays (2026-07-15).
@@ -57,7 +57,7 @@ How an upgrade happens, regardless of which tier is being unlocked:
   straight into the correct, already-upgraded world.
 - **Ghost balls** (replayed recordings of past throws) must respect upgrade
   timing: recolour a ghost ball to its post-upgrade look **only if the recording
-  being played is already past the upgrade point** — a replay from before the
+  being played is already past the upgrade point** - a replay from before the
   upgrade keeps the old look, so the world stays temporally consistent.
 
 ---
@@ -67,12 +67,12 @@ How an upgrade happens, regardless of which tier is being unlocked:
 Every hoop tier is one self-contained definition with these parts. **To find or
 change a hoop's logic, you open its tier block and read top to bottom.**
 
-- **Identity** — tier number + name.
-- **Unlock** — the shared-score threshold to upgrade *into* this tier (counted
+- **Identity** - tier number + name.
+- **Unlock** - the shared-score threshold to upgrade *into* this tier (counted
   from the reset after the previous upgrade).
-- **Hoop change** — how the hoop's geometry/behaviour changes, its upgrade
+- **Hoop change** - how the hoop's geometry/behaviour changes, its upgrade
   animation, and any camera re-fit.
-- **Ordered change list** — the sequence of environment/mechanic changes that play
+- **Ordered change list** - the sequence of environment/mechanic changes that play
   on upgrade, each one built from a **change-type** below. Order matters: it's the
   choreography of the transformation.
 
@@ -81,27 +81,27 @@ change a hoop's logic, you open its tier block and read top to bottom.**
 A tier composes its change list out of these. Each block has a consistent shape,
 so once you've seen one you can author any of them:
 
-- **Hoop Change** — alters the hoop's shape and/or behaviour (height, rim width,
+- **Hoop Change** - alters the hoop's shape and/or behaviour (height, rim width,
   single/double/moving/walking). Carries: the new geometry/behaviour, an
   **upgrade animation**, and an optional **camera re-fit** so the new hoop stays in
   frame.
-- **Scene Visual Change** — reskins the environment (court floor, background,
+- **Scene Visual Change** - reskins the environment (court floor, background,
   material). Carries: the new look + a **transition animation** (typically a
   "splash" pop).
-- **Interactive Element** — adds a placed object or area players can approach and
+- **Interactive Element** - adds a placed object or area players can approach and
   trigger. Carries: **placement**, **proximity trigger** (how close + the button
   that appears), **resulting action**, whether the effect is **local or
   synced-to-everyone**, whether interacting **occupies a physical spot** or is a
   press-in-passing, and an **appearance animation**.
-- **Permanent Effect** — a lasting gameplay change applied to all players from
+- **Permanent Effect** - a lasting gameplay change applied to all players from
   this tier onward (e.g., longer throws). Carries: the effect + any UI/visual
   change that signals it.
-- **New Animation** — unlocks a new character animation (e.g., cheering). Carries:
+- **New Animation** - unlocks a new character animation (e.g., cheering). Carries:
   the animation + its trigger + how it interrupts/yields to normal input.
-- **Ambient / Spawn Change** — changes background spawns or their cadence (e.g., an
+- **Ambient / Spawn Change** - changes background spawns or their cadence (e.g., an
   orb starting to appear on a timer). Carries: spawn area, frequency, lifetime,
   and appearance behaviour.
-- **Atmosphere Change** — recolors the world's *light*: a very transparent tint
+- **Atmosphere Change** - recolors the world's *light*: a very transparent tint
   rendered over the whole camera (under the HUD) plus a new **mood for the suns**
   (disc/halo colour, size scale, traverse-speed scale, optional pulse). Carries:
   the overlay colour+alpha, the sun mood, and a transition fx. Applied last-wins
@@ -111,105 +111,106 @@ Everything below is these blocks with specific parameters filled in.
 
 ---
 
-## Hoop 1 — Standard
+## Hoop 1 - Standard
 
 - **Identity:** Tier 1, "Standard."
-- **Unlock:** none — this is the starting state.
+- **Unlock:** none - this is the starting state.
 - **Hoop change:** none. Standard hoop, the scene exactly as it is now.
 - **Ordered change list:** none.
 
 ---
 
-## Hoop 2 — Taller Rim, Cheering & Mahogany
+## Hoop 2 - Taller Rim, Cheering & Mahogany
 
 - **Identity:** Tier 2.
-- **Unlock:** shared score threshold (config — see *Open items*).
+- **Unlock:** shared score threshold (config - see *Open items*).
 - **Ordered change list** (plays in this order):
 
-**1. Hoop Change — taller hoop, wider rim.**
+**1. Hoop Change - taller hoop, wider rim.**
 - Geometry: the hoop becomes **+40% taller** and the **rim +15% wider**.
-- Animation: a **pop with a splash particle effect** — the new hoop splashes into
+- Animation: a **pop with a splash particle effect** - the new hoop splashes into
   existence and the old one is gone. Sequence: it **gets taller first**, then
   after a **1-second delay** the **rim widens**.
 - Camera: **everyone's camera re-fits** so the (now taller) hoop always stays in
   view.
 
-**2. Interactive Element — Cheering Area.**
+**2. Interactive Element - Cheering Area.**
 - Placement: an allocated **wooden-floored area** that appears **upward, over the
-  players' usual spawn area, outside the court itself.** Small — enough for **~3
+  players' usual spawn area, outside the court itself.** Small - enough for **~3
   characters** to comfortably stand.
 - Proximity trigger: when a character is **within ~2 px (very close)**, a **"Cheer"
   button** appears over the area. Pressing it walks the character up into the area
   and starts the **cheering animation**.
-- Occupies a spot: **yes** — characters physically stand in the area to cheer.
+- Occupies a spot: **yes** - characters physically stand in the area to cheer.
 - Yielding to input: when the player clicks to **walk or throw**, the character
   **first walks back down out of the area**, then obeys the input.
 - Appearance animation: the area **quickly pops into existence.**
 - (Unlocks a **New Animation**, below.)
 
-**2a. New Animation — Cheering.**
+**2a. New Animation - Cheering.**
 - A new character animation unlocked with Hoop 2: characters **bob and throw their
   hands in the air in a quick rhythm.**
 - The cheer animation is **already playing while the character walks up** to the
   area (not only once arrived).
 - AFK cheer (owner, 2026-07-15): an **abandoned (offline) character** that walks
-  onto the Cheering platform **cheers too — but tired**: the animation runs
+  onto the Cheering platform **cheers too - but tired**: the animation runs
   **40% slower** and the **head hangs somewhat lower**, so offline cheerers
   stand out. (The owner's note said 30% in one line and 40% in the refinement;
-  40% is implemented — `WEARY_CHEER_RATE`, PLACEHOLDER.)
+  40% is implemented - `WEARY_CHEER_RATE`, PLACEHOLDER.)
 
-**3. Permanent Effect — Ball Upgrade.**
-- Effect: **balls travel 25% further** — permanent, all players.
+**3. Permanent Effect - Ball Upgrade.**
+- Effect: **balls travel 25% further** - permanent, all players.
 - UI/visual: a **simple splash** on the ball UI; balls become **more red** (both
-  the UI icons and the in-world balls). **Ghost balls** also go more red — **but
+  the UI icons and the in-world balls). **Ghost balls** also go more red - **but
   only if the played recording is already past this upgrade** (per the replay rule
   above).
 
-**4. Scene Visual Change — Mahogany Court.**
+**4. Scene Visual Change - Mahogany Court.**
 - Look: the **court floor** becomes **much darker, like mahogany wood** (floor
   only).
 - Animation: a **splash effect** that turns the court dark.
 
-**5. Atmosphere Change — Red Desert.**
-- Look: the **whole background becomes a bit more red** — a **very transparent
+**5. Atmosphere Change - Red Desert.**
+- Look: the **whole background becomes a bit more red** - a **very transparent
   red** wash rendered over the camera, so the world's light itself reads redder.
 - Suns: the suns **pulsate a bit** and are painted **more red** (disc + halo).
-- Animation: lands as its own beat — a soft flash, then the wash fades in.
+- Animation: lands as its own beat - a soft flash, then the wash fades in.
 
 ---
 
-## Hoop 3 — Double Hoop, Jukebox, Glass & Orbs
+## Hoop 3 - Double Hoop, Jukebox, Glass & Orbs
 
 - **Identity:** Tier 3.
-- **Unlock:** shared score threshold (config — see *Open items*).
+- **Unlock:** shared score threshold (config - see *Open items*).
 - **Ordered change list** (plays in this order):
 
-**1. Hoop Change — Double Hoop.**
+**1. Hoop Change - Double Hoop.**
 - Geometry: a **single post carrying two stacked hoops.** Overall height only
-  **+10%** over Hoop 2, but it houses **two rims of different sizes** — the
-  **upper is slimmer, the lower is wider** — with **enough vertical gap to hit each
+  **+10%** over Hoop 2, but it houses **two rims of different sizes** - the
+  **upper is slimmer, the lower is wider** - with **enough vertical gap to hit each
   independently.** The **upper hoop protrudes ~20 px further left** (further out)
   than the lower one, which is what enables a **"double shot."**
-- Raised second hoop (owner, 2026-07-15; revised same day — a full hoop height
+- Raised second hoop (owner, 2026-07-15; revised same day - a full hoop height
   was too high): the **second (upper) hoop sits exactly 2 "rim with net"
   heights above the LOWER rim** (one unit = the rim plus its hanging net). The
   **hoop wall (backboard) does NOT move**, and a **pole-coloured strut ties the
-  rim back to the post** so it doesn't read as hovering — **render-only, no
+  rim back to the post** so it doesn't read as hovering - **render-only, no
   collision.**
 - Paint (owner, 2026-07-15): the hoop turns **dark red** (from Hoop 2's black
   and gray), and the **rims are pink/magenta** so they read well on the new
   light-gray background.
-- Animation: a **pop with splash** — first the hoop **gets taller**, then the
+- Animation: a **pop with splash** - first the hoop **gets taller**, then the
   **upper hoop juts forward** (it sits further out now, already at its raised
   height), then after a delay the **second (lower) hoop appears beneath** with
   another **splash + pop.**
 
-**2. Interactive Element — Jukebox.**
+**2. Interactive Element - Jukebox.**
 - Placement: **left of the Cheering Area**, off to the side, **off the court.**
-- Proximity trigger: like the Cheering Area — when a character is **very close**, a
-  button appears **above the jukebox.**
-- Resulting action: pressing it plays a **random song, ONCE** — songs **don't
-  loop, they just end** — **heard by everyone in the world (not local).** The
+- Proximity trigger: when a character enters the box's trigger area - grown
+  **3× on 2026-07-16** (it started as the Cheering Area's "very close") - a
+  button appears **above the jukebox** (raised 20 px on 2026-07-16).
+- Resulting action: pressing it plays a **random song, ONCE** - songs **don't
+  loop, they just end** - **heard by everyone in the world (not local).** The
   three songs are provided (2026-07-15: boombap / 80s breakdance / g-funk,
   hour-long mixes shipped as streamed Opus); **pressing changes which song is
   playing** (re-rolls among them, always different).
@@ -217,40 +218,44 @@ Everything below is these blocks with specific parameters filled in.
   ends for everyone around the same time; a joiner arriving **after** the song
   should have ended hears **no sound and sees no animations.** A player who
   clicks away from the tab or browser **still hears the music.**
-- OFF toggle: while a song is playing AND the player is close, a **small
-  toggle-icon button appears next to the Jukebox button**; pressing it **turns
-  the jukebox off for everyone** (synced, like the press).
-- Presentation while playing: the box **sends little notes up into the air** and
-  the **speaker pulsates following the song's bass/tempo.**
-- Volume: music defaults to **25% of the player's normal volume.**
-- Occupies a spot: **no** — unlike the Cheering Area, characters **don't walk into
+- The button is a **play/pause TOGGLE** (owner, 2026-07-16 - replaces the
+  separate OFF button): it shows **▶**; pressing starts a re-rolled song and
+  the button becomes **⏸**, which **stops the jukebox for everyone** (synced).
+  **Switching songs = turning it off and on again** (each ▶ re-rolls, never
+  the same song twice in a row).
+- Presentation while playing: the box **sends little BLACK notes up into the
+  air** (owner 2026-07-16, was yellow) and the **speaker pulsates following
+  the song's bass/tempo.**
+- Volume: music defaults to **12.5% of the player's normal volume** (owner
+  2026-07-16: half of the original 25%).
+- Occupies a spot: **no** - unlike the Cheering Area, characters **don't walk into
   a dedicated space**; they press it in passing from nearby.
 - Appearance animation: **pops into existence.**
 - Sync note: song choice + playback + the OFF press are **synced to everyone.**
 
-**3. Scene Visual Change — Glass Court.**
+**3. Scene Visual Change - Glass Court.**
 - Look: the same full-court area, now **turned to glass and made fancier** than the
   mahogany version.
 - Animation: **pops in with a splash effect**, then the glass court appears.
 
-**4. Atmosphere Change — Light-Gray World** *(reworked from Blue-Gray Dusk —
+**4. Atmosphere Change - Light-Gray World** *(reworked from Blue-Gray Dusk -
 owner, 2026-07-15)*.
-- Look: the **whole background just recolours to LIGHT GRAY** — the sky bands,
+- Look: the **whole background just recolours to LIGHT GRAY** - the sky bands,
   the dunes and the sand all go light gray (a recolour veil over the drawn
   backdrop), plus a faint neutral wash over the scene.
 - Suns: **smaller** and they **move slower** across the sky; **still blueish
-  but clearly visible over the light-gray background** (owner, 2026-07-15 —
+  but clearly visible over the light-gray background** (owner, 2026-07-15 -
   a proper medium blue; the original very-light-blue vanished into the gray).
-- Animation: **gradual** — the recolour **fades in across the WHOLE upgrade
+- Animation: **gradual** - the recolour **fades in across the WHOLE upgrade
   choreography**, alongside the other sequences (no beat of its own, no flash).
 
-**5. Ambient / Spawn Change — Blue Orbs.**
+**5. Ambient / Spawn Change - Blue Orbs.**
 - Behaviour: the **Blue Orb is the existing in-game interactive object, unchanged
   in function.** After Hoop 3 it **starts appearing on a timer.**
 - Spawn area: **same as today.**
 - Frequency: a **random interval of 10–20 seconds.**
 - Lifetime: the orb now **persists 5 seconds** (up from 3).
-- Appearance animation: **none** — it simply comes into existence, no notification.
+- Appearance animation: **none** - it simply comes into existence, no notification.
 
 ---
 
@@ -261,9 +266,9 @@ You do **not** touch the upgrade loop, the sync, or the rendering. To add Hoop N
 1. **Copy the tier template** (Identity → Unlock → Hoop change → Ordered change
    list).
 2. **Set Identity and Unlock** (tier number, name, score threshold).
-3. **Fill the Hoop Change** — pick the hoop behaviour (static / double / moving /
+3. **Fill the Hoop Change** - pick the hoop behaviour (static / double / moving /
    walking / …) and describe its geometry, upgrade animation, and camera re-fit.
-4. **Compose the ordered change list** from the change-type vocabulary — each entry
+4. **Compose the ordered change list** from the change-type vocabulary - each entry
    is one **Scene Visual Change**, **Interactive Element**, **Permanent Effect**,
    **New Animation**, **Ambient/Spawn Change**, or **Atmosphere Change**, with its
    parameters filled in. Order them as you want the transformation to choreograph.
@@ -279,7 +284,7 @@ change-type to the vocabulary once, then every future hoop can use it as data.
 
 ## Open items (to define)
 
-All of these are BUILT with flagged placeholder values — grep `PLACEHOLDER`
+All of these are BUILT with flagged placeholder values - grep `PLACEHOLDER`
 for the full list. Where each one lives:
 
 - `N` per made shot → currently the shot's own points
@@ -305,4 +310,4 @@ for the full list. Where each one lives:
   carries a higher tier holds the old world ~1 s, then plays the missed
   leg (multi-rung jumps snap to `t-1` and play only the final leg).
 - **Ghost-ball recolour** → recordings stamp `ballLook` at record time
-  (`ThrowRecording.ballLook`), not timestamps — simpler and equivalent.
+  (`ThrowRecording.ballLook`), not timestamps - simpler and equivalent.

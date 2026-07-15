@@ -7,9 +7,12 @@ import type { InteractiveElement } from "../shared/tierChanges";
 import type { JukeboxState } from "../shared/messages";
 
 // The Jukebox (Hoop 3's Interactive Element): a box left of the cheering
-// area, off the court. Very close → a button pops above it; pressing
-// re-rolls a random song that EVERYONE in the world hears ONCE — songs
-// don't loop, they just end. The authority owns the choice + start time;
+// area, off the court. Entering its trigger area pops ONE toggle button
+// above it (owner 2026-07-16): ▶ starts a re-rolled random song that
+// EVERYONE in the world hears ONCE - songs don't loop, they just end -
+// and while a song plays the button reads ⏸ and stops it for everyone.
+// Switching songs = off, then on again (each ▶ re-rolls, never the same
+// song twice in a row). The authority owns the choice + start time;
 // clients seek into the song so it ends for everyone around the same
 // moment, and a joiner arriving after the end hears (and sees) nothing.
 //
@@ -22,10 +25,10 @@ import type { JukeboxState } from "../shared/messages";
 // the real tracks are hour-long mixes, and WebAudio's decodeAudioData
 // would inflate them to gigabytes of PCM (song3 flatly refused). The
 // element starts playing within moments, seeks fine, and keeps playing
-// on a blurred tab — which the spec wants anyway.
+// on a blurred tab - which the spec wants anyway.
 
-/** PLACEHOLDER (tune): 25% of the player's normal volume, per the owner. */
-const MUSIC_VOLUME = 0.25;
+/** PLACEHOLDER (tune): owner 2026-07-16 - half of the previous 25%. */
+const MUSIC_VOLUME = 0.125;
 /** PLACEHOLDER (tune): note spawn cadence + pulse feel. */
 const NOTE_EVERY_S = 0.7;
 const PULSE_AMP = 0.06;
@@ -40,14 +43,13 @@ export class Jukebox {
   private readonly music: AvailableAssets["music"];
 
   private box: Phaser.GameObjects.Graphics | null = null;
+  /** the play/pause toggle: ▶ starts a (re-rolled) song, ⏸ stops it */
   private button: ProximityButton | null = null;
-  /** the OFF toggle — exists beside the button, shown only mid-song */
-  private offButton: ProximityButton | null = null;
   /** the streamed playback element (null = silent) */
   private audio: HTMLAudioElement | null = null;
-  /** the analyser's media tap — kept to disconnect on stop */
+  /** the analyser's media tap - kept to disconnect on stop */
   private mediaSrc: MediaElementAudioSourceNode | null = null;
-  /** dedupe key: the authoritative start stamp of the adopted playback —
+  /** dedupe key: the authoritative start stamp of the adopted playback -
    *  NOT the song slot, so a re-pressed same slot restarts and a snapshot
    *  arriving after the natural end can't resurrect the song */
   private syncedStartMs: number | null = null;
@@ -76,18 +78,13 @@ export class Jukebox {
     if (this.box) return;
     this.box = this.drawBox();
     const bx = this.el.placement.xM * M;
-    const by = floorY(this.el.placement.dM - this.el.depthM / 2) - 46;
-    this.button = new ProximityButton(
-      this.scene,
-      bx,
-      by,
-      "♪ JUKEBOX",
-      () => this.onPressed(),
-    );
-    // the OFF toggle sits right beside the main button, only while a
-    // song is playing. PLACEHOLDER (tune): the -64 px gap.
-    this.offButton = new ProximityButton(this.scene, bx - 64, by, "⏻", () =>
-      this.onOffPressed(),
+    // owner 2026-07-16: 20 px higher than before
+    const by = floorY(this.el.placement.dM - this.el.depthM / 2) - 66;
+    // ONE toggle button (owner 2026-07-16): ▶ starts a song, and while
+    // one plays it reads ⏸ and stops it for everyone - switching songs
+    // is done by turning the jukebox off and on (each ▶ re-rolls).
+    this.button = new ProximityButton(this.scene, bx, by, "▶", () =>
+      this.isPlaying ? this.onOffPressed() : this.onPressed(),
     );
     if (animated) {
       const g = this.box;
@@ -109,8 +106,6 @@ export class Jukebox {
     this.box = null;
     this.button?.destroy();
     this.button = null;
-    this.offButton?.destroy();
-    this.offButton = null;
   }
 
   /** A song is audibly playing right now (drives the OFF toggle + vfx). */
@@ -120,22 +115,22 @@ export class Jukebox {
 
   update(dt: number) {
     if (!this.button) return;
-    // press-in-passing: no occupancy, just the very-close trigger
+    // press-in-passing: no occupancy, just the trigger area
     const near = this.edgeDistPx() <= this.el.proximityPx + 1;
     this.button.setNear(near);
-    // OFF is available only when close enough AND a song is playing
-    this.offButton?.setNear(near && this.isPlaying);
+    // the toggle face tracks the playback: ▶ to start, ⏸ to stop
+    this.button.setLabel(this.isPlaying ? "⏸" : "▶");
 
     this.t += dt;
     if (this.isPlaying) {
-      // little notes drift up into the air (not on hidden tabs — no
+      // little notes drift up into the air (not on hidden tabs - no
       // stale bursts on return; the music itself keeps playing)
       this.noteIn -= dt;
       if (this.noteIn <= 0 && !document.hidden) {
         this.noteIn = NOTE_EVERY_S * (0.7 + Math.random() * 0.6);
         this.spawnNote();
       }
-      // the speaker pulses with the bass — analyser when WebAudio offers
+      // the speaker pulses with the bass - analyser when WebAudio offers
       // one, a steady FALLBACK_BPM thump otherwise
       let level: number;
       if (this.analyser && this.freqData) {
@@ -173,7 +168,7 @@ export class Jukebox {
     const audio = new Audio(entry.url);
     audio.preload = "auto";
     audio.volume = MUSIC_VOLUME;
-    audio.loop = false; // songs don't loop — they just end
+    audio.loop = false; // songs don't loop - they just end
     this.audio = audio;
     // duration is only known once the metadata streams in; seek then
     audio.addEventListener("loadedmetadata", () => {
@@ -187,7 +182,7 @@ export class Jukebox {
       audio.play().then(
         () => this.tapAnalyser(audio),
         // autoplay policy: no user gesture yet (e.g. a rejoin adopting a
-        // running song) — retry the same state on the first input
+        // running song) - retry the same state on the first input
         () => this.retryOnGesture(state),
       );
     });
@@ -213,7 +208,7 @@ export class Jukebox {
   songLabel(song: number): string {
     const key = MUSIC_MANIFEST[song] ?? `song${song + 1}`;
     const has = this.music.some((m) => m.key === key);
-    return has ? key : `${key} (no file — silence)`;
+    return has ? key : `${key} (no file - silence)`;
   }
 
   private stopPlayback() {
@@ -230,7 +225,7 @@ export class Jukebox {
   /**
    * Tap the streamed element into an analyser for the bass pulse. The
    * tap REROUTES the element's output through the context, so only do it
-   * on a RUNNING context (a suspended one would silence the song — the
+   * on a RUNNING context (a suspended one would silence the song - the
    * fixed-tempo fallback pulse covers that case instead).
    */
   private tapAnalyser(audio: HTMLAudioElement) {
@@ -266,7 +261,8 @@ export class Jukebox {
         cx + (Math.random() * 24 - 12),
         yTop,
         Math.random() < 0.5 ? "♪" : "♫",
-        { fontFamily: "monospace", fontSize: "16px", color: "#ffd97a" },
+        // owner 2026-07-16: black notes, not yellow
+        { fontFamily: "monospace", fontSize: "16px", color: "#111111" },
       )
       .setOrigin(0.5)
       .setDepth(sortDepth(this.el.placement.dM) - 1)

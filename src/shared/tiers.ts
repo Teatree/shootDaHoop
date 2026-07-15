@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════════════
-//  HOOP TIERS — the recipes. This is the CONTENT half of the data-driven
+//  HOOP TIERS - the recipes. This is the CONTENT half of the data-driven
 //  progression (HOOP_PROGRESSION.md): every tier below is one
-//  self-contained definition you can read top to bottom —
+//  self-contained definition you can read top to bottom -
 //
 //    Identity (id + name) → Unlock (threshold) → Ordered change list.
 //
@@ -13,7 +13,7 @@
 //
 //  Thresholds count from the shared-score RESET after the previous
 //  upgrade (they are NOT cumulative). PLACEHOLDER (design): "N per made
-//  shot" = the shot's own points (100–500, shared/scoring.ts) — change
+//  shot" = the shot's own points (100–500, shared/scoring.ts) - change
 //  server/room.ts applyOutcome + backend/local.ts if N should differ.
 //
 //  Dependency-free: no Phaser, no DOM, no Node.
@@ -33,18 +33,18 @@ export interface HoopTierDef {
 
 export const HOOP_TIERS: readonly HoopTierDef[] = [
   // ══════════════════════════════════════════════════════════════════
-  //  Hoop 1 — Standard
+  //  Hoop 1 - Standard
   //  The starting state: standard hoop, the scene exactly as it is.
   // ══════════════════════════════════════════════════════════════════
   {
     id: 1,
     name: "Standard",
-    threshold: 0, // starting state — nothing to unlock
+    threshold: 0, // starting state - nothing to unlock
     changes: [],
   },
 
   // ══════════════════════════════════════════════════════════════════
-  //  Hoop 2 — Taller Rim, Cheering & Mahogany
+  //  Hoop 2 - Taller Rim, Cheering & Mahogany
   // ══════════════════════════════════════════════════════════════════
   {
     id: 2,
@@ -52,7 +52,7 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
     // ── PLACEHOLDER (tune): ≈ 4–10 made shots at 100–500 pts each ──
     threshold: 100,
     changes: [
-      // 1. Hoop Change — taller hoop, wider rim.
+      // 1. Hoop Change - taller hoop, wider rim.
       {
         type: "hoop-change",
         heightScale: 1.4, //   +40% taller than Hoop 1
@@ -76,14 +76,14 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
         cameraRefit: true, // everyone's camera keeps the taller hoop in view
       },
 
-      // 2. Interactive Element — Cheering Area.
+      // 2. Interactive Element - Cheering Area.
       //    A small wooden-floored deck above the players' usual spawn
       //    area, outside the court; fits ~3 characters.
       {
         type: "interactive",
         element: "cheer-area",
         // PLACEHOLDER (tune): over the spawn area, just behind the far
-        // sideline — its near edge touches the court so a player can
+        // sideline - its near edge touches the court so a player can
         // stand "very close" (the ~2 px trigger is edge-to-edge)
         placement: { xM: 19.8, dM: -0.6 },
         widthM: 3.6, //  PLACEHOLDER (tune): ~3 characters wide
@@ -93,11 +93,11 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
         proximityPx: 100,
         occupiesSpot: true, // characters physically stand in it to cheer
         spots: 3,
-        synced: false, // cheering is just your pose — telemetry carries it
+        synced: false, // cheering is just your pose - telemetry carries it
         appearFx: "pop", // quickly pops into existence
       },
 
-      // 2a. New Animation — Cheering (bob + hands thrown up in a quick
+      // 2a. New Animation - Cheering (bob + hands thrown up in a quick
       //     rhythm; already playing while the character walks up).
       {
         type: "new-animation",
@@ -106,16 +106,16 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
         yielding: "walk-out-first", // walk/throw input walks back out first
       },
 
-      // 3. Permanent Effect — Ball Upgrade.
+      // 3. Permanent Effect - Ball Upgrade.
       {
         type: "permanent-effect",
         effect: "ball-range",
-        travelScale: 1.25, // balls travel 25% further — permanent, everyone
+        travelScale: 1.25, // balls travel 25% further - permanent, everyone
         ballLook: "red", //  balls become more red (world + UI + new ghosts)
         uiFx: "splash", //   a simple splash on the ball UI
       },
 
-      // 4. Scene Visual Change — Mahogany Court (floor only).
+      // 4. Scene Visual Change - Mahogany Court (floor only).
       {
         type: "scene-visual",
         target: "court-floor",
@@ -123,7 +123,7 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
         fx: "splash", //    a splash effect turns the court dark
       },
 
-      // 5. Atmosphere Change — Red Desert. The whole world becomes
+      // 5. Atmosphere Change - Red Desert. The whole world becomes
       //    OBVIOUSLY red (owner ask 2026-07-15, was a barely-visible
       //    0.05 wash), and the suns turn deep crimson so they still
       //    read clearly against the reddened sky.
@@ -132,7 +132,7 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
         // PLACEHOLDER (tune): a clearly visible red over everything
         overlay: { color: 0xe03018, alpha: 0.16 },
         sun: {
-          coreColor: 0xd83018, // deep crimson disc — pops on the red wash
+          coreColor: 0xd83018, // deep crimson disc - pops on the red wash
           glowColor: 0xff7a55, // hot halo… PLACEHOLDER (tune)
           sizeScale: 1,
           speedScale: 1,
@@ -144,7 +144,7 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
   },
 
   // ══════════════════════════════════════════════════════════════════
-  //  Hoop 3 — Double Hoop, Jukebox, Glass & Orbs
+  //  Hoop 3 - Double Hoop, Jukebox, Glass & Orbs
   // ══════════════════════════════════════════════════════════════════
   {
     id: 3,
@@ -152,7 +152,7 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
     // ── PLACEHOLDER (tune): a longer communal grind than tier 2 ──
     threshold: 250,
     changes: [
-      // 1. Hoop Change — Double Hoop: one post carrying two stacked
+      // 1. Hoop Change - Double Hoop: one post carrying two stacked
       //    rims, each hittable independently.
       {
         type: "hoop-change",
@@ -168,7 +168,7 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
         },
         doubleHoop: {
           // upper is slimmer and protrudes ~20 px further left (further
-          // out) than the lower — what enables the "double shot".
+          // out) than the lower - what enables the "double shot".
           // owner 2026-07-15 (revised: "1 full hoop height" was too high):
           // the second (upper) hoop sits exactly 2 rim-with-net heights
           // above the LOWER rim; the hoop wall (backboard) stays put, and
@@ -190,24 +190,27 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
         cameraRefit: true,
       },
 
-      // 2. Interactive Element — Jukebox. Left of the Cheering Area,
+      // 2. Interactive Element - Jukebox. Left of the Cheering Area,
       //    off the court; pressing plays a random song on a loop, heard
       //    by EVERYONE. Press again to change the song.
       {
         type: "interactive",
         element: "jukebox",
-        // PLACEHOLDER (tune): left of the cheering area, off court — its
+        // PLACEHOLDER (tune): left of the cheering area, off court - its
         // near edge touches the sideline so "very close" is reachable
         placement: { xM: 16.8, dM: -0.4 },
         widthM: 1.2, // PLACEHOLDER (tune)
         depthM: 0.8, // PLACEHOLDER (tune)
-        proximityPx: 2, // like the cheering area: very close
-        occupiesSpot: false, // press-in-passing — no dedicated space
+        // owner 2026-07-16: the interact area grew 3× (was the ~2 px
+        // "very close" zone) - comfortably inside the server's 3 m
+        // press-validation slack. PLACEHOLDER (tune).
+        proximityPx: 38,
+        occupiesSpot: false, // press-in-passing - no dedicated space
         synced: true, // song choice + playback synced to everyone
         appearFx: "pop",
       },
 
-      // 3. Scene Visual Change — Glass Court (fancier than mahogany).
+      // 3. Scene Visual Change - Glass Court (fancier than mahogany).
       {
         type: "scene-visual",
         target: "court-floor",
@@ -215,9 +218,9 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
         fx: "pop-splash", // pops in with a splash effect
       },
 
-      // 4. Atmosphere Change — Light-Gray World (owner 2026-07-15: the
+      // 4. Atmosphere Change - Light-Gray World (owner 2026-07-15: the
       //    whole background just recolours to light gray, replacing the
-      //    old blue-gray dusk wash). The recolour is GRADUAL — it fades
+      //    old blue-gray dusk wash). The recolour is GRADUAL - it fades
       //    across the whole upgrade choreography, alongside the other
       //    sequences. The suns stay smaller, very light blue and slower.
       {
@@ -240,7 +243,7 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
         fx: "pop",
       },
 
-      // 5. Ambient / Spawn Change — Blue Orbs. The existing orb,
+      // 5. Ambient / Spawn Change - Blue Orbs. The existing orb,
       //    unchanged in function, now on a slower random timer with a
       //    longer life, appearing without ceremony.
       {
