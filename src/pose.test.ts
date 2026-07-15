@@ -81,6 +81,18 @@ describe("computePose", () => {
     expect(handAt(0.1)).not.toBeCloseTo(handAt(0.1 + period / 2), 0);
   });
 
+  it("cheer, weary (AFK): identical rhythm at the same clock, head hangs", () => {
+    // the SPEED difference is the caller's job (the cheer clock advances
+    // at WEARY_CHEER_RATE); the pose itself only lowers the head
+    for (const t of [0, 0.13, 0.31, 0.5]) {
+      const fresh = computePose(at({ kind: "cheer", t }));
+      const weary = computePose(at({ kind: "cheer", t, weary: true }));
+      expect(weary.head.y).toBeLessThan(fresh.head.y - 2); // hangs clearly
+      expect(weary.handL).toEqual(fresh.handL); // hands still pump the same
+      expect(weary.handR).toEqual(fresh.handR);
+    }
+  });
+
   it("point: the front arm extends along the aim, no ball, other hand rests", () => {
     const fwd = computePose(at({ kind: "point", aimAngle: 0 }));
     const up = computePose(at({ kind: "point", aimAngle: Math.PI / 2 }));

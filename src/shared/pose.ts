@@ -31,6 +31,9 @@ export interface PoseState {
   aimAngle?: number;
   /** aim/throw: 0..1 charge — hands pull back slingshot-style with power */
   aimPower?: number;
+  /** cheer: the tired AFK variant — head hangs a little (the SPEED of a
+   *  weary cheer is the caller's job: advance `t` at WEARY_CHEER_RATE) */
+  weary?: boolean;
 }
 
 export interface V2 {
@@ -111,6 +114,15 @@ const CHEER_HZ = 2.4; //     pumps per second — 20% slower per owner feedback 
 const CHEER_BOB_PX = 4; //   body hop per pump
 const CHEER_LOW_Y = 42; //   hands at the pump's bottom (shoulder-ish)
 const CHEER_PHASE = 0.55; // right hand trails the left by this (radians)
+
+// the AFK cheer (owner ask 2026-07-15): an abandoned character standing
+// on the deck cheers along, but reads tired — the clock runs slower and
+// the head hangs. The owner said "30%" in one line and "40%" in the
+// refining sub-point; the sub-point wins.
+// PLACEHOLDER (tune): 40% slower → the cheer clock advances at ×0.6
+export const WEARY_CHEER_RATE = 0.6;
+// PLACEHOLDER (tune): how far the weary head droops, px
+const WEARY_HEAD_DROP_PX = 5;
 
 const smoothOut = (t: number) => 1 - (1 - t) * (1 - t);
 
@@ -219,10 +231,12 @@ export function computePose(s: PoseState): RigPose {
       const pumpR = (Math.sin(ph - CHEER_PHASE) + 1) / 2;
       const bob = Math.abs(Math.sin(ph)) * CHEER_BOB_PX;
       const handY = (p: number) => CHEER_LOW_Y + p * (HANDS_UP.y - CHEER_LOW_Y);
+      // the weary (AFK) cheer hangs its head a little — tiredness
+      const droop = s.weary ? WEARY_HEAD_DROP_PX : 0;
       return {
         lower: { x: 0, y: bob * 0.5 },
         upper: { x: 0, y: bob * 0.7 },
-        head: { x: 0, y: bob },
+        head: { x: 0, y: bob - droop },
         handL: off("handL", { x: -HANDS_UP.x - 2, y: handY(pumpL) + bob }),
         handR: off("handR", { x: HANDS_UP.x + 2, y: handY(pumpR) + bob }),
         tilt: 0,
@@ -303,6 +317,7 @@ export function lerpPoseState(
     t: lin(a.t, b.t),
     aimAngle: lerpMaybe(a.aimAngle, b.aimAngle, f),
     aimPower: lerpMaybe(a.aimPower, b.aimPower, f),
+    weary: f < 0.5 ? a.weary : b.weary,
   };
 }
 

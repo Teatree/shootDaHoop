@@ -5,7 +5,12 @@ import { burst, flash } from "./juice";
 import { playSfx } from "./sfx";
 import { shadowShift, type LightDir } from "./sky";
 import { CharacterRig } from "./characterRig";
-import { FIGURE_H, lerpPoseState, type PoseState } from "./shared/pose";
+import {
+  FIGURE_H,
+  lerpPoseState,
+  WEARY_CHEER_RATE,
+  type PoseState,
+} from "./shared/pose";
 import { sampleAt } from "./ghostData";
 import type { AvatarState, PlayerInfo } from "./shared/messages";
 
@@ -57,6 +62,11 @@ export class RemoteAvatar {
 
   readonly name: string;
 
+  /** Set by the scene: is (x, d) a spot on the cheer deck at the ACTIVE
+   *  tier? An offline character standing there cheers along — wearily
+   *  (owner ask 2026-07-15). Null until the scene wires it. */
+  onCheerDeck: ((x: number, d: number) => boolean) | null = null;
+
   /** face-plant rotation for the FALLBACK machine's tweens */
   readonly rig: CharacterRig;
 
@@ -68,6 +78,8 @@ export class RemoteAvatar {
   private targetX = 0;
   private targetD = 0;
   private bobT = 0;
+  private offline = false;
+  private cheerT = 0; // the weary cheer's slowed clock
   private facingRight = true;
   private light: LightDir = { dx: 0, elev: 1 };
   private tpState: "none" | "levitate" | "fall" | "down" = "none";
@@ -105,6 +117,7 @@ export class RemoteAvatar {
   /** Offline players' characters wait around: gray, slightly faded tag.
    *  PLACEHOLDER (tune): gray #9aa4ac, 20% more transparent. */
   setOffline(off: boolean) {
+    this.offline = off;
     this.label.setColor(off ? "#9aa4ac" : "#ffffff");
     this.label.setAlpha(off ? 0.8 : 1);
   }
@@ -248,6 +261,12 @@ export class RemoteAvatar {
         this.bobT += dt;
         pose = { kind: "walk", t: this.bobT };
       }
+    } else if (this.offline && this.onCheerDeck?.(this.x, this.d)) {
+      // an abandoned character that walked up onto the cheer deck cheers
+      // along with everyone — but tired: the clock runs at the weary
+      // rate (40% slower) and the pose hangs its head
+      this.cheerT += dt * WEARY_CHEER_RATE;
+      pose = { kind: "cheer", t: this.cheerT, weary: true };
     }
     if (this.tpState === "fall") this.tpTimer += dt; // fall clock for waggle
     if (this.tpState === "none" && Math.abs(this.rig.angle) > 0.5)

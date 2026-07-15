@@ -40,6 +40,7 @@ import {
   effectivePowerForTier,
   getTier,
   hoopGeometryForTier,
+  interactivesForTier,
   nextTier,
   type Atmosphere,
   type HoopGeometry,
@@ -671,7 +672,23 @@ export class CourtScene extends Phaser.Scene {
     const avatar = new RemoteAvatar(this, p);
     avatar.rig.setBallTint(this.ballTint); // joiners wear the tier's look
     avatar.setOffline(!!p.offline); // waiting characters arrive grayed
+    // an offline character standing on the deck cheers (wearily) — the
+    // check reads the ACTIVE tier, so resets/upgrades are handled
+    avatar.onCheerDeck = (x, d) => this.isOnCheerDeck(x, d);
     this.remotes.set(p.id, { avatar, bubbles: new SpeechBubbles(this, avatar) });
+  }
+
+  /** Is (x, d) within the cheer deck's footprint at the active tier? */
+  private isOnCheerDeck(x: number, d: number): boolean {
+    const deck = interactivesForTier(this.director.tierId).find(
+      (el) => el.element === "cheer-area",
+    );
+    if (!deck) return false;
+    const slack = 0.3; // clampToWalkable's grace, so the edge counts too
+    return (
+      Math.abs(x - deck.placement.xM) <= deck.widthM / 2 + slack &&
+      Math.abs(d - deck.placement.dM) <= deck.depthM / 2 + slack
+    );
   }
 
   /** Appear-VFX at a floor spot (character mid-height). */
