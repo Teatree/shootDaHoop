@@ -88,9 +88,9 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
         placement: { xM: 19.8, dM: -0.6 },
         widthM: 3.6, //  PLACEHOLDER (tune): ~3 characters wide
         depthM: 1.2, // PLACEHOLDER (tune)
-        // owner-tuned 2026-07-13 (was the doc's ~2 px): the button shows
-        // within 100 px each way from the bench's edges
-        proximityPx: 100,
+        // owner-tuned 2026-07-13 (was the doc's ~2 px) to 100 px each
+        // way from the bench's edges; halved 2026-07-16
+        proximityPx: 50,
         occupiesSpot: true, // characters physically stand in it to cheer
         spots: 3,
         synced: false, // cheering is just your pose - telemetry carries it
