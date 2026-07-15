@@ -165,7 +165,10 @@ export class CourtScene extends Phaser.Scene {
       this.load.image(key, `assets/${key}.png`);
     for (const key of this.assets.audio)
       this.load.audio(key, [`assets/${key}.wav`]);
-    for (const m of this.assets.music) this.load.audio(m.key, [m.url]);
+    // NOTE: jukebox music is deliberately NOT loaded through Phaser —
+    // the tracks are hour-long mixes, and WebAudio's decodeAudioData
+    // would inflate them to gigabytes of PCM. The Jukebox streams them
+    // through an HTMLAudioElement instead (systems/jukebox.ts).
   }
 
   create() {
@@ -479,6 +482,7 @@ export class CourtScene extends Phaser.Scene {
     });
 
     this.hud.onChat((msg) => this.backend.chat(msg));
+
     this.backend.connect();
   }
 

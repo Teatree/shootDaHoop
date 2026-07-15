@@ -16,8 +16,13 @@ import type { JukeboxState } from "../shared/messages";
 // While playing, the box pulses with the song's bass (a WebAudio analyser
 // tap; fixed-tempo fallback) and sends little notes up into the air.
 //
-// Songs are asset SLOTS (assets/music/song1..3.mp3|wav). Missing files
-// are fine: the press still syncs and announces, it just plays silence.
+// Songs are asset SLOTS (assets/music/song1..3.ogg|mp3|wav). Missing
+// files are fine: the press still syncs and announces, it just plays
+// silence. Playback is a STREAMED HTMLAudioElement, not a Phaser sound:
+// the real tracks are hour-long mixes, and WebAudio's decodeAudioData
+// would inflate them to gigabytes of PCM (song3 flatly refused). The
+// element starts playing within moments, seeks fine, and keeps playing
+// on a blurred tab — which the spec wants anyway.
 
 /** PLACEHOLDER (tune): 25% of the player's normal volume, per the owner. */
 const MUSIC_VOLUME = 0.25;
@@ -38,7 +43,10 @@ export class Jukebox {
   private button: ProximityButton | null = null;
   /** the OFF toggle — exists beside the button, shown only mid-song */
   private offButton: ProximityButton | null = null;
-  private sound: Phaser.Sound.BaseSound | null = null;
+  /** the streamed playback element (null = silent) */
+  private audio: HTMLAudioElement | null = null;
+  /** the analyser's media tap — kept to disconnect on stop */
+  private mediaSrc: MediaElementAudioSourceNode | null = null;
   /** dedupe key: the authoritative start stamp of the adopted playback —
    *  NOT the song slot, so a re-pressed same slot restarts and a snapshot
    *  arriving after the natural end can't resurrect the song */
@@ -107,7 +115,7 @@ export class Jukebox {
 
   /** A song is audibly playing right now (drives the OFF toggle + vfx). */
   get isPlaying(): boolean {
-    return this.sound !== null && this.sound.isPlaying;
+    return this.audio !== null && !this.audio.paused && !this.audio.ended;
   }
 
   update(dt: number) {
@@ -160,22 +168,45 @@ export class Jukebox {
     this.stopPlayback();
     this.syncedStartMs = state.startedAtMs;
     const key = MUSIC_MANIFEST[state.song];
-    const has = key && this.music.some((m) => m.key === key);
-    if (!has || !this.scene.cache.audio.exists(key)) return; // silent slot
-    const sound = this.scene.sound.add(key, {
-      loop: false, // songs don't loop — they just end
-      volume: MUSIC_VOLUME,
+    const entry = key ? this.music.find((m) => m.key === key) : undefined;
+    if (!entry) return; // silent slot
+    const audio = new Audio(entry.url);
+    audio.preload = "auto";
+    audio.volume = MUSIC_VOLUME;
+    audio.loop = false; // songs don't loop — they just end
+    this.audio = audio;
+    // duration is only known once the metadata streams in; seek then
+    audio.addEventListener("loadedmetadata", () => {
+      if (this.audio !== audio) return; // superseded meanwhile
+      const seekS = (Date.now() - state.startedAtMs) / 1000;
+      if (Number.isFinite(audio.duration) && seekS >= audio.duration) {
+        this.stopPlayback(); // the song already ended out there
+        return;
+      }
+      audio.currentTime = Math.max(0, seekS);
+      audio.play().then(
+        () => this.tapAnalyser(audio),
+        // autoplay policy: no user gesture yet (e.g. a rejoin adopting a
+        // running song) — retry the same state on the first input
+        () => this.retryOnGesture(state),
+      );
     });
-    const durS = sound.duration || 0;
-    const seekS = (Date.now() - state.startedAtMs) / 1000;
-    if (durS <= 0 || seekS >= durS) {
-      sound.destroy(); // the song already ended out there — stay silent
-      return;
-    }
-    sound.once("complete", () => this.stopPlayback());
-    sound.play({ seek: Math.max(0, seekS) });
-    this.sound = sound;
-    this.tapAnalyser(sound);
+    audio.addEventListener("ended", () => {
+      if (this.audio === audio) this.stopPlayback();
+    });
+  }
+
+  /** Re-adopt `state` on the first pointer/key input (autoplay unlock). */
+  private retryOnGesture(state: JukeboxState) {
+    const retry = () => {
+      window.removeEventListener("pointerdown", retry);
+      window.removeEventListener("keydown", retry);
+      if (this.syncedStartMs !== state.startedAtMs) return; // moved on
+      this.syncedStartMs = null; // force the re-adopt
+      this.sync(state);
+    };
+    window.addEventListener("pointerdown", retry, { once: true });
+    window.addEventListener("keydown", retry, { once: true });
   }
 
   /** The song slot's display name for the wall line. */
@@ -186,32 +217,43 @@ export class Jukebox {
   }
 
   private stopPlayback() {
-    this.sound?.destroy();
-    this.sound = null;
+    this.audio?.pause();
+    if (this.audio) this.audio.src = ""; // release the stream
+    this.audio = null;
+    this.mediaSrc?.disconnect();
+    this.mediaSrc = null;
     this.analyser = null;
     this.freqData = null;
     this.box?.setScale(1);
   }
 
-  /** A parallel analyser tap off the sound's gain node — the audio path
-   *  to the speakers is untouched; we only read the spectrum. */
-  private tapAnalyser(sound: Phaser.Sound.BaseSound) {
+  /**
+   * Tap the streamed element into an analyser for the bass pulse. The
+   * tap REROUTES the element's output through the context, so only do it
+   * on a RUNNING context (a suspended one would silence the song — the
+   * fixed-tempo fallback pulse covers that case instead).
+   */
+  private tapAnalyser(audio: HTMLAudioElement) {
     this.analyser = null;
     this.freqData = null;
     const sm = this.scene.sound;
     if (
-      sm instanceof Phaser.Sound.WebAudioSoundManager &&
-      sound instanceof Phaser.Sound.WebAudioSound
-    ) {
-      try {
-        const an = sm.context.createAnalyser();
-        an.fftSize = 64;
-        sound.volumeNode.connect(an);
-        this.analyser = an;
-        this.freqData = new Uint8Array(an.frequencyBinCount);
-      } catch {
-        this.analyser = null; // fixed-tempo fallback takes over
-      }
+      !(sm instanceof Phaser.Sound.WebAudioSoundManager) ||
+      sm.context.state !== "running"
+    )
+      return;
+    try {
+      const ctx = sm.context;
+      const src = ctx.createMediaElementSource(audio);
+      const an = ctx.createAnalyser();
+      an.fftSize = 64;
+      src.connect(an);
+      src.connect(ctx.destination); // the tap replaces the direct path
+      this.mediaSrc = src;
+      this.analyser = an;
+      this.freqData = new Uint8Array(an.frequencyBinCount);
+    } catch {
+      this.analyser = null; // fixed-tempo fallback takes over
     }
   }
 

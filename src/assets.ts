@@ -28,9 +28,12 @@ export const AUDIO_MANIFEST = [
   "sfx_chat",
 ] as const;
 
-// Jukebox song slots (Hoop 3): drop files at public/assets/music/
-// song1.mp3 (or .wav) … — the jukebox works without them (the song
+// Jukebox song slots (Hoop 3): files at public/assets/music/
+// song1.ogg (or .mp3/.wav) — the jukebox works without them (the song
 // choice still syncs to everyone; missing files just play silence).
+// The real tracks landed 2026-07-15 as Opus/ogg (converted from the
+// owner's mp3 mixes at 64 kbps — half the weight, players stream these
+// while playing): song1 = boombap, song2 = 80s breakdance, song3 = g-funk.
 export const MUSIC_MANIFEST = ["song1", "song2", "song3"] as const;
 
 export interface AvailableAssets {

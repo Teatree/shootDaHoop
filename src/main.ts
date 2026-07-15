@@ -103,7 +103,9 @@ async function boot() {
       if (await exists(`assets/${k}.wav`)) audio.push(k);
     }),
     ...MUSIC_MANIFEST.map(async (k) => {
-      for (const ext of ["mp3", "wav"] as const) {
+      // ogg first — the provided tracks ship as Opus (~half the mp3 weight,
+      // players stream these while playing)
+      for (const ext of ["ogg", "mp3", "wav"] as const) {
         const url = `assets/music/${k}.${ext}`;
         if (await exists(url)) {
           music.push({ key: k, url });
