@@ -168,19 +168,19 @@ describe("multi-rim geometry (tier 3 double hoop)", () => {
     expect(events).not.toContain("miss");
   });
 
-  it("a ball through the UPPER rim only still resolves as made (1 rim)", () => {
-    // a steep lob through the upper opening's center; whatever it clips
-    // on the way down, it must end made (≥1 rim), never a miss.
-    // t = 2.2 s puts the apex ~2 m above the RAISED rim (owner
-    // 2026-07-15: +1 full hoop height) so the descent is clean - the old
-    // 1.6 s arc barely poked above the plane and never dropped through
+  it("the FUNNEL: a ball through the UPPER rim registers the LOWER too", () => {
+    // owner 2026-07-16: going through one hoop must lead the ball
+    // through the other so BOTH register - the net steers the ball at
+    // the next opening (before this, the upper's net drag dropped the
+    // ball left of the lower opening and the second hoop rarely fired).
+    // t = 2.2 s puts the apex ~2 m above the rim so the descent is clean.
     const { vx, vh } = arcTo(upper.x, upper.h, 2.2);
     const s = createBallState(X0, D0, H0, vx, vh);
     const { events } = fly(s, 6, 1 / 120, g3);
-    expect(s.rimsMade[0]).toBe("upper");
-    expect(count(events, "made")).toBe(1);
+    expect(s.rimsMade).toEqual(["upper", "lower"]);
+    expect(count(events, "score")).toBe(2);
+    expect(count(events, "made")).toBe(1); // resolves once, on the lower
     expect(events).not.toContain("miss");
-    expect(s.scored).toBe(true);
   });
 
   it("the DOUBLE SHOT is physically achievable: one launch takes both rims", () => {

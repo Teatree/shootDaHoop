@@ -238,6 +238,24 @@ function checkScore(
   // net drag
   s.vx *= 0.25;
   s.vh *= 0.55;
+  // THE FUNNEL (owner 2026-07-16): a ball through an upper rim must go
+  // through the rim below it too, so BOTH register - the net hands the
+  // ball toward the next opening. Before this, the upper's net drag
+  // dropped the ball almost straight down, LEFT of the lower opening
+  // (the upper protrudes), so the second hoop rarely registered. Pure
+  // and deterministic - the client's flight and the server's resolution
+  // both steer identically.
+  const below = geom.rims
+    .filter((r) => r.h < rim.h && !s.rimsMade.includes(r.id))
+    .sort((a, b) => b.h - a.h)[0];
+  if (below) {
+    // time to fall to the next rim under gravity (vh is ≤ 0 here)
+    const drop = rim.h - below.h;
+    const tFall =
+      (s.vh + Math.sqrt(s.vh * s.vh + 2 * T.throw.gravityM * drop)) /
+      T.throw.gravityM;
+    if (tFall > 0) s.vx = (below.x - s.x) / tFall;
+  }
   return true;
 }
 

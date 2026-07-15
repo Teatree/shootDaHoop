@@ -190,6 +190,11 @@ Everything below is these blocks with specific parameters filled in.
   **upper is slimmer, the lower is wider** - with **enough vertical gap to hit each
   independently.** The **upper hoop protrudes ~20 px further left** (further out)
   than the lower one, which is what enables a **"double shot."**
+- The funnel (owner, 2026-07-16): a ball that goes **through the upper hoop is
+  handed by the net through the LOWER one too, so BOTH register** - before
+  this, the net drag dropped the ball left of the lower opening and the second
+  hoop rarely fired ("the hit not being registered ... has to do with the
+  second hoop").
 - Raised second hoop (owner, 2026-07-15; revised same day - a full hoop height
   was too high): the **second (upper) hoop sits exactly 2 "rim with net"
   heights above the LOWER rim** (one unit = the rim plus its hanging net). The
