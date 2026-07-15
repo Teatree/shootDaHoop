@@ -499,3 +499,29 @@ Three BUGS plus a jukebox pass and two sweeps:
   left press mid-aim restart the aim, a latent bug.
 - Basketball-emoji favicon (inline SVG data URI - also kills the
   console's favicon 404); cheer trigger halved (proximityPx 100 → 50).
+
+---
+
+## 12. Owner-feedback batch #7, 2026-07-16 (fourth of the day)
+
+- **Lost rungs on stacked upgrades** ("came back at hoop 3, no cheer
+  deck, balls never changed"): `playUpgrade` cancels the PREVIOUS
+  rung's still-pending beats when a second upgrade arrives - easy on a
+  sleeping tab (Phaser pauses, WS events keep landing, and a tab hidden
+  under the 60 s AFK threshold doesn't defer). The cancelled rung's
+  visuals (deck, ball look, court…) were simply lost, while gameplay
+  (`applied`) had already moved on. Fix: the director tracks
+  `visualTier` (set by applyFinalState and by a show's final beat);
+  playUpgrade snaps `applyFinalState()` first whenever visuals lag the
+  applied tier. The deferred/catch-up path was NOT the bug - verified
+  working before finding this.
+- **Flat slams swatted by the upper iron** ("score the top rim after
+  the purple orb, doesn't register"): slam arcs from the raised orb
+  come in flat, and the rim-tip point collider (ballR+0.02 ≈ 2× the
+  drawn iron) swatted balls whose center was still above the plane but
+  dropping cleanly into the opening (grid repro: 78/190 center-crossing
+  arcs rattled out tip → board → miss). New rule `willEnterOpening`:
+  within the last ~0.12 s before the plane, a descending ball whose
+  projected crossing is inside the opening (full-radius margin) is NOT
+  grabbed by the tips - a clean bucket stays a bucket. All 190 arcs
+  register now (and funnel into doubles). Pinned by test.
