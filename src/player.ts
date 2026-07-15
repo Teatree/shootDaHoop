@@ -85,6 +85,15 @@ export class Player {
     this.walking = false;
   }
 
+  /** Hide/show the whole character (rig + shadow + name tag) — used
+   *  while the first-entry controls pop-up holds the join back: the
+   *  character exists for NOBODY until the ✕ is pressed. */
+  setVisible(v: boolean) {
+    this.rig.container.setVisible(v);
+    this.shadow.setVisible(v);
+    this.label.setVisible(v);
+  }
+
   /**
    * Scripted errands (the Upgrade press walking THROUGH the keep-out
    * zone to the hoop) go exactly where they're told — no court clamp.

@@ -46,6 +46,7 @@ import {
   type HoopGeometry,
 } from "../shared/tierRules";
 import { showNotice } from "../settings";
+import { shouldShowControls, showControlsPopup } from "../controlsPopup";
 import { TierDirector } from "../systems/tierDirector";
 import { UpgradeButton, upgradeButtonSpot } from "../systems/upgradeButton";
 import { CheerArea } from "../systems/cheerArea";
@@ -483,7 +484,19 @@ export class CourtScene extends Phaser.Scene {
 
     this.hud.onChat((msg) => this.backend.chat(msg));
 
-    this.backend.connect();
+    // first entry EVER (per browser): the controls pop-up. The join is
+    // deferred behind the ✕ — until it's pressed the character exists
+    // for NOBODY: not for others (connect() is what spawns it on every
+    // screen) and not on the player's own court either (rig hidden).
+    if (shouldShowControls()) {
+      this.player.setVisible(false);
+      showControlsPopup(() => {
+        this.player.setVisible(true);
+        this.backend.connect();
+      });
+    } else {
+      this.backend.connect();
+    }
   }
 
   /** One hoop-change beat landed: the pop-with-splash at the hoop. */

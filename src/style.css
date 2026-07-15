@@ -224,6 +224,108 @@ body {
   user-select: all;
 }
 
+/* ── First-entry controls pop-up: two looping videos (walk, throw)
+   over animated mice (left CLICK / CLICK-AND-HOLD) ─────────────── */
+
+.controls-card {
+  position: relative;
+  padding: 34px 34px 26px;
+}
+
+#controls-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 2px 8px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: bold;
+  color: #fff3d6;
+  background: transparent;
+  border: 2px solid #7a5a3a;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#controls-close:hover {
+  background: #7a5a3a;
+}
+
+.controls-cols {
+  display: flex;
+  gap: 28px; /* the space between the two videos */
+}
+
+.controls-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.controls-col video {
+  display: block;
+  width: 200px;
+  height: 220px;
+  border: 2px solid #7a5a3a;
+  border-radius: 6px;
+  background: #20180f;
+}
+
+/* the mouse: rounded body, a left-button pane that lights up */
+.tut-mouse {
+  position: relative;
+  width: 34px;
+  height: 52px;
+  border: 2px solid #d8c8a8;
+  border-radius: 16px 16px 17px 17px;
+  background: rgba(30, 22, 16, 0.6);
+}
+
+.tut-mouse-left {
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  width: 17px; /* the left half of the shell */
+  height: 22px;
+  border: 2px solid #d8c8a8;
+  border-radius: 16px 2px 0 0;
+  background: transparent;
+}
+
+.tut-mouse-wheel {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  width: 4px;
+  height: 10px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: #d8c8a8;
+}
+
+/* a quick left click, looping: press… release… beat */
+.tut-mouse-click .tut-mouse-left {
+  animation: tutClick 1.4s infinite;
+}
+
+@keyframes tutClick {
+  0%, 24% { background: transparent; }
+  30%, 44% { background: #ffd97a; }
+  50%, 100% { background: transparent; }
+}
+
+/* click AND HOLD, looping: press… stay pressed… release… beat */
+.tut-mouse-hold .tut-mouse-left {
+  animation: tutHold 2.6s infinite;
+}
+
+@keyframes tutHold {
+  0%, 12% { background: transparent; }
+  18%, 78% { background: #ffd97a; }
+  84%, 100% { background: transparent; }
+}
+
 /* Chat — MMORPG-style input, bottom-center */
 #chat-wrap {
   position: absolute;
