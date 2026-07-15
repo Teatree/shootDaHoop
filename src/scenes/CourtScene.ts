@@ -46,7 +46,7 @@ import {
   type HoopGeometry,
 } from "../shared/tierRules";
 import { showNotice } from "../settings";
-import { shouldShowControls, showControlsPopup } from "../controlsPopup";
+import { showControlsPopup } from "../controlsPopup";
 import { TierDirector } from "../systems/tierDirector";
 import { UpgradeButton, upgradeButtonSpot } from "../systems/upgradeButton";
 import { CheerArea } from "../systems/cheerArea";
@@ -64,12 +64,12 @@ import {
 } from "../systems/shotFeedback";
 
 // The court itself: builds the world, wires the systems together, and owns
-// the frame order. Feature logic lives in the systems —
+// the frame order. Feature logic lives in the systems -
 //   systems/teleport.ts     the orb power-up + levitation state machine
 //   systems/recording.ts    ghost record capture + playback
 //   systems/shotFeedback.ts score/miss juice + the court-wall log lines
 // the ball's physics is the pure stepper in shared/physics.ts, and ALL
-// gameplay intents/outcomes flow through the Backend seam — the scene
+// gameplay intents/outcomes flow through the Backend seam - the scene
 // never touches a transport (LocalBackend today, SocketBackend later).
 export class CourtScene extends Phaser.Scene {
   private player!: Player;
@@ -90,29 +90,29 @@ export class CourtScene extends Phaser.Scene {
   private jukebox?: Jukebox;
   private idle!: IdleWatch;
   private courtG!: Phaser.GameObjects.Graphics;
-  /** the atmosphere's camera wash — re-fit to the camera every frame */
+  /** the atmosphere's camera wash - re-fit to the camera every frame */
   private atmosOverlay!: Phaser.GameObjects.Rectangle;
   private backdrop!: Backdrop;
   /** the sky's CURRENT colour + its cross-fade tween state */
   private skyColor = BASE_ATMOSPHERE.sky;
   private readonly skyFade = { t: 0 };
-  /** the applied tier's ball tint — new balls spawn wearing it */
+  /** the applied tier's ball tint - new balls spawn wearing it */
   private ballTint: number = T.ballLooks.classic;
   /** the latest authoritative world state (score + tier) */
   private world: WorldState = { sharedScore: 0, tierId: 1 };
-  /** clicked the Upgrade button from afar — press on arrival */
+  /** clicked the Upgrade button from afar - press on arrival */
   private pendingUpgradePress = false;
   /** server-reported daily budget; null until known (local = unlimited) */
   private throwsRemaining: number | null = null;
   private recsByThrowId = new Map<string, ThrowRecording>();
-  /** live balls by throwId (own + remote) — popped on rejection/orb hit */
+  /** live balls by throwId (own + remote) - popped on rejection/orb hit */
   private ballsByThrowId = new Map<string, Ball>();
   private remotes = new Map<
     string,
     { avatar: RemoteAvatar; bubbles: SpeechBubbles }
   >();
 
-  /** pose telemetry cadence — send accumulated below */
+  /** pose telemetry cadence - send accumulated below */
   private poseAccum = 0;
   private lastPoseSent = "";
   private sincePoseSend = 0;
@@ -123,8 +123,11 @@ export class CourtScene extends Phaser.Scene {
     /** per-lobby cosmetics (name, shirt, skin, head), resolved by main.ts */
     private readonly identity: Cosmetics,
     private readonly backend: Backend,
-    /** the lobby id (null offline) — keys the per-lobby seen-tier store */
+    /** the lobby id (null offline) - keys the per-lobby seen-tier store */
     private readonly lobby: string | null = null,
+    /** the player JUST chose their name (no stored one) - a first entry,
+     *  so the controls pop-up follows the name modal */
+    private readonly firstEntry: boolean = false,
   ) {
     super("court");
   }
@@ -155,18 +158,18 @@ export class CourtScene extends Phaser.Scene {
     return this.identity.name;
   }
 
-  /** The ACTIVE tier's hoop geometry — physics, camera and render share it. */
+  /** The ACTIVE tier's hoop geometry - physics, camera and render share it. */
   private geom(): HoopGeometry {
     return hoopGeometryForTier(this.director?.tierId ?? 1);
   }
 
   preload() {
-    // only assets that were probed to exist — everything else is a placeholder
+    // only assets that were probed to exist - everything else is a placeholder
     for (const key of this.assets.images)
       this.load.image(key, `assets/${key}.png`);
     for (const key of this.assets.audio)
       this.load.audio(key, [`assets/${key}.wav`]);
-    // NOTE: jukebox music is deliberately NOT loaded through Phaser —
+    // NOTE: jukebox music is deliberately NOT loaded through Phaser -
     // the tracks are hour-long mixes, and WebAudio's decodeAudioData
     // would inflate them to gigabytes of PCM. The Jukebox streams them
     // through an HTMLAudioElement instead (systems/jukebox.ts).
@@ -174,7 +177,7 @@ export class CourtScene extends Phaser.Scene {
 
   create() {
     // hidden/blurred tabs keep HEARING the jukebox: this flag only stops
-    // the SoundManager pausing — Phaser's game-loop pause on blur (which
+    // the SoundManager pausing - Phaser's game-loop pause on blur (which
     // the AFK catch-up and snap-to-now behaviours rely on) is untouched.
     // Note: with the clock paused, a song's `complete` handler may only
     // run on tab return; WebAudio itself plays to the end regardless.
@@ -237,7 +240,7 @@ export class CourtScene extends Phaser.Scene {
       .setDepth(950);
     this.upgradeBtn = new UpgradeButton(this, () => this.tryUpgrade());
     this.idle = new IdleWatch(T.progressionFx.afkTimeoutS, () => {
-      // the AFK player is back — the held transformation plays now
+      // the AFK player is back - the held transformation plays now
       if (this.director.hasDeferred) this.playUpgradeShow(null);
     });
     this.sky = new SunSystem(this);
@@ -279,7 +282,7 @@ export class CourtScene extends Phaser.Scene {
       if (seen !== null && seen < e.world.tierId) {
         // the world upgraded while this player was AWAY (tab closed):
         // rebuild it as they last saw it, hold, and play the missed
-        // transformation — the AFK catch-up, surviving a reload
+        // transformation - the AFK catch-up, surviving a reload
         this.director.applyInstant(seen);
         this.director.deferUpgrade(e.world.tierId);
         // PLACEHOLDER (tune): a beat to land in the old world first
@@ -300,7 +303,7 @@ export class CourtScene extends Phaser.Scene {
         if (p.id !== e.selfId) {
           this.addRemote(p);
         } else {
-          // the AUTHORITY rolled our spawn spot — stand where everyone
+          // the AUTHORITY rolled our spawn spot - stand where everyone
           // else will see us, and puff in
           this.player.stop();
           this.player.x = p.x;
@@ -310,18 +313,18 @@ export class CourtScene extends Phaser.Scene {
       }
     });
     this.backend.on("budget", (e) => {
-      // the authority (server room / LocalBackend) recounted — gate on it
+      // the authority (server room / LocalBackend) recounted - gate on it
       this.throwsRemaining = e.throwsRemaining;
       this.hud.setThrowsRemaining(e.throwsRemaining);
     });
     this.backend.on("joinRejected", () => {
-      this.hud.log("presence", "This court is full — try again later.");
+      this.hud.log("presence", "This court is full - try again later.");
     });
     this.backend.on("disconnected", () => {
       this.hud.log("presence", "Connection to the court lost.");
     });
     this.backend.on("lobbyRemoved", () => {
-      // a kick, not a network drop — the backend suppressed `disconnected`
+      // a kick, not a network drop - the backend suppressed `disconnected`
       showNotice(
         "Court closed",
         "This lobby was removed manually by the admin.",
@@ -342,21 +345,21 @@ export class CourtScene extends Phaser.Scene {
       this.hud.log("presence", `${esc(e.player.name)} joined the court.`);
     });
     this.backend.on("playerLeft", (e) => {
-      // legacy/edge path — normal disconnects now go playerWentOffline
+      // legacy/edge path - normal disconnects now go playerWentOffline
       this.removeRemote(e.id);
       this.hud.log("presence", `${esc(e.name)} left the court.`);
     });
     this.backend.on("playerWentOffline", (e) => {
-      // the character STAYS and waits — only the tag changes
+      // the character STAYS and waits - only the tag changes
       this.remotes.get(e.id)?.avatar.setOffline(true);
       this.hud.log(
         "presence",
-        `${esc(e.name)} left the court — their character waits around.`,
+        `${esc(e.name)} left the court - their character waits around.`,
       );
     });
     this.backend.on("playerMoved", (e) => {
       if (e.id === this.selfId) return;
-      // clamp to the tier's WALKABLE space (court + cheer deck) — the
+      // clamp to the tier's WALKABLE space (court + cheer deck) - the
       // offline waiting walk targets the off-court deck
       const c = clampToWalkable(e.x, e.d, this.director.tierId);
       this.remotes.get(e.id)?.avatar.walkTo(c.x, c.d);
@@ -369,7 +372,7 @@ export class CourtScene extends Phaser.Scene {
         this.spawnBall(e.throwId, e.launch);
       } else {
         // a hidden tab's game loop is paused: a ball spawned now would
-        // fly when the player comes back — the outcome event carries
+        // fly when the player comes back - the outcome event carries
         // everything that matters, so skip the cosmetic flight
         if (!document.hidden) this.spawnRemoteBall(e.throwId, e.launch);
         // if they were levitating, this throw is their last act up there
@@ -378,18 +381,18 @@ export class CourtScene extends Phaser.Scene {
     });
     this.backend.on("outcome", (e) => this.presentOutcome(e));
     this.backend.on("throwRejected", (e) => {
-      // the optimistic ball was cosmetic — pop it, nothing can come of it
+      // the optimistic ball was cosmetic - pop it, nothing can come of it
       this.ballsByThrowId.get(e.throwId)?.consume();
       this.hud.log(
         "presence",
         e.reason === "budget"
-          ? "Out of throws for today — come back tomorrow!"
+          ? "Out of throws for today - come back tomorrow!"
           : "The court rejected that throw.",
       );
     });
     // ── the orb is a server-authoritative world object ──────────────
     this.backend.on("orbSpawned", (e) =>
-      // tier 3's ambient change: "no appearance animation — it simply
+      // tier 3's ambient change: "no appearance animation - it simply
       // comes into existence"
       this.teleport.orb.show(
         e.orb,
@@ -404,10 +407,10 @@ export class CourtScene extends Phaser.Scene {
       // the ball that hit the orb is spent, on every screen
       if (e.throwId) this.ballsByThrowId.get(e.throwId)?.consume();
       if (e.id === this.selfId) {
-        // usually we predicted this locally — then it's a no-op
+        // usually we predicted this locally - then it's a no-op
         this.teleport.confirmTeleport({ x: e.x, d: e.d, h: e.h });
       } else if (document.hidden) {
-        // hidden tab: snap — a queued zap would play on return
+        // hidden tab: snap - a queued zap would play on return
         this.remotes.get(e.id)?.avatar.setPos(e.x, e.d);
       } else {
         this.remotes.get(e.id)?.avatar.teleportTo(e.x, e.d, e.h);
@@ -430,13 +433,13 @@ export class CourtScene extends Phaser.Scene {
     });
     this.backend.on("upgraded", (e) => this.onUpgraded(e));
     this.backend.on("upgradeRejected", (e) => {
-      // the authority refused OUR press — say so instead of the old
+      // the authority refused OUR press - say so instead of the old
       // silent nothing (the character walked up and… stood there)
       this.hud.log(
         "world",
         e.reason === "proximity"
-          ? "The upgrade press missed — walk right up to the hoop."
-          : "The court refused the upgrade — score below the threshold. " +
+          ? "The upgrade press missed - walk right up to the hoop."
+          : "The court refused the upgrade - score below the threshold. " +
             "(Changed tiers.ts? Restart the server: tsx doesn't hot-reload.)",
       );
     });
@@ -445,7 +448,7 @@ export class CourtScene extends Phaser.Scene {
       this.hud.log(
         "world",
         e.state
-          ? `♪ ${esc(e.byName)} spins the jukebox — ${esc(this.jukebox?.songLabel(e.state.song) ?? `song ${e.state.song + 1}`)}.`
+          ? `♪ ${esc(e.byName)} spins the jukebox - ${esc(this.jukebox?.songLabel(e.state.song) ?? `song ${e.state.song + 1}`)}.`
           : `⏹ ${esc(e.byName)} turned the jukebox off.`,
       );
     });
@@ -474,7 +477,7 @@ export class CourtScene extends Phaser.Scene {
     });
 
     // throw yielding: a right-click while cheering walks the character
-    // back out of the area (PLACEHOLDER: the player re-aims once out —
+    // back out of the area (PLACEHOLDER: the player re-aims once out -
     // replaying the exact aim gesture after the walk isn't possible)
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       if (p.rightButtonDown() && this.cheer?.active) {
@@ -484,11 +487,12 @@ export class CourtScene extends Phaser.Scene {
 
     this.hud.onChat((msg) => this.backend.chat(msg));
 
-    // first entry EVER (per browser): the controls pop-up. The join is
-    // deferred behind the ✕ — until it's pressed the character exists
+    // first entry (the player JUST chose a name - owner 2026-07-16: the
+    // pop-up follows the name modal): the controls pop-up. The join is
+    // deferred behind the ✕ - until it's pressed the character exists
     // for NOBODY: not for others (connect() is what spawns it on every
     // screen) and not on the player's own court either (rig hidden).
-    if (shouldShowControls()) {
+    if (this.firstEntry) {
       this.player.setVisible(false);
       showControlsPopup(() => {
         this.player.setVisible(true);
@@ -512,7 +516,7 @@ export class CourtScene extends Phaser.Scene {
     playSfx(this, "sfx_pop", 0.9);
   }
 
-  /** The court reskin's splash — a sweep of bursts across the floor. */
+  /** The court reskin's splash - a sweep of bursts across the floor. */
   private courtSplash() {
     const y = floorY(RIM.d);
     for (const fx of [0.2, 0.5, 0.8]) {
@@ -534,7 +538,7 @@ export class CourtScene extends Phaser.Scene {
     this.tweens.killTweensOf(o);
     this.tweens.killTweensOf(this.skyFade);
     // the veil recolours the whole drawn backdrop (bands/dunes/sand);
-    // the base sky means NO veil — the desert shows as painted
+    // the base sky means NO veil - the desert shows as painted
     const veilTarget = a.sky === BASE_ATMOSPHERE.sky ? 0 : 1;
     if (veilTarget > 0) this.backdrop.setPalette(a.sky);
     const setSky = (c: number) => {
@@ -614,7 +618,7 @@ export class CourtScene extends Phaser.Scene {
   }
 
   /**
-   * PLACEHOLDER (tune): "touching the hoop" — the press fires within
+   * PLACEHOLDER (tune): "touching the hoop" - the press fires within
    * this distance of the hoop's base. Comfortably inside the server's
    * upgrade.proximityM so a pose-tick of telemetry lag (~0.4 m at walk
    * speed) can't lose the race.
@@ -623,8 +627,8 @@ export class CourtScene extends Phaser.Scene {
 
   /**
    * The Upgrade button (at the bottom of the hoop) was clicked: the
-   * errand walks the character THROUGH the keep-out zone — the only way
-   * in — up to the hoop; touching it triggers the upgrade (see update()).
+   * errand walks the character THROUGH the keep-out zone - the only way
+   * in - up to the hoop; touching it triggers the upgrade (see update()).
    * The walk is unclamped locally and the server's pose clamp opens the
    * zone while an upgrade is available, so every screen sees the march.
    */
@@ -645,7 +649,7 @@ export class CourtScene extends Phaser.Scene {
   }) {
     this.pendingUpgradePress = false;
     this.setWorld(e.world);
-    // all active players teleported clear of the hoop — server truth,
+    // all active players teleported clear of the hoop - server truth,
     // applied even for an AFK player (only the SHOW is deferred)
     for (const p of e.placements) {
       if (p.id === this.selfId) {
@@ -660,7 +664,7 @@ export class CourtScene extends Phaser.Scene {
     const tier = getTier(e.tierId);
     this.hud.log(
       "world",
-      `${esc(e.byName)} upgraded the court — Hoop ${e.tierId}: ${esc(tier?.name ?? "")}!`,
+      `${esc(e.byName)} upgraded the court - Hoop ${e.tierId}: ${esc(tier?.name ?? "")}!`,
     );
     if (this.idle.isAfk) {
       // AFK catch-up: hold the old world; the return replays the moment
@@ -672,7 +676,7 @@ export class CourtScene extends Phaser.Scene {
 
   /** The transformation's presentation: the burst + the change list. */
   private playUpgradeShow(tierId: number | null) {
-    // a burst of VFX — lots, all at once
+    // a burst of VFX - lots, all at once
     const { rimSX, rimSY } = this.hoop.primary;
     flash(this, rimSX, rimSY, 90);
     burst(this, rimSX, rimSY, 110);
@@ -681,7 +685,7 @@ export class CourtScene extends Phaser.Scene {
     // the tier's ordered change list plays out as choreography
     if (tierId !== null) this.director.playUpgrade(tierId);
     else this.director.playDeferred();
-    this.rememberSeenTier(); // they're watching it — it counts as seen
+    this.rememberSeenTier(); // they're watching it - it counts as seen
   }
 
   private addRemote(p: PlayerInfo) {
@@ -689,7 +693,7 @@ export class CourtScene extends Phaser.Scene {
     const avatar = new RemoteAvatar(this, p);
     avatar.rig.setBallTint(this.ballTint); // joiners wear the tier's look
     avatar.setOffline(!!p.offline); // waiting characters arrive grayed
-    // an offline character standing on the deck cheers (wearily) — the
+    // an offline character standing on the deck cheers (wearily) - the
     // check reads the ACTIVE tier, so resets/upgrades are handled
     avatar.onCheerDeck = (x, d) => this.isOnCheerDeck(x, d);
     this.remotes.set(p.id, { avatar, bubbles: new SpeechBubbles(this, avatar) });
@@ -748,10 +752,10 @@ export class CourtScene extends Phaser.Scene {
         this.hud.log(
           "throw",
           h.made
-            ? `${who} — ${d}m ${h.slam ? "teleport slam! " : ""}${(h.rims ?? 1) >= 2 ? "DOUBLE! " : ""}${h.swish ? "SWISH! " : "hit "}<span class="pts">+${h.points}</span>`
+            ? `${who} - ${d}m ${h.slam ? "teleport slam! " : ""}${(h.rims ?? 1) >= 2 ? "DOUBLE! " : ""}${h.swish ? "SWISH! " : "hit "}<span class="pts">+${h.points}</span>`
             : h.slam
-              ? `${who} — teleport slam failed!`
-              : `${who} — ${d}m miss`,
+              ? `${who} - teleport slam failed!`
+              : `${who} - ${d}m miss`,
           h.made ? undefined : "miss",
         );
       }
@@ -780,7 +784,7 @@ export class CourtScene extends Phaser.Scene {
     this.idle.update();
 
     // the atmosphere wash always covers exactly what the camera sees
-    // (scroll AND zoom — a scrollFactor-0 rect would break under zoom)
+    // (scroll AND zoom - a scrollFactor-0 rect would break under zoom)
     const wv = this.cameras.main.worldView;
     this.atmosOverlay.setPosition(wv.x, wv.y).setSize(wv.width, wv.height);
 
@@ -832,9 +836,9 @@ export class CourtScene extends Phaser.Scene {
   /** Package the aim result as a launch intent and send it upstream. */
   private sendThrow(shot: Shot, slam: boolean) {
     if (this.throwsRemaining !== null && this.throwsRemaining <= 0) {
-      // the server would reject it and nobody else would see it — don't
+      // the server would reject it and nobody else would see it - don't
       // fake a flight that doesn't exist for the rest of the court
-      this.hud.log("presence", "Out of throws for today — come back tomorrow!");
+      this.hud.log("presence", "Out of throws for today - come back tomorrow!");
       this.teleport.onThrowReleased(); // a blocked slam still ends the levitation
       return;
     }
@@ -849,13 +853,13 @@ export class CourtScene extends Phaser.Scene {
       vh: shot.vh,
       slam: slam || this.teleport.isLevitating,
     };
-    // random suffix: throwIds must not collide ACROSS clients — everyone
+    // random suffix: throwIds must not collide ACROSS clients - everyone
     // sees everyone's ids (outcomes, orb-consumed balls)
     const throwId = `t${++this.throwSeq}-${Math.random().toString(36).slice(2, 8)}`;
     this.backend.requestThrow(throwId, launch);
     // follow-through sweep along the real launch direction
     this.player.startThrow(Math.atan2(shot.vh, shot.vx), shot.power);
-    // the levitation throw is the last act up there — falling starts now
+    // the levitation throw is the last act up there - falling starts now
     this.teleport.onThrowReleased();
   }
 
@@ -909,7 +913,7 @@ export class CourtScene extends Phaser.Scene {
     this.balls.push(ball);
   }
 
-  /** A remote player's throw — animate it from the launch params. */
+  /** A remote player's throw - animate it from the launch params. */
   private spawnRemoteBall(throwId: string, launch: ThrowLaunch) {
     const ball = new Ball(this, {
       x: launch.x,
@@ -932,10 +936,10 @@ export class CourtScene extends Phaser.Scene {
     this.balls.push(ball);
   }
 
-  /** The authoritative result came back — score display + juice + log. */
+  /** The authoritative result came back - score display + juice + log. */
   private presentOutcome(e: ThrowOutcome) {
     this.setWorld(e.world);
-    // recordings exist only for OWN throws — never match a remote outcome
+    // recordings exist only for OWN throws - never match a remote outcome
     const rec =
       e.playerId === this.selfId ? this.recsByThrowId.get(e.throwId) : undefined;
     this.recsByThrowId.delete(e.throwId);

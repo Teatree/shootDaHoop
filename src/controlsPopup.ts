@@ -1,24 +1,19 @@
 // The first-entry CONTROLS pop-up (owner ask 2026-07-15): two looping
-// videos side by side — Walking, then Throwing — each with an animated
+// videos side by side - Walking, then Throwing - each with an animated
 // mouse underneath. Under the walk video the mouse plays a plain LEFT
 // CLICK on a loop; under the throw video it plays a CLICK-AND-HOLD.
 //
-// A player sees this exactly ONCE per browser (localStorage flag), and
-// their character does not enter the court — for them OR for anyone
-// else — until they press the ✕: the caller keeps backend.connect()
-// behind onClose, so the join (and the spawn broadcast) simply hasn't
-// happened yet. Only the ✕ closes it; outside clicks and Escape don't.
-
-const SEEN_KEY = "shootDaHoop.controlsSeen";
-
-/** True when this browser has never seen the controls pop-up. */
-export function shouldShowControls(): boolean {
-  try {
-    return localStorage.getItem(SEEN_KEY) === null;
-  } catch {
-    return true; // storage blocked → show it (can't remember anyway)
-  }
-}
+// It appears right AFTER the name modal, and only then: main.ts flags a
+// boot where the player had to CHOOSE a name (no stored one = a first
+// entry into this court) and the scene shows the pop-up on that flag -
+// the stored name itself is the "seen it" persistence, so there is no
+// separate flag to go stale (owner bug 2026-07-16: a localStorage
+// seen-flag got consumed by a page load the owner never looked at).
+//
+// Until the player presses the ✕ their character exists for NOBODY:
+// the caller keeps backend.connect() behind onClose, so the join (and
+// the spawn broadcast) simply hasn't happened yet. Only the ✕ closes
+// it; outside clicks and Escape don't.
 
 /** One animated mouse: body + left button (the part that animates). */
 function mouseHtml(kind: "click" | "hold"): string {
@@ -30,11 +25,6 @@ function mouseHtml(kind: "click" | "hold"): string {
 }
 
 export function showControlsPopup(onClose: () => void): void {
-  try {
-    localStorage.setItem(SEEN_KEY, "1");
-  } catch {
-    // storage blocked — the pop-up will simply show again next time
-  }
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
   overlay.innerHTML = `

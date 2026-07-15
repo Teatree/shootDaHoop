@@ -29,19 +29,28 @@ function devIdentity(): string {
 /**
  * Who you are HERE. Name and look (shirt, skin, trousers, head) are
  * PER-LOBBY: the first time you enter a lobby you're asked a name and the
- * cosmetics are rolled; from then on that lobby — and only that lobby —
+ * cosmetics are rolled; from then on that lobby - and only that lobby -
  * always shows you that way. Offline keeps one browser-global identity
  * (the original behaviour).
  */
-async function resolveIdentity(lobby: string | null): Promise<Cosmetics> {
+async function resolveIdentity(
+  lobby: string | null,
+): Promise<{ identity: Cosmetics; freshName: boolean }> {
   const suffix = lobby ? `.${lobby}` : "";
   const nameKey = lobby ? `shootDaHoop.name.${lobby}` : undefined;
+  // no stored name = a first entry into this court → the name modal runs,
+  // and the controls pop-up follows it (owner ask 2026-07-16: the
+  // tutorial appears right after the name was chosen)
+  const stored = getStoredName(nameKey);
   return {
-    name: getStoredName(nameKey) ?? (await askPlayerName(nameKey)),
-    shirtColor: persistentShirt(`shootDaHoop.shirt${suffix}`),
-    skinTint: persistentSkin(`shootDaHoop.skin${suffix}`),
-    lowerTint: persistentLower(`shootDaHoop.lower${suffix}`),
-    headVariant: persistentHead(`shootDaHoop.head${suffix}`),
+    identity: {
+      name: stored ?? (await askPlayerName(nameKey)),
+      shirtColor: persistentShirt(`shootDaHoop.shirt${suffix}`),
+      skinTint: persistentSkin(`shootDaHoop.skin${suffix}`),
+      lowerTint: persistentLower(`shootDaHoop.lower${suffix}`),
+      headVariant: persistentHead(`shootDaHoop.head${suffix}`),
+    },
+    freshName: stored === null,
   };
 }
 
@@ -81,7 +90,7 @@ async function boot() {
   const lobby = params.get("lobby");
 
   // first visit (per lobby) asks; afterwards that court knows you
-  const identity = await resolveIdentity(lobby);
+  const { identity, freshName } = await resolveIdentity(lobby);
 
   // one-shot: drop ?reset from the address bar so a refresh or a shared
   // link doesn't wipe the score again
@@ -103,7 +112,7 @@ async function boot() {
       if (await exists(`assets/${k}.wav`)) audio.push(k);
     }),
     ...MUSIC_MANIFEST.map(async (k) => {
-      // ogg first — the provided tracks ship as Opus (~half the mp3 weight,
+      // ogg first - the provided tracks ship as Opus (~half the mp3 weight,
       // players stream these while playing)
       for (const ext of ["ogg", "mp3", "wav"] as const) {
         const url = `assets/music/${k}.${ext}`;
@@ -134,6 +143,7 @@ async function boot() {
         identity,
         chooseBackend(params, lobby, identity),
         lobby,
+        freshName, // just chose a name → the controls pop-up follows
       ),
     ],
   });
