@@ -157,18 +157,21 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
       {
         type: "hoop-change",
         heightScale: 1.1, // overall height only +10% over Hoop 2
-        // a fancier paint job to match the glass court: deep slate
-        // board, gold rims, dark bronze pole
+        // owner 2026-07-15: the hoop turns DARK RED (from tier 2's black
+        // and gray); the rims go pink/magenta so they read well on the
+        // new light-gray background. PLACEHOLDER (tune): exact shades.
         look: {
-          board: 0x25333e,
-          boardEdge: 0x121c24,
-          rim: 0xd9a441,
-          pole: 0x2a221c,
+          board: 0x7a1a1a, //     dark red board
+          boardEdge: 0x4a0e0e, // near-black red edge
+          rim: 0xff4fc3, //       pink/magenta rims
+          pole: 0x5a1414, //      dark red pole
         },
         doubleHoop: {
           // upper is slimmer and protrudes ~20 px further left (further
-          // out) than the lower — what enables the "double shot"
-          upper: { rScale: 0.8, protrudeLeftPx: 20 }, // rScale PLACEHOLDER (tune)
+          // out) than the lower — what enables the "double shot".
+          // owner 2026-07-15: the second (upper) hoop sits ONE FULL HOOP
+          // TALLNESS higher; the hoop wall (backboard) stays put.
+          upper: { rScale: 0.8, protrudeLeftPx: 20, raiseByHoopHeights: 1 }, // rScale PLACEHOLDER (tune)
           lower: { rScale: 1.0 }, // keeps the tier-2 width → the wider one
           gapM: 2.0, // PLACEHOLDER (tune): enough vertical gap to hit each
         },
@@ -210,13 +213,16 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
         fx: "pop-splash", // pops in with a splash effect
       },
 
-      // 4. Atmosphere Change — Blue-Gray Dusk. The world cools toward
-      //    blue-gray; the suns are smaller, very light blue, and cross
-      //    the sky slower.
+      // 4. Atmosphere Change — Light-Gray World (owner 2026-07-15: the
+      //    whole background just recolours to light gray, replacing the
+      //    old blue-gray dusk wash). The recolour is GRADUAL — it fades
+      //    across the whole upgrade choreography, alongside the other
+      //    sequences. The suns stay smaller, very light blue and slower.
       {
         type: "atmosphere",
-        // PLACEHOLDER (tune): the blue-gray wash over everything
-        overlay: { color: 0x64748c, alpha: 0.07 },
+        // PLACEHOLDER (tune): a faint neutral wash pulls the court and
+        // characters toward gray too, without dimming them
+        overlay: { color: 0xc9cdd2, alpha: 0.1 },
         sun: {
           coreColor: 0xcfe2ff, // very light blue… PLACEHOLDER (tune)
           glowColor: 0xe6f0ff,
@@ -224,6 +230,8 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
           speedScale: 0.6, //     …moving slower
           pulsate: false,
         },
+        sky: 0xd9dcdf, // PLACEHOLDER (tune): the light-gray background
+        gradual: true, // fades in alongside the other sequences
         fx: "pop",
       },
 

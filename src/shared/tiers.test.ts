@@ -64,11 +64,26 @@ describe("hoopGeometryForTier", () => {
     const g = hoopGeometryForTier(3);
     expect(g.rims.map((r) => r.id)).toEqual(["upper", "lower"]);
     const [upper, lower] = g.rims;
-    expect(upper.h).toBeCloseTo(BALANCE.hoop.rimHeightM * 1.4 * 1.1, 10);
+    // owner 2026-07-15: the second (upper) hoop sits ONE FULL HOOP
+    // TALLNESS higher — structure height topH, rim raised to 2×topH
+    const topH = BALANCE.hoop.rimHeightM * 1.4 * 1.1;
+    expect(upper.h).toBeCloseTo(topH * 2, 10);
     // the upper is the slimmer one, the lower the wider one
     expect(upper.r).toBeLessThan(lower.r);
     // lower keeps the tier-2 rim width
     expect(lower.r).toBeCloseTo(hoopGeometryForTier(2).rims[0].r, 10);
+  });
+
+  it("tier 3's raised rim does NOT move the hoop wall (the backboard)", () => {
+    const g = hoopGeometryForTier(3);
+    const topH = BALANCE.hoop.rimHeightM * 1.4 * 1.1;
+    const k = 1.4 * 1.1; // the structure's cumulative height scale
+    // board extents stay pinned to the UNRAISED structure height
+    expect(g.boardTopM).toBeCloseTo(
+      topH + (BALANCE.hoop.boardTopM - BALANCE.hoop.rimHeightM) * k,
+      10,
+    );
+    expect(g.boardTopM).toBeLessThan(g.rims[0].h); // rim above the wall
   });
 
   it("tier 3 upper rim protrudes exactly 20 px further left", () => {
@@ -108,9 +123,10 @@ describe("hoopChoreoGeometries (the upgrade animation's staged looks)", () => {
     expect(stages).toHaveLength(4);
     const [tall, jut, wait, full] = stages;
     const t3 = hoopGeometryForTier(3);
-    // beat 1: still a single tier-2-width rim, at the +10% height
+    // beat 1: still a single tier-2-width rim, at the +10% STRUCTURE
+    // height (the raise belongs to the upper rim, which juts in beat 2)
     expect(tall.rims).toHaveLength(1);
-    expect(tall.rims[0].h).toBeCloseTo(t3.rims[0].h, 10);
+    expect(tall.rims[0].h).toBeCloseTo(BALANCE.hoop.rimHeightM * 1.4 * 1.1, 10);
     expect(tall.rims[0].r).toBeCloseTo(hoopGeometryForTier(2).rims[0].r, 10);
     // beat 2: the upper rim alone, slimmer + protruded
     expect(jut.rims).toHaveLength(1);
@@ -167,6 +183,20 @@ describe("looks", () => {
     expect(t2.pole).toBeLessThan(t1.pole); // …darker pole
     expect(t3).not.toEqual(t2); // tier 3 has its own paint job
   });
+
+  it("tier 3 hoop: dark red board/pole, pink-magenta rims (owner 2026-07-15)", () => {
+    const t3 = hoopLookForTier(3);
+    const rgb = (c: number) => [(c >> 16) & 0xff, (c >> 8) & 0xff, c & 0xff];
+    for (const part of [t3.board, t3.pole]) {
+      const [r, g, b] = rgb(part);
+      expect(r).toBeGreaterThan(g * 2); // dark RED, not gray
+      expect(r).toBeGreaterThan(b * 2);
+      expect(r).toBeLessThan(0xa0); //    dark, not bright
+    }
+    const [r, g, b] = rgb(t3.rim); // pink/magenta: strong red + blue, weak green
+    expect(r).toBeGreaterThan(0xc0);
+    expect(b).toBeGreaterThan(g);
+  });
 });
 
 describe("atmosphereForTier", () => {
@@ -185,13 +215,25 @@ describe("atmosphereForTier", () => {
     expect(a.sun.speedScale).toBe(1);
   });
 
-  it("tier 3 goes blue-gray: smaller, very light blue, slower suns", () => {
+  it("tier 3: smaller, very light blue, slower suns", () => {
     const a = atmosphereForTier(3);
     expect(a.overlay.alpha).toBeGreaterThan(0);
     expect(a.sun.sizeScale).toBeLessThan(1); //  smaller
     expect(a.sun.speedScale).toBeLessThan(1); // slower
     expect(a.sun.pulsate).toBe(false);
     expect(a.sun.coreColor & 0xff).toBeGreaterThan(0xd0); // strongly blue
+  });
+
+  it("the sky: base cream through tier 2, LIGHT GRAY at tier 3, gradual", () => {
+    expect(atmosphereForTier(1).sky).toBe(BASE_ATMOSPHERE.sky);
+    expect(atmosphereForTier(2).sky).toBe(BASE_ATMOSPHERE.sky); // tier 2 keeps it
+    const sky = atmosphereForTier(3).sky;
+    const [r, g, b] = [(sky >> 16) & 0xff, (sky >> 8) & 0xff, sky & 0xff];
+    expect(Math.max(r, g, b) - Math.min(r, g, b)).toBeLessThan(12); // gray…
+    expect(Math.min(r, g, b)).toBeGreaterThan(0xb0); //               …light
+    // and the recolour rides alongside the other sequences
+    const atmo = HOOP_TIERS[2].changes.find((c) => c.type === "atmosphere");
+    expect(atmo && "gradual" in atmo && atmo.gradual).toBe(true);
   });
 });
 

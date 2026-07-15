@@ -13,6 +13,7 @@ import {
   drawCourt,
   drawWall,
   ensurePlaceholderTextures,
+  type Backdrop,
   type HoopParts,
 } from "../placeholders";
 import { Player } from "../player";
@@ -33,6 +34,7 @@ import type {
 import type { Backend } from "../backend/types";
 import {
   ballLookForTier,
+  BASE_ATMOSPHERE,
   canUpgrade,
   clampToWalkable,
   effectivePowerForTier,
@@ -88,6 +90,10 @@ export class CourtScene extends Phaser.Scene {
   private courtG!: Phaser.GameObjects.Graphics;
   /** the atmosphere's camera wash — re-fit to the camera every frame */
   private atmosOverlay!: Phaser.GameObjects.Rectangle;
+  private backdrop!: Backdrop;
+  /** the sky's CURRENT colour + its cross-fade tween state */
+  private skyColor = BASE_ATMOSPHERE.sky;
+  private readonly skyFade = { t: 0 };
   /** the applied tier's ball tint — new balls spawn wearing it */
   private ballTint: number = T.ballLooks.classic;
   /** the latest authoritative world state (score + tier) */
@@ -169,7 +175,7 @@ export class CourtScene extends Phaser.Scene {
     // run on tab return; WebAudio itself plays to the end regardless.
     this.sound.pauseOnBlur = false;
     ensurePlaceholderTextures(this);
-    drawBackdrop(this);
+    this.backdrop = drawBackdrop(this);
     this.courtG = drawCourt(this, "standard");
     drawWall(this);
     this.keepOutZone = createKeepOutZone(this);
@@ -215,8 +221,8 @@ export class CourtScene extends Phaser.Scene {
         this.jukebox?.destroy();
         this.jukebox = undefined;
       },
-      setAtmosphere: (a, fx) =>
-        this.applyAtmosphere(a, fx !== null && fx !== "none"),
+      setAtmosphere: (a, fx, fadeMs) =>
+        this.applyAtmosphere(a, fx !== null && fx !== "none", fadeMs),
     });
     // the wash sits over the whole world (world objects top out at the
     // aim preview's 900) but under the DOM HUD, which is above the canvas
@@ -500,27 +506,66 @@ export class CourtScene extends Phaser.Scene {
     playSfx(this, "sfx_bounce", 0.8);
   }
 
-  /** The tier's atmosphere: sun mood + the camera wash (tweened when
-   *  it lands as a choreography beat, instant for late join/reset). */
-  private applyAtmosphere(a: Atmosphere, animated: boolean) {
+  /** The tier's atmosphere: sun mood + the camera wash + the sky's own
+   *  colour (tweened when it lands as a choreography beat, instant for
+   *  late join/reset). A `gradual` atmosphere hands in fadeMs = the whole
+   *  show's length, so the recolour rides alongside the other beats. */
+  private applyAtmosphere(a: Atmosphere, animated: boolean, fadeMs?: number) {
     this.sky.setMood(a.sun);
     const o = this.atmosOverlay;
     this.tweens.killTweensOf(o);
+    this.tweens.killTweensOf(this.skyFade);
+    // the veil recolours the whole drawn backdrop (bands/dunes/sand);
+    // the base sky means NO veil — the desert shows as painted
+    const veilTarget = a.sky === BASE_ATMOSPHERE.sky ? 0 : 1;
+    if (veilTarget > 0) this.backdrop.setPalette(a.sky);
+    const setSky = (c: number) => {
+      this.skyColor = c;
+      this.cameras.main.setBackgroundColor(c);
+    };
     if (!animated) {
       o.setFillStyle(a.overlay.color, a.overlay.alpha);
+      setSky(a.sky);
+      this.backdrop.veil = veilTarget;
       return;
     }
-    // the beat's vfx: a soft white blink as the light itself changes,
-    // then the wash fades in. PLACEHOLDER (tune): 600 ms fade.
+    // PLACEHOLDER (tune): 600 ms when the change is a beat of its own
+    const dur = fadeMs ?? 600;
     o.setFillStyle(a.overlay.color, o.fillAlpha);
     this.tweens.add({
       targets: o,
       fillAlpha: a.overlay.alpha,
-      duration: 600,
+      duration: dur,
       ease: "Sine.easeInOut",
     });
-    this.cameras.main.flash(250, 255, 255, 255);
-    playSfx(this, "sfx_pop", 0.7);
+    // the sky cross-fades from wherever it is to the tier's colour: the
+    // camera colour interpolates and the backdrop veil rides the same t
+    const from = Phaser.Display.Color.IntegerToColor(this.skyColor);
+    const to = Phaser.Display.Color.IntegerToColor(a.sky);
+    const veilFrom = this.backdrop.veil;
+    this.skyFade.t = 0;
+    this.tweens.add({
+      targets: this.skyFade,
+      t: 1,
+      duration: dur,
+      ease: "Sine.easeInOut",
+      onUpdate: () => {
+        const c = Phaser.Display.Color.Interpolate.ColorWithColor(
+          from,
+          to,
+          100,
+          this.skyFade.t * 100,
+        );
+        setSky(Phaser.Display.Color.GetColor(c.r, c.g, c.b));
+        this.backdrop.veil = veilFrom + (veilTarget - veilFrom) * this.skyFade.t;
+      },
+    });
+    if (fadeMs === undefined) {
+      // a beat of its own gets the soft white blink as the light itself
+      // changes; the gradual recolour starts quietly under the show
+      this.cameras.main.flash(250, 255, 255, 255);
+      playSfx(this, "sfx_pop", 0.7);
+    }
   }
 
   /** The tier's ball look, everywhere at once (world, held, UI icons). */

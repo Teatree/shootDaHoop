@@ -174,8 +174,17 @@ function ensurePartPlaceholders(scene: Phaser.Scene) {
   }
 }
 
+/** The backdrop's recolour veil — the tier's sky colour fades over the
+ *  whole desert (owner 2026-07-15: "the whole background becomes light
+ *  gray"). `veil` is the recolour's 0..1 strength; setPalette derives
+ *  the layer shades from the tier's sky colour. */
+export interface Backdrop {
+  veil: number;
+  setPalette(sky: number): void;
+}
+
 /** Desert backdrop: banded sky over rolling dunes. Suns live in sky.ts. */
-export function drawBackdrop(scene: Phaser.Scene) {
+export function drawBackdrop(scene: Phaser.Scene): Backdrop {
   const left = -900;
   const right = T.court.lengthM * M + 900;
   const w = right - left;
@@ -194,28 +203,71 @@ export function drawBackdrop(scene: Phaser.Scene) {
 
   // rolling dunes — three rows of overlapping mounds straddling the horizon,
   // drawn once (static silhouettes; only the suns move)
-  const dunes = scene.add.graphics().setDepth(-90);
   const rows: { tint: number; rise: number; rx: number; ry: number }[] = [
     { tint: 0xdfb877, rise: 26, rx: 340, ry: 70 }, // far, palest
     { tint: 0xd0a25e, rise: 14, rx: 260, ry: 55 }, // mid
     { tint: 0xc08e4c, rise: 4, rx: 200, ry: 45 }, //  near, deepest
   ];
-  rows.forEach((row, ri) => {
-    dunes.fillStyle(row.tint);
-    const spacing = row.rx * 1.15;
-    // phase each row so crests interleave instead of stacking
-    for (let x = left + ri * spacing * 0.45; x < right; x += spacing) {
-      dunes.fillEllipse(x, horizon - row.rise + row.ry / 2, row.rx * 2, row.ry * 2);
-    }
-  });
-  // sand shelf that closes the dune bases at the horizon line
-  dunes.fillStyle(0xc08e4c).fillRect(left, horizon - 4, w, 4);
+  const fillDunes = (g: Phaser.GameObjects.Graphics, tints: number[]) => {
+    rows.forEach((row, ri) => {
+      g.fillStyle(tints[ri]);
+      const spacing = row.rx * 1.15;
+      // phase each row so crests interleave instead of stacking
+      for (let x = left + ri * spacing * 0.45; x < right; x += spacing) {
+        g.fillEllipse(x, horizon - row.rise + row.ry / 2, row.rx * 2, row.ry * 2);
+      }
+    });
+    // sand shelf that closes the dune bases at the horizon line
+    g.fillStyle(tints[2]).fillRect(left, horizon - 4, w, 4);
+  };
+  const dunes = scene.add.graphics().setDepth(-90);
+  fillDunes(dunes, rows.map((r) => r.tint));
 
   // sand the court sits on
   scene.add
     .rectangle(left, horizon, w, 900, 0xd4a86a)
     .setOrigin(0, 0)
     .setDepth(-80);
+
+  // ── the recolour veil: a twin of every layer in the tier's sky colour,
+  // faded in by `veil`. The sky twin sits UNDER the suns (depth −95) so
+  // the procession stays visible on the recoloured sky; the dune/sand
+  // twins keep the silhouette layering in derived shades.
+  const skyVeil = scene.add
+    .rectangle(left, skyTop, w, horizon - skyTop, 0xd9dcdf)
+    .setOrigin(0, 0)
+    .setDepth(-96)
+    .setAlpha(0);
+  const duneVeil = scene.add.graphics().setDepth(-89).setAlpha(0);
+  const sandVeil = scene.add
+    .rectangle(left, horizon, w, 900, 0xd9dcdf)
+    .setOrigin(0, 0)
+    .setDepth(-79)
+    .setAlpha(0);
+
+  let alpha = 0;
+  let palette = 0;
+  return {
+    get veil() {
+      return alpha;
+    },
+    set veil(v: number) {
+      alpha = v;
+      skyVeil.setAlpha(v);
+      duneVeil.setAlpha(v);
+      sandVeil.setAlpha(v);
+    },
+    setPalette(sky: number) {
+      if (sky === palette) return;
+      palette = sky;
+      skyVeil.setFillStyle(sky);
+      sandVeil.setFillStyle(darken(sky, 0.88));
+      duneVeil.clear();
+      // PLACEHOLDER (tune): the dune rows step down in brightness so the
+      // silhouettes still read on the recoloured backdrop
+      fillDunes(duneVeil, [darken(sky, 0.94), darken(sky, 0.88), darken(sky, 0.82)]);
+    },
+  };
 }
 
 /**
@@ -436,12 +488,17 @@ export function createHoop(
   const housingR = 52;
   const g = scene.add.graphics().setDepth(sortDepth(RIM.d));
   // pole (behind the board, down INTO the foot housing — the housing is
-  // a separate lower-depth object, so the pole must stop at its crown)
+  // a separate lower-depth object, so the pole must stop at its crown).
+  // A rim RAISED above the board (tier 3's lifted upper) needs the post
+  // to keep climbing past the board top so its tie-arm has something to
+  // hang from — "one post carrying two stacked rims".
+  const highestRimY = baseY - Math.max(...geom.rims.map((r) => r.h)) * M;
+  const poleTop = Math.min(boardTop + 14, highestRimY - 2);
   g.fillStyle(look.pole).fillRect(
     boardX + boardW + 2,
-    boardTop + 14,
+    poleTop,
     7,
-    baseY - housingR + 6 - (boardTop + 14),
+    baseY - housingR + 6 - poleTop,
   );
   g.fillStyle(armColor).fillRect(boardX - 2, boardTop + 22, boardW + 8, 5); // arm
   // backboard

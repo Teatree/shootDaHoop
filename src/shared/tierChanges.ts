@@ -50,8 +50,11 @@ export interface HoopLook {
 
 export interface DoubleHoopSpec {
   /** slimmer top rim; its FRONT tip protrudes this many world px further
-   *  left (further out) than the lower rim's front tip — the "double shot" */
-  upper: { rScale: number; protrudeLeftPx: number };
+   *  left (further out) than the lower rim's front tip — the "double shot".
+   *  raiseByHoopHeights lifts the upper rim by that many FULL hoop
+   *  heights (the folded floor-to-rim height) — the backboard ("hoop
+   *  wall") does NOT follow it; only the rim + its tie-arm go up. */
+  upper: { rScale: number; protrudeLeftPx: number; raiseByHoopHeights?: number };
   /** wider bottom rim (rScale relative to the folded single-rim width) */
   lower: { rScale: number };
   /** vertical gap between the two rims — must clear the ball so each can
@@ -176,6 +179,13 @@ export interface AtmosphereChange {
   /** full-screen tint over the world (under the DOM HUD) */
   overlay: { color: number; alpha: number };
   sun: SunMood;
+  /** repaint the sky itself (the camera's background colour); omitted =
+   *  keep the previous tier's sky */
+  sky?: number;
+  /** true → the recolour FADES across the WHOLE upgrade choreography
+   *  (starts with beat 1, lands with the last beat) instead of popping
+   *  at its own slot in the ordered list */
+  gradual?: boolean;
   fx: FxKind;
 }
 

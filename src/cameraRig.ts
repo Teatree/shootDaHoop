@@ -29,11 +29,14 @@ export class CameraRig {
     const cam = this.scene.cameras.main;
     const p = toScreen(this.player.x, this.player.d, this.player.airH);
 
-    // hoop bounds: rim structure from floor to board top (active tier)
+    // hoop bounds: rim structure from floor to board top OR the highest
+    // rim, whichever reaches higher (tier 3's raised upper rim sits well
+    // above the board — the board no longer bounds the structure)
     const g = this.geom();
     const hoopMinX = Math.min(...g.rims.map((r) => (r.x - r.r) * M)) - 20;
     const hoopMaxX = g.boardX * M + 24;
-    const hoopMinY = floorY(RIM.d) - g.boardTopM * M - 10;
+    const hoopTopM = Math.max(g.boardTopM, ...g.rims.map((r) => r.h + 0.6));
+    const hoopMinY = floorY(RIM.d) - hoopTopM * M - 10;
 
     const minX = Math.min(p.sx - 32, hoopMinX) - T.camera.padXPx;
     const maxX = Math.max(p.sx + 32, hoopMaxX) + T.camera.padXPx;

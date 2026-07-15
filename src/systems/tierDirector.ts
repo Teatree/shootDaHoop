@@ -13,6 +13,7 @@ import {
   type HoopGeometry,
 } from "../shared/tierRules";
 import type {
+  AtmosphereChange,
   BallLookId,
   CourtLookId,
   FxKind,
@@ -55,8 +56,10 @@ export interface TierDirectorHooks {
   spawnInteractive(el: InteractiveElement, animated: boolean): void;
   /** remove every placed interactive (a world reset back down a tier) */
   clearInteractives(): void;
-  /** retint the world's light (camera wash + sun mood); fx null = instant */
-  setAtmosphere(a: Atmosphere, fx: FxKind | null): void;
+  /** retint the world's light (camera wash + sky colour + sun mood);
+   *  fx null = instant. fadeMs overrides the default transition length —
+   *  a `gradual` atmosphere hands in the whole show's remaining time. */
+  setAtmosphere(a: Atmosphere, fx: FxKind | null, fadeMs?: number): void;
 }
 
 export class TierDirector {
@@ -142,6 +145,9 @@ export class TierDirector {
 
     const fx = T.progressionFx;
     const geoms = hoopChoreoGeometries(tierId);
+    // gradual atmospheres fade across the WHOLE show — they hold no slot
+    // of their own and are scheduled once the total length is known
+    const gradual: AtmosphereChange[] = [];
     let at = fx.leadMs;
     for (const change of tier.changes) {
       switch (change.type) {
@@ -172,6 +178,10 @@ export class TierDirector {
           at += fx.changeBeatMs;
           break;
         case "atmosphere":
+          if (change.gradual) {
+            gradual.push(change);
+            break;
+          }
           this.at(at, () =>
             this.hooks.setAtmosphere(atmosphereForTier(this.applied), change.fx),
           );
@@ -183,6 +193,17 @@ export class TierDirector {
           break; // the authority's spawn clock changes — nothing to stage
       }
     }
+    // "alongside the other sequences": start with beat 1, land with the
+    // last one — the fade spans everything scheduled above
+    const totalMs = at;
+    for (const change of gradual)
+      this.at(fx.leadMs, () =>
+        this.hooks.setAtmosphere(
+          atmosphereForTier(this.applied),
+          change.fx,
+          Math.max(fx.changeBeatMs, totalMs - fx.leadMs),
+        ),
+      );
   }
 
   /** Everything the applied tier implies, applied at once, no animation. */

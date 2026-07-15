@@ -123,7 +123,10 @@ function buildGeometry(f: HoopFold): HoopGeometry {
     // the upper rim's FRONT (left) tip protrudes further out than the
     // lower's front tip — this is what enables the double shot
     x: lowerX - lowerR - dbl.upper.protrudeLeftPx / BALANCE.court.meterPx + upperR,
-    h: topH,
+    // the raise lifts the rim by N full hoop heights; the BOARD does not
+    // follow it (owner 2026-07-15: "don't change the hoop wall") — board
+    // extents below stay pinned to the unraised structure height (topH)
+    h: topH * (1 + (dbl.upper.raiseByHoopHeights ?? 0)),
     r: upperR,
   };
   if (f.dblStage === "upper-only") {
@@ -133,8 +136,8 @@ function buildGeometry(f: HoopFold): HoopGeometry {
     return {
       rims: [upper],
       boardX: Math.max(upper.x + upper.r, lowerX + lowerR) + BALANCE.hoop.boardGapM,
-      boardBottomM: upper.h - belowM,
-      boardTopM: upper.h + aboveM,
+      boardBottomM: topH - belowM,
+      boardTopM: topH + aboveM,
     };
   }
   const lower: RimSpec = { id: "lower", x: lowerX, h: topH - dbl.gapM, r: lowerR };
@@ -142,7 +145,7 @@ function buildGeometry(f: HoopFold): HoopGeometry {
     rims: [upper, lower],
     boardX: Math.max(upper.x + upper.r, lower.x + lower.r) + BALANCE.hoop.boardGapM,
     boardBottomM: lower.h - belowM,
-    boardTopM: upper.h + aboveM,
+    boardTopM: topH + aboveM,
   };
 }
 
@@ -307,9 +310,12 @@ export function clampToWalkable(
 export interface Atmosphere {
   overlay: { color: number; alpha: number };
   sun: SunMood;
+  /** the sky's own colour (the camera background) */
+  sky: number;
 }
 
-/** Tier 1's sky exactly as it is today: no tint, warm suns, base pace. */
+/** Tier 1's sky exactly as it is today: no tint, warm suns, base pace.
+ *  The sky colour matches the game config's backgroundColor (main.ts). */
 export const BASE_ATMOSPHERE: Atmosphere = {
   overlay: { color: 0x000000, alpha: 0 },
   sun: {
@@ -319,14 +325,17 @@ export const BASE_ATMOSPHERE: Atmosphere = {
     speedScale: 1,
     pulsate: false,
   },
+  sky: 0xf9e3b8,
 };
 
-/** Last-wins fold, like the court skin — a reset restores the base sky. */
+/** Last-wins fold, like the court skin — a reset restores the base sky.
+ *  A change without `sky` keeps the previous tier's sky colour. */
 export function atmosphereForTier(tierId: number): Atmosphere {
   let atm = BASE_ATMOSPHERE;
   for (const t of tiersUpTo(tierId))
     for (const c of t.changes)
-      if (c.type === "atmosphere") atm = { overlay: c.overlay, sun: c.sun };
+      if (c.type === "atmosphere")
+        atm = { overlay: c.overlay, sun: c.sun, sky: c.sky ?? atm.sky };
   return atm;
 }
 
