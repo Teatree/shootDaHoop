@@ -256,7 +256,13 @@ body {
   background: #ffd97a;
 }
 
+/* The gear sits at the VERY RIGHT edge of the game section, on the
+   chat row's baseline (owner ask 2026-07-15) — its own overlay, no
+   longer part of the chat cluster */
 #settings-btn {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
   padding: 8px 10px;
   font-family: inherit;
   font-size: 14px;
