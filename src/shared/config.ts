@@ -98,10 +98,12 @@ export const BALANCE = {
   // Client-side FEEL knobs (pop/fade/pulse, the levitation fall) stay
   // in src/tuning.ts `tp`.
   orb: {
-    cadenceS: 5, //         seconds after one orb ends before the next appears
-    lifeS: 5, //            how long an orb stays before fading out
+    // cadence/life now come from the tier's Ambient/Spawn Change ONLY
+    // (owner 2026-07-16: the orb exists exclusively at Hoop 3) - the
+    // values below are the orb's physical shape and spawn area.
+    // cadenceS/lifeS removed with that change; see shared/tiers.ts.
     radiusM: 0.3575, //     orb size (hit when ball center is within r+ballR; was 0.55, -35% 2026-07-10)
-    aboveHoopM: 3.125, //   spawn height: rim height + this… (was 100 px)
+    aboveHoopM: 5.3125, //  spawn height: rim height + this… (owner 2026-07-16: up 70 px, was 3.125)
     rangeHM: 1.5625, //     …plus 0..this, randomly (was 50 px)
     rangeXM: 3.125, //      spawn x: 0..this left of the keep-out line (was 100 px)
     hitDepthM: 0.6, //      |ball d − orb d| window for a hit

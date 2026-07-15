@@ -83,9 +83,14 @@ export class LocalBackend implements Backend {
   // ── orb lifecycle (this IS the authority offline) ──────────────────
 
   private scheduleOrbSpawn() {
-    // tier-timed, like server/orb.ts: fixed cadence at tiers 1–2, the
-    // random 10–20 s / 5 s life Ambient/Spawn Change from Hoop 3 on
+    // tier-timed, like server/orb.ts: NO orb below Hoop 3 (owner
+    // 2026-07-16) - idle and re-check; from Hoop 3 the Ambient/Spawn
+    // Change gives the random 10-20 s cadence with a 5 s life
     const t = orbTimingForTier(this.world.tierId);
+    if (!t) {
+      this.orbTimer = setTimeout(() => this.scheduleOrbSpawn(), 5000);
+      return;
+    }
     const cadenceS =
       t.minCadenceS + Math.random() * (t.maxCadenceS - t.minCadenceS);
     this.orbTimer = setTimeout(() => {
@@ -96,13 +101,15 @@ export class LocalBackend implements Backend {
   }
 
   private scheduleOrbExpiry() {
+    // a live orb whose tier just lost the orb (world reset) expires now
+    const lifeS = orbTimingForTier(this.world.tierId)?.lifeS ?? 0;
     this.orbTimer = setTimeout(() => {
       const o = this.orb;
       if (!o) return;
       this.orb = null;
       this.emitter.emit("orbRemoved", { seq: o.seq });
       this.scheduleOrbSpawn();
-    }, orbTimingForTier(this.world.tierId).lifeS * 1000);
+    }, lifeS * 1000);
   }
 
   /** The live ball touched the orb - authoritative in single player. */

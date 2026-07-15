@@ -14,9 +14,10 @@ import type { OrbTiming } from "../src/shared/tierRules";
 // OrbAuthority owns the orb's clock: spawn after a cadence, expire after
 // a lifetime, respawn a cadence after it's gone (consumed or expired).
 // The timing comes from the TIER (shared/tierRules.orbTimingForTier):
-// tiers 1–2 keep the fixed prototype rhythm; Hoop 3's Ambient/Spawn
-// Change switches to a random 10–20 s cadence with a 5 s life. The
-// getter is re-read every cycle, so an upgrade re-times the clock live.
+// NULL below Hoop 3 (owner 2026-07-16: the orb exists only there) -
+// the clock idles and re-checks until an upgrade turns it on; Hoop 3's
+// Ambient/Spawn Change gives a random 10-20 s cadence with a 5 s life.
+// The getter is re-read every cycle, so upgrades/resets re-time it live.
 
 export class OrbAuthority {
   private orb: OrbState | null = null;
@@ -29,7 +30,7 @@ export class OrbAuthority {
       onSpawn: (orb: OrbState) => void;
       onExpire: (seq: number) => void;
     },
-    private readonly timing: () => OrbTiming,
+    private readonly timing: () => OrbTiming | null,
   ) {
     this.scheduleSpawn();
   }
@@ -62,6 +63,12 @@ export class OrbAuthority {
   private scheduleSpawn() {
     if (this.stopped) return;
     const t = this.timing();
+    if (!t) {
+      // no orb at this tier - idle and re-check (an upgrade turns it on).
+      // PLACEHOLDER (tune): the re-check beat.
+      this.timer = setTimeout(() => this.scheduleSpawn(), 5000);
+      return;
+    }
     const cadenceS =
       t.minCadenceS + Math.random() * (t.maxCadenceS - t.minCadenceS);
     this.timer = setTimeout(() => {
@@ -73,13 +80,15 @@ export class OrbAuthority {
 
   private scheduleExpiry() {
     if (this.stopped) return;
+    // a live orb whose tier just lost the orb (world reset) expires now
+    const lifeS = this.timing()?.lifeS ?? 0;
     this.timer = setTimeout(() => {
       const o = this.orb;
       if (!o) return;
       this.orb = null;
       this.events.onExpire(o.seq);
       this.scheduleSpawn();
-    }, this.timing().lifeS * 1000);
+    }, lifeS * 1000);
   }
 
   private clearTimer() {

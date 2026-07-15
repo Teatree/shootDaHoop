@@ -47,6 +47,7 @@ import {
 } from "../shared/tierRules";
 import { showNotice } from "../settings";
 import { showControlsPopup } from "../controlsPopup";
+import type { ShareTracker } from "../share";
 import { TierDirector } from "../systems/tierDirector";
 import { UpgradeButton, upgradeButtonSpot } from "../systems/upgradeButton";
 import { CheerArea } from "../systems/cheerArea";
@@ -128,6 +129,8 @@ export class CourtScene extends Phaser.Scene {
     /** the player JUST chose their name (no stored one) - a first entry,
      *  so the controls pop-up follows the name modal */
     private readonly firstEntry: boolean = false,
+    /** the top-center SHARE button - fed the local player's hit/miss roll */
+    private readonly share: ShareTracker = { noteResult() {} },
   ) {
     super("court");
   }
@@ -396,7 +399,7 @@ export class CourtScene extends Phaser.Scene {
       // comes into existence"
       this.teleport.orb.show(
         e.orb,
-        orbTimingForTier(this.director.tierId).appearFx !== "none" &&
+        orbTimingForTier(this.director.tierId)?.appearFx !== "none" &&
           !document.hidden,
       ),
     );
@@ -939,6 +942,8 @@ export class CourtScene extends Phaser.Scene {
   /** The authoritative result came back - score display + juice + log. */
   private presentOutcome(e: ThrowOutcome) {
     this.setWorld(e.world);
+    // the share button's roll tracks OWN throws only: 🏀 hit, ✖ miss
+    if (e.playerId === this.selfId) this.share.noteResult(e.made);
     // recordings exist only for OWN throws - never match a remote outcome
     const rec =
       e.playerId === this.selfId ? this.recsByThrowId.get(e.throwId) : undefined;

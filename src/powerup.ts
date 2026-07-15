@@ -70,14 +70,16 @@ export class TeleportOrb {
     const { sx, sy } = toScreen(orb.x, orb.d, orb.h);
     const r = T.orb.radiusM * M;
     const depth = sortDepth(orb.d);
+    // PURPLE (owner 2026-07-16, was blue): pops on the tier-3 light-gray
+    // sky, where the orb now exclusively lives. PLACEHOLDER (tune).
     const glow = this.scene.add
-      .circle(sx, sy, r * 2.1, 0x9fd0ff, 0.3)
+      .circle(sx, sy, r * 2.1, 0xd3b0ff, 0.3)
       .setDepth(depth - 1);
     const core = this.scene.add
-      .circle(sx, sy, r, 0x2e7bff, 0.95)
+      .circle(sx, sy, r, 0x8f36e8, 0.95)
       .setDepth(depth);
     const shine = this.scene.add
-      .circle(sx - r * 0.3, sy - r * 0.3, r * 0.3, 0xd8ecff, 0.85)
+      .circle(sx - r * 0.3, sy - r * 0.3, r * 0.3, 0xf0e2ff, 0.85)
       .setDepth(depth + 1);
 
     if (pop) {

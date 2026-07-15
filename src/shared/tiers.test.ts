@@ -249,14 +249,9 @@ describe("atmosphereForTier", () => {
 });
 
 describe("orbTimingForTier", () => {
-  it("tiers 1–2 keep today's fixed cadence", () => {
-    for (const id of [1, 2]) {
-      const o = orbTimingForTier(id);
-      expect(o.minCadenceS).toBe(BALANCE.orb.cadenceS);
-      expect(o.maxCadenceS).toBe(BALANCE.orb.cadenceS);
-      expect(o.lifeS).toBe(BALANCE.orb.lifeS);
-      expect(o.appearFx).toBe("pop");
-    }
+  it("tiers 1-2 have NO orb at all (owner 2026-07-16: Hoop 3 only)", () => {
+    expect(orbTimingForTier(1)).toBeNull();
+    expect(orbTimingForTier(2)).toBeNull();
   });
 
   it("tier 3 switches to a 10–20 s random cadence, 5 s life, no pop", () => {

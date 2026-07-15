@@ -249,12 +249,14 @@ owner, 2026-07-15)*.
 - Animation: **gradual** - the recolour **fades in across the WHOLE upgrade
   choreography**, alongside the other sequences (no beat of its own, no flash).
 
-**5. Ambient / Spawn Change - Blue Orbs.**
-- Behaviour: the **Blue Orb is the existing in-game interactive object, unchanged
-  in function.** After Hoop 3 it **starts appearing on a timer.**
-- Spawn area: **same as today.**
+**5. Ambient / Spawn Change - Purple Orbs** *(revised 2026-07-16, was Blue)*.
+- Behaviour: the teleport orb, unchanged in function - but it now exists
+  **ONLY at Hoop 3** (owner, 2026-07-16): no orb ever appears at Hoops 1-2.
+- Look: **purple** (owner, 2026-07-16 - more noticeable on the light-gray
+  background than the original blue).
+- Spawn area: same band as before, moved **up 70 px** (owner, 2026-07-16).
 - Frequency: a **random interval of 10–20 seconds.**
-- Lifetime: the orb now **persists 5 seconds** (up from 3).
+- Lifetime: the orb **persists 5 seconds.**
 - Appearance animation: **none** - it simply comes into existence, no notification.
 
 ---

@@ -1,8 +1,14 @@
-# The Teleport Orb (Blue Circle) - First Power-Up
+# The Teleport Orb - First Power-Up
 
-The game's first power-up: a pulsing blue orb that hangs in the air near the
-hoop. Hit it with a thrown ball and the player is zapped up to its position for
-a brief, high-value aerial shot - the **teleport slam**.
+The game's first power-up: a pulsing PURPLE orb (recoloured from blue on
+2026-07-16 to read on Hoop 3's light-gray sky) that hangs in the air near
+the hoop. Hit it with a thrown ball and the player is zapped up to its
+position for a brief, high-value aerial shot - the **teleport slam**.
+
+Since 2026-07-16 the orb exists **only at Hoop 3** - `orbTimingForTier`
+returns null below the tier whose Ambient/Spawn Change introduces it, and
+both authorities idle their spawn clock until an upgrade turns it on. Its
+spawn band also moved up 70 px (`BALANCE.orb.aboveHoopM`).
 
 The orb is a **server-authoritative world object** (since 2026-07-09): the
 authority - the server `Room` in multiplayer, `LocalBackend` offline - owns
@@ -57,9 +63,8 @@ point value lives in `BALANCE.score.slamPts` (`src/shared/config.ts`).
 
 | Property | Value / knob | Detail |
 |---|---|---|
-| Cadence | `orb.cadenceS = 5` | next orb appears 5s after the previous one is gone (expired **or** consumed). Only one orb exists at a time. |
-| Lifetime | `orb.lifeS = 5` | unhit orbs disappear after 5 seconds |
-| Position: height | `orb.aboveHoopM = 3.125`, `orb.rangeHM = 1.5625` | rim height + 3.125m, plus 0–1.56m random |
+| Cadence + lifetime | the tier's Ambient/Spawn Change (`shared/tiers.ts`) | since 2026-07-16 there is NO default: `orbTimingForTier` is null below Hoop 3 (no orb at all); Hoop 3 gives a random 10-20 s cadence and a 5 s life. Only one orb exists at a time. |
+| Position: height | `orb.aboveHoopM = 5.3125`, `orb.rangeHM = 1.5625` | rim height + 5.31m (up 70 px on 2026-07-16), plus 0–1.56m random |
 | Position: x | `orb.rangeXM = 3.125` | 0–3.125m from the keep-out zone's edge, toward mid-court |
 | Position: depth | rim lane (`RIM.d`) | thrown balls converge to this lane, so the orb is genuinely hittable |
 | Hit test | `orb.radiusM = 0.3575`, `orb.hitDepthM = 0.6` | hit when ball center is within orb radius + ball radius, inside the depth window (radius was 0.55; −35% on 2026-07-10) |

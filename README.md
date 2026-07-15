@@ -26,7 +26,7 @@ remembered in localStorage.
 - **Release right-click**: throw
 - **Enter**: chat (messages appear as a speech bubble and in the court-wall log)
 - **Click a throw line in the log**: replay that shot as a ghost recording
-- **Hit the blue orb with a ball**: teleport up to it for a 500-point slam window
+- **Hit the purple orb (Hoop 3 only) with a ball**: teleport up to it for a 500-point slam window
 
 ## Testing
 

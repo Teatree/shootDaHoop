@@ -4,7 +4,7 @@ This document records everything done to the gameplay feel prototype across the
 build sessions of 2026-07-08/09: what each feature is, **how the game's owner
 wanted it to work** (design intent, captured verbatim where it matters), and the
 technical discoveries made along the way. Companion docs:
-[teleport-orb.md](teleport-orb.md) (blue orb power-up) and
+[teleport-orb.md](teleport-orb.md) (purple orb power-up, Hoop 3 only) and
 [ghost-records.md](ghost-records.md) (clickable log replays).
 
 ---

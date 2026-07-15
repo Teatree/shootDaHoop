@@ -243,9 +243,11 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
         fx: "pop",
       },
 
-      // 5. Ambient / Spawn Change - Blue Orbs. The existing orb,
-      //    unchanged in function, now on a slower random timer with a
-      //    longer life, appearing without ceremony.
+      // 5. Ambient / Spawn Change - Purple Orbs (recoloured from blue,
+      //    owner 2026-07-16, to read on the light-gray sky). THIS change
+      //    is what brings the orb into existence at all - it spawns at
+      //    no tier below it (orbTimingForTier is null there): a random
+      //    timer, a 5 s life, appearing without ceremony.
       {
         type: "ambient-spawn",
         object: "orb",

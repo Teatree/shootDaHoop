@@ -353,15 +353,12 @@ export interface OrbTiming {
   appearFx: FxKind;
 }
 
-/** Defaults to today's fixed cadence (BALANCE.orb); an ambient-spawn
- *  change overrides it from its tier onward. */
-export function orbTimingForTier(tierId: number): OrbTiming {
-  let timing: OrbTiming = {
-    minCadenceS: BALANCE.orb.cadenceS,
-    maxCadenceS: BALANCE.orb.cadenceS,
-    lifeS: BALANCE.orb.lifeS,
-    appearFx: "pop",
-  };
+/** The orb exists ONLY once a tier's ambient-spawn change introduces it
+ *  (owner 2026-07-16: Hoop 3) - null below that means NO orb spawns.
+ *  (It previously defaulted to a fixed BALANCE.orb cadence at every
+ *  tier; BALANCE.orb still holds the orb's size/height/physics.) */
+export function orbTimingForTier(tierId: number): OrbTiming | null {
+  let timing: OrbTiming | null = null;
   for (const t of tiersUpTo(tierId))
     for (const c of t.changes)
       if (c.type === "ambient-spawn" && c.object === "orb")
