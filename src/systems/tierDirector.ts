@@ -64,6 +64,13 @@ export interface TierDirectorHooks {
 
 export class TierDirector {
   private applied = 1;
+  /** the tier the VISUALS are complete at - lags `applied` while a
+   *  choreography is in flight. If a second upgrade arrives before the
+   *  first show finished (easy on a sleeping tab: Phaser pauses, WS
+   *  events keep landing), cancelling the pending beats would silently
+   *  LOSE that rung's content (the cheer deck, the ball look… - owner
+   *  bug 2026-07-16); playUpgrade snaps the gap closed first. */
+  private visualTier = 1;
   private timers: Phaser.Time.TimerEvent[] = [];
   /** an upgrade that fired while the player was AFK - replayed on return */
   private deferred: number | null = null;
@@ -141,6 +148,11 @@ export class TierDirector {
       this.applyFinalState();
       return;
     }
+    // if the PREVIOUS rung's show never finished (its beats are being
+    // cancelled right now), snap its final state in first - otherwise
+    // that rung's visuals (deck, ball look, court…) are simply lost
+    if (this.visualTier !== this.applied) this.applyFinalState();
+
     this.applied = tierId; // gameplay flips atomically; visuals follow
 
     const fx = T.progressionFx;
@@ -204,10 +216,15 @@ export class TierDirector {
           Math.max(fx.changeBeatMs, totalMs - fx.leadMs),
         ),
       );
+    // the show's final beat marks the visuals complete at this tier
+    this.at(totalMs, () => {
+      this.visualTier = tierId;
+    });
   }
 
   /** Everything the applied tier implies, applied at once, no animation. */
   private applyFinalState() {
+    this.visualTier = this.applied;
     this.hooks.rebuildHoop(
       hoopGeometryForTier(this.applied),
       hoopLookForTier(this.applied),
