@@ -122,6 +122,12 @@ export function stepBall(
     // only interact with the hoop when we're in its lane
     if (Math.abs(s.d - RIM.d) < T.hoop.laneDepthM) {
       for (const rim of geom.rims) {
+        // a CLEAN ENTRY isn't grabbed by the iron (owner bug 2026-07-16:
+        // flat slam arcs into the raised upper rim): the tip's point
+        // collider reaches ballR+0.02 - more than twice the drawn iron -
+        // and used to swat balls whose center was still above the plane
+        // but already dropping straight into the opening
+        if (willEnterOpening(s, rim)) continue;
         if (collideRimPoint(s, rim.x - rim.r, rim.h)) ev.push("rim");
         if (collideRimPoint(s, rim.x + rim.r, rim.h)) ev.push("rim");
       }
@@ -139,6 +145,22 @@ export function stepBall(
   }
 
   return ev;
+}
+
+/**
+ * Is this ball, descending from above the rim's plane, on a path whose
+ * center crosses INSIDE the opening (full ball radius margin)? Then it's
+ * a clean bucket in the making and the rim tips must not swat it. The
+ * short projection ignores gravity - the look-ahead window is tiny.
+ */
+function willEnterOpening(s: BallState, rim: RimSpec): boolean {
+  if (s.vh >= 0 || s.h <= rim.h || s.rimsMade.includes(rim.id)) return false;
+  const t = (s.h - rim.h) / -s.vh;
+  // only the last moments before the plane - beyond that the projection
+  // (and the ball's path) can still change too much to wave the iron off
+  if (t > 0.12) return false;
+  const xCross = s.x + s.vx * t;
+  return Math.abs(xCross - rim.x) < rim.r - T.throw.ballRadiusM;
 }
 
 /** Circle-vs-point bounce against a rim tip. */

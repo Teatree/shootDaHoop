@@ -183,6 +183,19 @@ describe("multi-rim geometry (tier 3 double hoop)", () => {
     expect(events).not.toContain("miss");
   });
 
+  it("a FLAT slam arc into the upper opening is not swatted by the iron", () => {
+    // owner bug 2026-07-16: teleport slams from the raised orb come in
+    // flat, and the front tip's point collider (ballR+0.02 - twice the
+    // drawn iron) used to swat balls that were dropping cleanly into
+    // the opening. willEnterOpening waves the iron off a clean entry.
+    // This exact launch (orb-height release, 19 m/s flat) rattled out
+    // via tip -> board -> miss before the fix.
+    const s = createBallState(upper.x - 13.24, D0, 13.1, 19.0, 0.2);
+    const { events } = fly(s, 6, 1 / 120, g3);
+    expect(s.rimsMade).toEqual(["upper", "lower"]); // the funnel carries on
+    expect(events).not.toContain("miss");
+  });
+
   it("the DOUBLE SHOT is physically achievable: one launch takes both rims", () => {
     // deterministic grid search over launches that cross the upper
     // opening - the doc's promise is that the protruding upper enables a
