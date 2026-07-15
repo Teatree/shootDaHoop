@@ -8,7 +8,7 @@ import type { BallLookId } from "./shared/tierChanges";
 export interface Shot {
   vx: number; // m/s toward the hoop (+x)
   vh: number; // m/s up
-  power: number; // 0..1 fraction of max — drives the preview's meter look
+  power: number; // 0..1 fraction of max - drives the preview's meter look
 }
 
 // power-meter heat: cream (soft) → amber (medium) → red (full);
@@ -44,13 +44,13 @@ export class AimController {
     private readonly player: Player,
     private readonly onThrow: (shot: Shot) => void,
     private readonly onWalkClick: (sx: number, sy: number) => void,
-    /** the ACTIVE tier's power curve — the ball-range permanent effect
+    /** the ACTIVE tier's power curve - the ball-range permanent effect
      *  raises it, so a getter, not a constant */
     private readonly power: () => PowerCurve,
-    /** the ACTIVE tier's ball look — a non-classic ball means the
+    /** the ACTIVE tier's ball look - a non-classic ball means the
      *  ball-range effect landed, and the trail shows it too */
     private readonly trailLook: () => BallLookId,
-    /** the daily budget is spent — right-click points instead of aiming */
+    /** the daily budget is spent - right-click points instead of aiming */
     private readonly outOfThrows: () => boolean,
   ) {
     this.preview = scene.add.graphics().setDepth(900);
@@ -62,7 +62,7 @@ export class AimController {
           this.begin(p);
         } else if (p.leftButtonDown() && !this.aiming && over.length === 0) {
           // clicks on interactive world objects (upgrade button, jukebox…)
-          // are theirs — a bare floor click is a walk
+          // are theirs - a bare floor click is a walk
           const wp = scene.cameras.main.getWorldPoint(p.x, p.y);
           const { x, d } = screenToFloor(wp.x, wp.y);
           this.player.walkTo(x, d);
@@ -119,7 +119,7 @@ export class AimController {
   cancel() {
     if (this.pointing) {
       this.pointing = false;
-      this.player.exitPoint(); // no punch — control was taken away
+      this.player.exitPoint(); // no punch - control was taken away
     }
     if (!this.aiming) return;
     this.aiming = false;
@@ -177,7 +177,7 @@ export class AimController {
     this.preview.clear();
     const shot = this.computeShot();
     // feed the live aim into the character pose (the hold leans with it
-    // and pulls back with power) — deadzone = ball held, no lean yet
+    // and pulls back with power) - deadzone = ball held, no lean yet
     this.player.aimInfo = shot
       ? { angle: Math.atan2(shot.vh, shot.vx), power: shot.power }
       : null;
@@ -186,12 +186,12 @@ export class AimController {
     // Simulate the true flight; the drawn arc is the POWER METER:
     // its length grows with power and its dots heat cream → red.
     // Dots shrink and fade along the arc so the line dissipates
-    // instead of hard-stopping — except at 100% power, where it ends
+    // instead of hard-stopping - except at 100% power, where it ends
     // in a pulsing ring: you're at the limit.
     const a = T.aim;
     const atMax = shot.power >= 1;
     // boosted balls (tier 2+ range effect) draw a longer trail in the
-    // boosted hue family — the upgrade is visible in the aim itself
+    // boosted hue family - the upgrade is visible in the aim itself
     const boosted = this.trailLook() !== "classic";
     const minLenM = boosted ? a.boosted.previewMinLenM : a.previewMinLenM;
     const maxLenM = boosted ? a.boosted.previewMaxLenM : a.previewMaxLenM;
@@ -220,7 +220,7 @@ export class AimController {
       px = nx;
       ph = nh;
       // mirror Ball.update's depth easing so the drawn line IS the true
-      // screen path — the ball's center tracks these dots exactly
+      // screen path - the ball's center tracks these dots exactly
       pd += (RIM.d - pd) * Math.min(1, T.throw.depthEaseRate * step);
       const { sx, sy } = toScreen(px, pd, ph);
       endSX = sx;
@@ -237,7 +237,7 @@ export class AimController {
     }
 
     if (atMax) {
-      // pulsing cap ring — the visible power limit, in the family's hottest hue
+      // pulsing cap ring - the visible power limit, in the family's hottest hue
       const pulse = 0.7 + 0.3 * Math.sin(this.scene.time.now / 90);
       this.preview.lineStyle(2.5, stops[2], 0.9 * pulse);
       this.preview.strokeCircle(endSX, endSY, a.previewCapRingPx * pulse);

@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { T } from "./tuning";
 import { sortDepth, toScreen } from "./world";
 
-/** Anything a bubble can hang above — the local Player or a RemoteAvatar. */
+/** Anything a bubble can hang above - the local Player or a RemoteAvatar. */
 export interface BubbleAnchor {
   x: number;
   d: number;
@@ -73,7 +73,7 @@ export class SpeechBubbles {
     if (!this.active) this.showNext();
   }
 
-  /** What's on screen right now — sampled by ghost recordings. */
+  /** What's on screen right now - sampled by ghost recordings. */
   current(): { text: string; age: number } | null {
     const a = this.active;
     return a && !a.fading ? { text: a.text, age: a.age } : null;

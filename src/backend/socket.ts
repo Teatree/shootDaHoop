@@ -9,7 +9,7 @@ import { BackendEmitter, type Backend, type BackendEvents } from "./types";
 
 // Live multiplayer: the same Backend surface as LocalBackend, spoken over
 // a WebSocket to the game server. Intents go up; the server's events come
-// down. The client's live ball is COSMETIC here — reportOutcome is a
+// down. The client's live ball is COSMETIC here - reportOutcome is a
 // no-op, the server resolves every throw and its outcome arrives as an
 // event.
 
@@ -18,7 +18,7 @@ export type SocketIdentity = Cosmetics & { id: string };
 export class SocketBackend implements Backend {
   private readonly emitter = new BackendEmitter();
   private ws: WebSocket | null = null;
-  /** the admin kicked this lobby — the close that follows is expected */
+  /** the admin kicked this lobby - the close that follows is expected */
   private removed = false;
 
   constructor(
@@ -179,7 +179,7 @@ export class SocketBackend implements Backend {
   requestThrow(throwId: string, launch: ThrowLaunch): void {
     this.send({ t: "throw", throwId, launch });
     // optimistic: spawn our ball NOW (zero-latency feel, exactly like the
-    // prototype) — the server relays the throw to everyone else and owns
+    // prototype) - the server relays the throw to everyone else and owns
     // the outcome. If it rejects (budget/invalid), the flight was cosmetic
     // and a throw-rejected notice follows; no score can come from it.
     this.emitter.emit("throwStarted", {
@@ -189,7 +189,7 @@ export class SocketBackend implements Backend {
     });
   }
 
-  /** The server is the authority — the local ball's opinion is cosmetic. */
+  /** The server is the authority - the local ball's opinion is cosmetic. */
   reportOutcome(): void {
     /* intentionally ignored */
   }

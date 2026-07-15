@@ -23,7 +23,7 @@ export function presentScore(
   pts: number,
   slam: boolean,
   onReplay?: () => void,
-  /** log-only: the tab is hidden — tweens/particles made now would all
+  /** log-only: the tab is hidden - tweens/particles made now would all
    *  burst at once when the player comes back */
   quiet = false,
 ) {
@@ -72,18 +72,18 @@ export function presentScore(
 
   const d = o.distM.toFixed(1);
   const who = esc(ctx.who);
-  // big lines are plain text — the rainbow gradient owns the whole line
+  // big lines are plain text - the rainbow gradient owns the whole line
   ctx.hud.log(
     "throw",
     slam
-      ? `${who} — ${d}m teleport slam! ${o.swish ? "SWISH! " : ""}+${pts}`
+      ? `${who} - ${d}m teleport slam! ${o.swish ? "SWISH! " : ""}+${pts}`
       : double
-        ? `${who} — ${d}m DOUBLE${o.swish ? " SWISH" : ""}! both rims! +${pts}`
+        ? `${who} - ${d}m DOUBLE${o.swish ? " SWISH" : ""}! both rims! +${pts}`
         : big
-          ? `${who} — ${d}m ${o.swish ? "SWISH! " : ""}+${pts}`
+          ? `${who} - ${d}m ${o.swish ? "SWISH! " : ""}+${pts}`
           : o.swish
-            ? `${who} — ${d}m <span class="swish">SWISH!</span> <span class="pts">+${pts}</span>`
-            : `${who} — ${d}m hit <span class="pts">+${pts}</span>`,
+            ? `${who} - ${d}m <span class="swish">SWISH!</span> <span class="pts">+${pts}</span>`
+            : `${who} - ${d}m hit <span class="pts">+${pts}</span>`,
     big ? "bigscore" : undefined,
     onReplay,
   );
@@ -98,8 +98,8 @@ export function presentMiss(
   ctx.hud.log(
     "throw",
     slam
-      ? `${esc(ctx.who)} — teleport slam failed!`
-      : `${esc(ctx.who)} — ${o.distM.toFixed(1)}m miss`,
+      ? `${esc(ctx.who)} - teleport slam failed!`
+      : `${esc(ctx.who)} - ${o.distM.toFixed(1)}m miss`,
     "miss", // the wall's filter dropdown can hide miss lines
     onReplay,
   );

@@ -18,7 +18,7 @@ import {
   orbTimingForTier,
 } from "./tierRules";
 
-// The tier recipes are DATA — these tests pin the doc's exact numbers
+// The tier recipes are DATA - these tests pin the doc's exact numbers
 // (HOOP_PROGRESSION.md) so a recipe edit that breaks a spec value fails
 // loudly, and the geometry fold that physics/render/camera all share
 // stays deterministic.
@@ -55,7 +55,7 @@ describe("hoopGeometryForTier", () => {
     expect(g.rims).toHaveLength(1);
     expect(g.rims[0].h).toBeCloseTo(BALANCE.hoop.rimHeightM * 1.4, 10);
     expect(g.rims[0].r).toBeCloseTo(BALANCE.hoop.rimRadiusM * 1.15, 10);
-    // the whole hoop scales — board extents track ×1.4
+    // the whole hoop scales - board extents track ×1.4
     expect(g.boardBottomM).toBeCloseTo(BALANCE.hoop.boardBottomM * 1.4, 10);
     expect(g.boardTopM).toBeCloseTo(BALANCE.hoop.boardTopM * 1.4, 10);
   });
@@ -66,7 +66,7 @@ describe("hoopGeometryForTier", () => {
     const [upper, lower] = g.rims;
     // owner 2026-07-15 (revised down from "1 full hoop height"): the
     // second (upper) hoop sits exactly 2 rim-with-net heights above the
-    // LOWER rim — one unit = the rim stroke (5 px) + the hanging net (2×r)
+    // LOWER rim - one unit = the rim stroke (5 px) + the hanging net (2×r)
     const rimNetM = 5 / BALANCE.court.meterPx + 2 * lower.r;
     expect(upper.h).toBeCloseTo(lower.h + 2 * rimNetM, 10);
     // the upper is the slimmer one, the lower the wider one

@@ -6,7 +6,7 @@ Drop the three reference songs here as:
 - `song2.mp3` (or `.wav`)
 - `song3.mp3` (or `.wav`)
 
-No code change needed — the game probes these slots at boot. Missing
+No code change needed - the game probes these slots at boot. Missing
 files are fine: the jukebox still works (the song choice syncs to
 everyone in the world), it just plays silence for that slot.
 

@@ -1,7 +1,7 @@
 import { BALANCE } from "./config";
 import { RIM } from "./court";
 
-// The teleport orb as DATA + pure rules — no Phaser, no Node. This is the
+// The teleport orb as DATA + pure rules - no Phaser, no Node. This is the
 // shared half of a SERVER-AUTHORITATIVE WORLD OBJECT: the authority (the
 // server Room in multiplayer, LocalBackend offline) rolls spawns, owns the
 // expiry clock and decides consumption; every client just renders the
@@ -10,7 +10,7 @@ import { RIM } from "./court";
 // pure rules here, lifecycle in the authority, rendering in the scene.
 
 export interface OrbState {
-  seq: number; // monotonically increasing per world — dedupes remove/spawn races
+  seq: number; // monotonically increasing per world - dedupes remove/spawn races
   x: number; //  court meters
   d: number;
   h: number;
@@ -27,7 +27,7 @@ export function rollOrbSpawn(seq: number, rand: () => number = Math.random): Orb
   };
 }
 
-/** Ball-vs-orb overlap — the ONE hit rule, used by client feel and server ruling. */
+/** Ball-vs-orb overlap - the ONE hit rule, used by client feel and server ruling. */
 export function orbHitTest(
   orb: OrbState,
   bx: number,

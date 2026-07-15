@@ -36,7 +36,7 @@ function fly(s: BallState, seconds: number, dt = 1 / 120, geom?: HoopGeometry) {
 const count = (evs: BallEvent[], e: BallEvent) => evs.filter((x) => x === e).length;
 
 describe("scoring (swept rim-plane crossing)", () => {
-  it("a clean centered arc scores — and is a swish (no rim contact)", () => {
+  it("a clean centered arc scores - and is a swish (no rim contact)", () => {
     const { vx, vh } = arcTo(RIM.x, RIM.h, 1.2);
     const s = createBallState(X0, D0, H0, vx, vh);
     const { events } = fly(s, 2);
@@ -74,7 +74,7 @@ describe("scoring (swept rim-plane crossing)", () => {
 
   it("rejects a geometrically-good crossing when the ball is off the rim's depth lane", () => {
     // thrown from the far sideline (d=0): arriving at t=0.9 the depth has
-    // only converged to ~2.59, outside hoop.scoreDepthM — no bucket
+    // only converged to ~2.59, outside hoop.scoreDepthM - no bucket
     const { vx, vh } = arcTo(RIM.x, RIM.h, 0.9);
     const s = createBallState(X0, 0, H0, vx, vh);
     const { events } = fly(s, 3);
@@ -96,7 +96,7 @@ describe("backboard (swept plane crossing)", () => {
 
   it("a lob descending onto the UPPER board bounces (upper-board tunnel regression)", () => {
     // this arc's edge reaches the board plane while the center is still
-    // just above boardTopM, then the center drops into the board — the
+    // just above boardTopM, then the center drops into the board - the
     // old one-shot crossing test missed it and the ball sailed through
     const { vx, vh } = arcTo(boardX, 7.9, 1.3);
     const s = createBallState(X0, D0, H0, vx, vh);
@@ -110,7 +110,7 @@ describe("backboard (swept plane crossing)", () => {
     const { events, xs } = fly(s, 4);
     expect(events).not.toContain("board");
     expect(events).toContain("wall"); // it flew on and met the boundary
-    // x must be monotonic until the wall bounce — no backwards snapping
+    // x must be monotonic until the wall bounce - no backwards snapping
     const firstWallX = Math.max(...xs);
     let prev = -Infinity;
     for (const x of xs) {
@@ -172,7 +172,7 @@ describe("multi-rim geometry (tier 3 double hoop)", () => {
     // a steep lob through the upper opening's center; whatever it clips
     // on the way down, it must end made (≥1 rim), never a miss.
     // t = 2.2 s puts the apex ~2 m above the RAISED rim (owner
-    // 2026-07-15: +1 full hoop height) so the descent is clean — the old
+    // 2026-07-15: +1 full hoop height) so the descent is clean - the old
     // 1.6 s arc barely poked above the plane and never dropped through
     const { vx, vh } = arcTo(upper.x, upper.h, 2.2);
     const s = createBallState(X0, D0, H0, vx, vh);
@@ -185,7 +185,7 @@ describe("multi-rim geometry (tier 3 double hoop)", () => {
 
   it("the DOUBLE SHOT is physically achievable: one launch takes both rims", () => {
     // deterministic grid search over launches that cross the upper
-    // opening — the doc's promise is that the protruding upper enables a
+    // opening - the doc's promise is that the protruding upper enables a
     // ball to fall through it and carry into the lower opening
     let found: { vx: number; vh: number } | null = null;
     outer: for (let tx = upper.x - upper.r + 0.4; tx <= upper.x + upper.r - 0.36; tx += 0.05) {

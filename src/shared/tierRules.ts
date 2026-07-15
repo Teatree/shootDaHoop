@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════
-//  TIER RULES — pure selectors that FOLD the tier recipes (shared/
+//  TIER RULES - pure selectors that FOLD the tier recipes (shared/
 //  tiers.ts) into the live gameplay values the engine runs on: hoop
 //  geometry, throw power, looks, orb timing, unlock checks.
 //
@@ -41,7 +41,7 @@ export function canUpgrade(w: { sharedScore: number; tierId: number }): boolean 
   return next !== null && w.sharedScore >= next.threshold;
 }
 
-/** Tiers 1..tierId in play order — effects accumulate across them. */
+/** Tiers 1..tierId in play order - effects accumulate across them. */
 function tiersUpTo(tierId: number): HoopTierDef[] {
   return HOOP_TIERS.filter((t) => t.id <= tierId);
 }
@@ -120,14 +120,14 @@ function buildGeometry(f: HoopFold): HoopGeometry {
   const lowerH = topH - dbl.gapM;
   const upperR = f.rimR * dbl.upper.rScale;
   // "one rim with its net" = the lower rim's stroke (~5 px in the
-  // renderer) plus its hanging net (the renderer draws it 2×r deep) —
+  // renderer) plus its hanging net (the renderer draws it 2×r deep) -
   // the raise unit for rimNetsAboveLower (owner 2026-07-15: the upper
   // rim sits 2 of these above the LOWER rim; the board does not follow)
   const rimNetM = 5 / BALANCE.court.meterPx + 2 * lowerR;
   const upper: RimSpec = {
     id: "upper",
     // the upper rim's FRONT (left) tip protrudes further out than the
-    // lower's front tip — this is what enables the double shot
+    // lower's front tip - this is what enables the double shot
     x: lowerX - lowerR - dbl.upper.protrudeLeftPx / BALANCE.court.meterPx + upperR,
     h: dbl.upper.rimNetsAboveLower !== undefined
       ? lowerH + dbl.upper.rimNetsAboveLower * rimNetM
@@ -136,7 +136,7 @@ function buildGeometry(f: HoopFold): HoopGeometry {
   };
   if (f.dblStage === "upper-only") {
     // mid-choreography: the upper has jutted forward, the lower is yet
-    // to splash in beneath (presentation only — live physics runs on
+    // to splash in beneath (presentation only - live physics runs on
     // the FULL tier geometry from the moment the upgrade fires)
     return {
       rims: [upper],
@@ -166,7 +166,7 @@ export function hoopGeometryForTier(tierId: number): HoopGeometry {
 }
 
 /**
- * The hoop's look AFTER each beat of a tier's upgrade choreography — one
+ * The hoop's look AFTER each beat of a tier's upgrade choreography - one
  * geometry per entry of the hoop change's `choreo` array ("wait" beats
  * keep the previous look). The choreography player rebuilds the visual
  * hoop through these stages while the LIVE geometry is already the full
@@ -206,7 +206,7 @@ export function hoopChoreoGeometries(tierId: number): HoopGeometry[] {
 
 // ── Hoop look (the paint job repaints with each hoop change) ──────────
 
-/** Tier 1's paint: cream board, orange rim, gray pole — today's hoop. */
+/** Tier 1's paint: cream board, orange rim, gray pole - today's hoop. */
 const BASE_HOOP_LOOK: HoopLook = {
   board: 0xf6ead2,
   boardEdge: 0x8a6a4a,
@@ -229,7 +229,7 @@ export interface PowerCurve {
   maxPowerM: number;
 }
 
-/** "Balls travel X% further" scales launch SPEED by √X — flight range on
+/** "Balls travel X% further" scales launch SPEED by √X - flight range on
  *  flat ground grows with v², so this lands exactly on the doc's +25%. */
 export function effectivePowerForTier(tierId: number): PowerCurve {
   let travelK = 1;
@@ -333,7 +333,7 @@ export const BASE_ATMOSPHERE: Atmosphere = {
   sky: 0xf9e3b8,
 };
 
-/** Last-wins fold, like the court skin — a reset restores the base sky.
+/** Last-wins fold, like the court skin - a reset restores the base sky.
  *  A change without `sky` keeps the previous tier's sky colour. */
 export function atmosphereForTier(tierId: number): Atmosphere {
   let atm = BASE_ATMOSPHERE;

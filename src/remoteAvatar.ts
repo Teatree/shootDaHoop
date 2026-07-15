@@ -16,10 +16,10 @@ import type { AvatarState, PlayerInfo } from "./shared/messages";
 
 // Another player's character. Two sources of truth, best first:
 //
-//  1. POSE TELEMETRY — ~12 Hz AvatarState samples. We render ~150 ms in
+//  1. POSE TELEMETRY - ~12 Hz AvatarState samples. We render ~150 ms in
 //     the past and lerp between the two samples straddling that moment,
 //     so motion (and the telegraphed aim) is smooth, never jerky.
-//  2. FALLBACK SIM — if the stream goes stale (drops, an old server),
+//  2. FALLBACK SIM - if the stream goes stale (drops, an old server),
 //     the original move-to intent walk + teleport state machine take
 //     over, exactly the pre-telemetry behaviour.
 //
@@ -28,7 +28,7 @@ import type { AvatarState, PlayerInfo } from "./shared/messages";
 
 const ZAP = [0x2e7bff, 0x9fd0ff, 0xffffff] as const;
 
-/** render this far behind the newest sample — one lost packet's slack */
+/** render this far behind the newest sample - one lost packet's slack */
 const LERP_DELAY_S = 0.15;
 /** no samples for this long → the intent-walk fallback drives */
 const STALE_S = 0.7;
@@ -57,13 +57,13 @@ const lerpTimed = (a: TimedState, b: TimedState, f: number): TimedState => {
 export class RemoteAvatar {
   x: number;
   d: number;
-  /** feet height above the floor — non-zero through a teleport arc */
+  /** feet height above the floor - non-zero through a teleport arc */
   airH = 0;
 
   readonly name: string;
 
   /** Set by the scene: is (x, d) a spot on the cheer deck at the ACTIVE
-   *  tier? An offline character standing there cheers along — wearily
+   *  tier? An offline character standing there cheers along - wearily
    *  (owner ask 2026-07-15). Null until the scene wires it. */
   onCheerDeck: ((x: number, d: number) => boolean) | null = null;
 
@@ -107,7 +107,7 @@ export class RemoteAvatar {
         fontStyle: "bold",
         color: "#ffffff",
         stroke: "#20303a",
-        strokeThickness: 3, // dark outline — readable against sky and court
+        strokeThickness: 3, // dark outline - readable against sky and court
       })
       .setOrigin(0.5, 1)
       .setResolution(2);
@@ -122,7 +122,7 @@ export class RemoteAvatar {
     this.label.setAlpha(off ? 0.8 : 1);
   }
 
-  /** A ~12 Hz telemetry sample — the primary animation source. */
+  /** A ~12 Hz telemetry sample - the primary animation source. */
   pushSample(s: AvatarState) {
     this.buffer.push({ t: this.clock, s });
     // keep a couple of seconds; sampleAt scans linearly
@@ -131,7 +131,7 @@ export class RemoteAvatar {
       this.buffer.shift();
   }
 
-  /** A broadcast movement intent — fallback path (and stale recovery).
+  /** A broadcast movement intent - fallback path (and stale recovery).
    *  Coordinates arrive pre-clamped: CourtScene clamps to the TIER'S
    *  walkable space (court + cheer deck), not the bare court, so a
    *  waiting offline character can walk up onto the deck. */
@@ -143,7 +143,7 @@ export class RemoteAvatar {
     if (Math.abs(x - this.x) > 0.01) this.facingRight = x >= this.x;
   }
 
-  /** Snapshot reconciliation — snap without walking. */
+  /** Snapshot reconciliation - snap without walking. */
   setPos(x: number, d: number) {
     if (this.streamFresh()) return; // the stream is truth while it flows
     if (this.walking || this.tpState !== "none") return;
@@ -151,7 +151,7 @@ export class RemoteAvatar {
     this.d = d;
   }
 
-  /** The server ruled their ball hit the orb — zap VFX + fallback state. */
+  /** The server ruled their ball hit the orb - zap VFX + fallback state. */
   teleportTo(x: number, d: number, h: number) {
     // zapp out…
     const fs = toScreen(this.x, this.d, this.airH + 1);
@@ -175,7 +175,7 @@ export class RemoteAvatar {
     playSfx(this.scene, "sfx_pop", 0.8);
   }
 
-  /** Their levitation throw arrived — falling starts now, like ours. */
+  /** Their levitation throw arrived - falling starts now, like ours. */
   onThrowReleased() {
     if (this.tpState === "levitate") this.startFall();
   }
@@ -263,7 +263,7 @@ export class RemoteAvatar {
       }
     } else if (this.offline && this.onCheerDeck?.(this.x, this.d)) {
       // an abandoned character that walked up onto the cheer deck cheers
-      // along with everyone — but tired: the clock runs at the weary
+      // along with everyone - but tired: the clock runs at the weary
       // rate (40% slower) and the pose hangs its head
       this.cheerT += dt * WEARY_CHEER_RATE;
       pose = { kind: "cheer", t: this.cheerT, weary: true };

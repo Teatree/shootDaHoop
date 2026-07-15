@@ -22,13 +22,13 @@ import type {
 } from "../shared/tierChanges";
 
 // The client-side player of tier recipes (shared/tiers.ts). It owns the
-// APPLIED tier — the tier the world is currently drawn/simulated at —
+// APPLIED tier - the tier the world is currently drawn/simulated at -
 // and the two ways a world reaches a tier:
 //
-//   applyInstant  — no animation: late joiners load straight into the
+//   applyInstant  - no animation: late joiners load straight into the
 //                   upgraded world; snapshots self-heal a missed event;
 //                   world resets snap back to tier 1.
-//   playUpgrade   — the live moment: the tier's ORDERED change list
+//   playUpgrade   - the live moment: the tier's ORDERED change list
 //                   plays out as choreography, each change through its
 //                   change-type hook, hoop beats through the staged
 //                   geometries of shared/tierRules.hoopChoreoGeometries.
@@ -57,7 +57,7 @@ export interface TierDirectorHooks {
   /** remove every placed interactive (a world reset back down a tier) */
   clearInteractives(): void;
   /** retint the world's light (camera wash + sky colour + sun mood);
-   *  fx null = instant. fadeMs overrides the default transition length —
+   *  fx null = instant. fadeMs overrides the default transition length -
    *  a `gradual` atmosphere hands in the whole show's remaining time. */
   setAtmosphere(a: Atmosphere, fx: FxKind | null, fadeMs?: number): void;
 }
@@ -65,7 +65,7 @@ export interface TierDirectorHooks {
 export class TierDirector {
   private applied = 1;
   private timers: Phaser.Time.TimerEvent[] = [];
-  /** an upgrade that fired while the player was AFK — replayed on return */
+  /** an upgrade that fired while the player was AFK - replayed on return */
   private deferred: number | null = null;
 
   constructor(
@@ -78,7 +78,7 @@ export class TierDirector {
     return this.applied;
   }
 
-  /** The ball look of the applied tier — recordings stamp this. */
+  /** The ball look of the applied tier - recordings stamp this. */
   get ballLook(): BallLookId {
     return ballLookForTier(this.applied);
   }
@@ -88,7 +88,7 @@ export class TierDirector {
     if (this.deferred !== null) {
       // an AFK catch-up replay is queued: snapshots carrying that same
       // tier must NOT preempt the show; any OTHER tier means the world
-      // moved elsewhere (another upgrade, a reset) — drop the hold
+      // moved elsewhere (another upgrade, a reset) - drop the hold
       if (tierId === this.deferred) return;
       this.deferred = null;
     }
@@ -111,14 +111,14 @@ export class TierDirector {
     return this.deferred !== null;
   }
 
-  /** The player is back — play the held transformation. */
+  /** The player is back - play the held transformation. */
   playDeferred() {
     const t = this.deferred;
     this.deferred = null;
     if (t === null || t <= this.applied) return;
     // PLACEHOLDER (presentation): the catch-up plays the FINAL rung's
     // full choreography. If the world upgraded more than once while
-    // away, the intermediate recipes can't chain — snap through them
+    // away, the intermediate recipes can't chain - snap through them
     // first, then play the last leg.
     if (t > this.applied + 1) {
       this.cancelPlayback();
@@ -135,7 +135,7 @@ export class TierDirector {
     this.cancelPlayback();
     const tier = getTier(tierId);
     if (!tier || tierId !== this.applied + 1) {
-      // a recipe choreographs ONE rung of the ladder — a jump (missed
+      // a recipe choreographs ONE rung of the ladder - a jump (missed
       // events while disconnected/AFK across several upgrades) snaps
       this.applied = tierId;
       this.applyFinalState();
@@ -145,7 +145,7 @@ export class TierDirector {
 
     const fx = T.progressionFx;
     const geoms = hoopChoreoGeometries(tierId);
-    // gradual atmospheres fade across the WHOLE show — they hold no slot
+    // gradual atmospheres fade across the WHOLE show - they hold no slot
     // of their own and are scheduled once the total length is known
     const gradual: AtmosphereChange[] = [];
     let at = fx.leadMs;
@@ -188,13 +188,13 @@ export class TierDirector {
           at += fx.changeBeatMs;
           break;
         case "new-animation":
-          break; // a data unlock — nothing to stage
+          break; // a data unlock - nothing to stage
         case "ambient-spawn":
-          break; // the authority's spawn clock changes — nothing to stage
+          break; // the authority's spawn clock changes - nothing to stage
       }
     }
     // "alongside the other sequences": start with beat 1, land with the
-    // last one — the fade spans everything scheduled above
+    // last one - the fade spans everything scheduled above
     const totalMs = at;
     for (const change of gradual)
       this.at(fx.leadMs, () =>
@@ -228,7 +228,7 @@ export class TierDirector {
     this.timers.push(timer);
   }
 
-  /** A newer state takes over — drop any beats still scheduled. */
+  /** A newer state takes over - drop any beats still scheduled. */
   private cancelPlayback() {
     for (const t of this.timers) t.remove(false);
     this.timers = [];

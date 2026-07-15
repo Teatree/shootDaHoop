@@ -10,7 +10,7 @@ body {
   overflow: hidden;
   background: #1d1712;
   font-family: "Courier New", Courier, monospace;
-  font-weight: bold; /* everything bold — reads better in pixel mode */
+  font-weight: bold; /* everything bold - reads better in pixel mode */
 }
 
 #app {
@@ -37,7 +37,7 @@ body {
   image-rendering: pixelated;
 }
 
-/* Ball inventory — bottom-left of the viewport, 5 cosmetic slots */
+/* Ball inventory - bottom-left of the viewport, 5 cosmetic slots */
 #ball-slots {
   position: absolute;
   left: 12px;
@@ -113,7 +113,7 @@ body {
 
 /* ── Modal overlays: the name card, Settings, admin notices ─────────
    #name-* ids are the original name card; .modal-* are the shared
-   classes settings.ts builds its cards from — same look, one place. */
+   classes settings.ts builds its cards from - same look, one place. */
 
 #name-overlay,
 .modal-overlay {
@@ -326,7 +326,7 @@ body {
   84%, 100% { background: transparent; }
 }
 
-/* Chat — MMORPG-style input, bottom-center */
+/* Chat - MMORPG-style input, bottom-center */
 #chat-wrap {
   position: absolute;
   bottom: 12px;
@@ -359,7 +359,7 @@ body {
 }
 
 /* The gear sits at the VERY RIGHT edge of the game section, on the
-   chat row's baseline (owner ask 2026-07-15) — its own overlay, no
+   chat row's baseline (owner ask 2026-07-15) - its own overlay, no
    longer part of the chat cluster */
 #settings-btn {
   position: absolute;
@@ -573,7 +573,7 @@ body {
   text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.4);
 }
 
-/* Throw outcomes — the standard line */
+/* Throw outcomes - the standard line */
 .log-line.throw {
   color: #cdbb9b;
 }
@@ -604,7 +604,7 @@ body {
   font-weight: bold;
 }
 
-/* Big score (>300 pts in one shot) — swimming animated rainbow.
+/* Big score (>300 pts in one shot) - swimming animated rainbow.
    The line must be plain text: background-clip:text fights inner spans. */
 .log-line.throw.bigscore {
   background: linear-gradient(
@@ -646,7 +646,7 @@ body {
   }
 }
 
-/* Chat — styled MORE prominently than other lines */
+/* Chat - styled MORE prominently than other lines */
 .log-line.chat {
   color: #fff3d6;
   font-size: 13px;
@@ -661,14 +661,14 @@ body {
   color: #ffb84d;
 }
 
-/* Presence — join / leave / errors, subdued (filterable) */
+/* Presence - join / leave / errors, subdued (filterable) */
 .log-line.presence {
   color: #8fa387;
   font-style: italic;
   font-size: 11px;
 }
 
-/* World moments — score resets, tier unlocks; never filterable */
+/* World moments - score resets, tier unlocks; never filterable */
 .log-line.world {
   color: #e0c98f;
   font-style: italic;

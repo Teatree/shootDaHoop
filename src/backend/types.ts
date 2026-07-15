@@ -27,14 +27,14 @@ export interface BackendEvents {
   joinRejected: (e: { reason: "full" }) => void;
   /** the connection dropped (socket backends only) */
   disconnected: (e: { reason?: string }) => void;
-  /** the admin removed this lobby — a kick, not a network drop */
+  /** the admin removed this lobby - a kick, not a network drop */
   lobbyRemoved: (e: Record<string, never>) => void;
   playerJoined: (e: { player: PlayerInfo }) => void;
   playerLeft: (e: { id: string; name: string }) => void;
-  /** the player disconnected; their character STAYS and waits — gray the
+  /** the player disconnected; their character STAYS and waits - gray the
    *  tag. A later playerJoined with the same id = they reclaimed it. */
   playerWentOffline: (e: { id: string; name: string }) => void;
-  /** a movement intent — every client animates the walk locally */
+  /** a movement intent - every client animates the walk locally */
   playerMoved: (e: { id: string; x: number; d: number }) => void;
   /**
    * pose telemetry (~12 Hz): full avatar state, interpolated on the
@@ -42,7 +42,7 @@ export interface BackendEvents {
    * move-to intent walk is the staleness fallback.
    */
   playerPosed: (e: { id: string; s: AvatarState }) => void;
-  /** a throw is happening — clients animate the arc from the launch params */
+  /** a throw is happening - clients animate the arc from the launch params */
   throwStarted: (e: { id: string; throwId: string; launch: ThrowLaunch }) => void;
   /** the authoritative result (server-decided in multiplayer) */
   outcome: (e: ThrowOutcome) => void;
@@ -50,7 +50,7 @@ export interface BackendEvents {
   chatMessage: (e: { id: string; name: string; text: string }) => void;
   /**
    * A player pressed the Upgrade button: score reset, tier advanced,
-   * everyone teleported clear — the change list plays on every client.
+   * everyone teleported clear - the change list plays on every client.
    */
   upgraded: (e: {
     tierId: number;
@@ -59,19 +59,19 @@ export interface BackendEvents {
     byName: string;
     placements: { id: string; x: number; d: number }[];
   }) => void;
-  /** OUR Upgrade press was refused — threshold not met on the authority
+  /** OUR Upgrade press was refused - threshold not met on the authority
    *  (a stale server build after a tiers.ts edit) or presser too far */
   upgradeRejected: (e: { reason: "threshold" | "proximity" }) => void;
-  /** someone pressed the jukebox — the new song, or null = turned OFF */
+  /** someone pressed the jukebox - the new song, or null = turned OFF */
   jukebox: (e: { state: JukeboxState | null; byName: string }) => void;
   budget: (e: { throwsRemaining: number }) => void;
-  /** someone joined with a ?reset link — the shared score was wiped */
+  /** someone joined with a ?reset link - the shared score was wiped */
   worldReset: (e: { name: string; world: WorldState }) => void;
   // ── server-authoritative world objects (the orb) ──────────────────
   orbSpawned: (e: { orb: OrbState }) => void;
   /** byId present = consumed by that player's ball; absent = expired */
   orbRemoved: (e: { seq: number; byId?: string }) => void;
-  /** the authority ruled a player's ball hit the orb — they zap up */
+  /** the authority ruled a player's ball hit the orb - they zap up */
   teleported: (e: {
     id: string;
     throwId?: string; // the consumed ball, so every client can pop it
@@ -92,20 +92,20 @@ export interface Backend {
 
   // ── intents (client → authority) ──────────────────────────────────
   moveTo(x: number, d: number): void;
-  /** cosmetic pose telemetry — LocalBackend no-ops (nobody's watching) */
+  /** cosmetic pose telemetry - LocalBackend no-ops (nobody's watching) */
   sendPose(s: AvatarState): void;
   requestThrow(throwId: string, launch: ThrowLaunch): void;
-  /** press the Upgrade button — the authority validates and broadcasts */
+  /** press the Upgrade button - the authority validates and broadcasts */
   upgrade(): void;
-  /** press the jukebox — the authority re-rolls the synced song */
+  /** press the jukebox - the authority re-rolls the synced song */
   jukeboxPress(): void;
-  /** the OFF toggle — the authority stops the song for everyone */
+  /** the OFF toggle - the authority stops the song for everyone */
   jukeboxOffPress(): void;
   chat(text: string): void;
 
   /**
    * The client's live ball resolved (its feel-simulation finished).
-   * LocalBackend treats this as authoritative — single player IS the
+   * LocalBackend treats this as authoritative - single player IS the
    * authority. SocketBackend ignores it; the server's resolution arrives
    * as an `outcome` event instead.
    */
@@ -123,7 +123,7 @@ export interface Backend {
   /**
    * The client's live ball touched orb `seq` (its optimistic zap already
    * played). LocalBackend treats this as authoritative and echoes the
-   * orbRemoved/teleported events; SocketBackend ignores it — the server
+   * orbRemoved/teleported events; SocketBackend ignores it - the server
    * simulates the same arc and broadcasts its own ruling.
    */
   reportOrbHit(seq: number): void;

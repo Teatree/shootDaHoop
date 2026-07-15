@@ -5,7 +5,7 @@ import {
 } from "./shared/lobbyLink";
 
 // The ⚙️ Settings pop-up (gear button beside Send) and the shared modal
-// builder. Today Settings holds one thing: "Generate lobby link" — mint
+// builder. Today Settings holds one thing: "Generate lobby link" - mint
 // an invite URL for a FRESH court. The link is inert until a friend
 // opens it and enters a name; that first join is what creates the lobby
 // on the server (worlds are made on demand, see server/index.ts).
@@ -81,7 +81,7 @@ function openSettings(): void {
 }
 
 /**
- * Blocking notice (no outside-click close) — e.g. "this lobby was
+ * Blocking notice (no outside-click close) - e.g. "this lobby was
  * removed by the admin". The single button navigates away.
  */
 export function showNotice(
@@ -111,7 +111,7 @@ function buildOverlay(cardHtml: string): HTMLDivElement {
  * Clipboard API first; a throwaway textarea + execCommand keeps
  * plain-HTTP LAN testing working (the visible input only holds the bare
  * URL, so it can't stand in for the multi-line invite). If everything
- * fails, the URL stays selected — Ctrl+C at least shares the link.
+ * fails, the URL stays selected - Ctrl+C at least shares the link.
  */
 async function copyText(
   text: string,

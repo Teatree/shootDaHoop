@@ -1,6 +1,6 @@
 // Ghost record data: sample types + interpolation. Pure (no Phaser) so
 // unit tests can drive it. A frame sample IS the streamed AvatarState
-// plus recording time and world dressing — the replication payload and
+// plus recording time and world dressing - the replication payload and
 // the recording format are one type, by design.
 
 import { lerpPoseState } from "./shared/pose";
@@ -24,7 +24,7 @@ export interface BallSample {
 export interface ThrowRecording {
   name: string;
   /**
-   * The ball look AT RECORD TIME — the upgrade recolour rule: a replay
+   * The ball look AT RECORD TIME - the upgrade recolour rule: a replay
    * from before an upgrade keeps the old look, so the world stays
    * temporally consistent (HOOP_PROGRESSION.md). Optional so recordings
    * from before this field default to classic.
@@ -40,7 +40,7 @@ export interface ThrowRecording {
   teleportTo?: { x: number; d: number; h: number };
   duration?: number; //  outcomeT + postRollS, set when finalized
   done: boolean;
-  evicted: boolean; //   samples dropped to bound memory — unplayable
+  evicted: boolean; //   samples dropped to bound memory - unplayable
 }
 
 const lin = (a: number, b: number, f: number) => a + (b - a) * f;

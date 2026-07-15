@@ -42,7 +42,7 @@ export class OrbAuthority {
   /**
    * A ball ruled to hit orb `seq` just reached it. Returns the orb if it
    * is still that orb (consume it), null if it expired / was already
-   * taken — the caller falls back to a normal throw resolution.
+   * taken - the caller falls back to a normal throw resolution.
    */
   consume(seq: number): OrbState | null {
     if (!this.orb || this.orb.seq !== seq) return null;
@@ -53,7 +53,7 @@ export class OrbAuthority {
     return taken;
   }
 
-  /** Room is being torn down — stop the clock. */
+  /** Room is being torn down - stop the clock. */
   stop() {
     this.stopped = true;
     this.clearTimer();

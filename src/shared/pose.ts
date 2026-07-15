@@ -1,10 +1,10 @@
-// The character pose model — PURE math, no Phaser, so the same function
+// The character pose model - PURE math, no Phaser, so the same function
 // drives the local player, remote avatars (from streamed telemetry) and
 // ghost replays, and unit tests can pin the animation contract.
 //
 // Space conventions: offsets are pixels in FACING-RIGHT space with +y UP
 // from the feet; the rig mirrors the whole figure for left-facing and
-// converts to screen-y. Rotation is used only for whole-figure tilt —
+// converts to screen-y. Rotation is used only for whole-figure tilt -
 // tiny pixel art shears badly under per-part rotation, so every limb
 // motion here is positional.
 
@@ -29,9 +29,9 @@ export interface PoseState {
   t: number;
   /** aim/throw: launch direction, radians (0 = toward the hoop, + = up) */
   aimAngle?: number;
-  /** aim/throw: 0..1 charge — hands pull back slingshot-style with power */
+  /** aim/throw: 0..1 charge - hands pull back slingshot-style with power */
   aimPower?: number;
-  /** cheer: the tired AFK variant — head hangs a little (the SPEED of a
+  /** cheer: the tired AFK variant - head hangs a little (the SPEED of a
    *  weary cheer is the caller's job: advance `t` at WEARY_CHEER_RATE) */
   weary?: boolean;
 }
@@ -77,7 +77,7 @@ const IDLE: RigPose = {
   ball: null,
 };
 
-// walk feel — bob matches the old single-sprite character exactly
+// walk feel - bob matches the old single-sprite character exactly
 const BOB_HZ = 9; //        rad/s inside sin() (the prototype's value)
 const BOB_PX = 3;
 const SWING_PX = 5; //      hand swing amplitude, forward/back
@@ -92,14 +92,14 @@ const AIM_TILT_MAX = -5; // lean back while charging, degrees
 const THROW_REACH = 14; //  follow-through hand extension along the aim
 const THROW_TILT = 8; //    follow-through forward lean, degrees
 
-// falling — both hands straight up ("wheee"), waggling slightly.
+// falling - both hands straight up ("wheee"), waggling slightly.
 // ABSOLUTE feet-relative position (like the aim hold), so moving the
 // resting hand anchors can never drag the raised hands down again.
 const HANDS_UP: V2 = { x: 8, y: 68 }; // beside and just above the crown
 const WAGGLE_HZ = 12;
 const WAGGLE_PX = 1.5;
 
-// pointing / air-punching — the out-of-balls aim: the FRONT hand (handL,
+// pointing / air-punching - the out-of-balls aim: the FRONT hand (handL,
 // drawn over the body) extends from the shoulder along the aim direction;
 // the punch jabs it further out and snaps back. PLACEHOLDER (tune).
 const POINT_SHOULDER: V2 = { x: 4, y: 44 }; // arm origin, feet-relative
@@ -107,16 +107,16 @@ const POINT_REACH = 24; //  arm extension while pointing
 const PUNCH_EXTRA = 12; //  extra reach at the punch's peak
 const PUNCH_TILT = 4; //    forward lean at the peak, degrees
 
-// cheering — bob and throw the hands in the air in a QUICK rhythm
+// cheering - bob and throw the hands in the air in a QUICK rhythm
 // (Hoop 2's New Animation). Hands pump between shoulder height and full
 // stretch, slightly out of phase so it reads alive, not robotic.
-const CHEER_HZ = 2.4; //     pumps per second — 20% slower per owner feedback 2026-07-14
+const CHEER_HZ = 2.4; //     pumps per second - 20% slower per owner feedback 2026-07-14
 const CHEER_BOB_PX = 4; //   body hop per pump
 const CHEER_LOW_Y = 42; //   hands at the pump's bottom (shoulder-ish)
 const CHEER_PHASE = 0.55; // right hand trails the left by this (radians)
 
 // the AFK cheer (owner ask 2026-07-15): an abandoned character standing
-// on the deck cheers along, but reads tired — the clock runs slower and
+// on the deck cheers along, but reads tired - the clock runs slower and
 // the head hangs. The owner said "30%" in one line and "40%" in the
 // refining sub-point; the sub-point wins.
 // PLACEHOLDER (tune): 40% slower → the cheer clock advances at ×0.6
@@ -187,7 +187,7 @@ export function computePose(s: PoseState): RigPose {
 
     case "lie":
     case "getup":
-      // hands STAY up while face-down and while getting up — they only
+      // hands STAY up while face-down and while getting up - they only
       // come down once the figure is fully upright (kind returns to idle)
       return handsUpPose(0);
 
@@ -231,7 +231,7 @@ export function computePose(s: PoseState): RigPose {
       const pumpR = (Math.sin(ph - CHEER_PHASE) + 1) / 2;
       const bob = Math.abs(Math.sin(ph)) * CHEER_BOB_PX;
       const handY = (p: number) => CHEER_LOW_Y + p * (HANDS_UP.y - CHEER_LOW_Y);
-      // the weary (AFK) cheer hangs its head a little — tiredness
+      // the weary (AFK) cheer hangs its head a little - tiredness
       const droop = s.weary ? WEARY_HEAD_DROP_PX : 0;
       return {
         lower: { x: 0, y: bob * 0.5 },
@@ -303,7 +303,7 @@ const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
  * Interpolate two streamed pose states (remote avatars render ~a tick
  * behind and lerp between the samples straddling their render time).
  * Clocks and aim lerp within the same kind; across kinds the nearer
- * sample wins — the rig's own smoothing eases the visual transition.
+ * sample wins - the rig's own smoothing eases the visual transition.
  */
 export function lerpPoseState(
   a: PoseState,
@@ -357,7 +357,7 @@ const SCRATCH_HZ = 7;
 
 /**
  * The standing-around pose. `itch` is the scratch progress: outside 0..1
- * the hand rests; inside, the FRONT hand (handL — it draws over the body)
+ * the hand rests; inside, the FRONT hand (handL - it draws over the body)
  * eases to the belly, scrubs, and eases back.
  */
 export function idlePose(t: number, traits: IdleTraits, itch = -1): RigPose {

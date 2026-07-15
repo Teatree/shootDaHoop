@@ -19,7 +19,7 @@ function roomFor(lobby: string): Room {
   if (!room) {
     const r = new Room(lobby, storage, () => {
       rooms.delete(lobby);
-      console.log(`[room ${lobby}] empty — torn down (state persisted)`);
+      console.log(`[room ${lobby}] empty - torn down (state persisted)`);
     });
     rooms.set(lobby, r);
     room = r;
@@ -33,7 +33,7 @@ const wss = new WebSocketServer({ port: PORT });
 wss.on("error", (err: NodeJS.ErrnoException) => {
   if (err.code === "EADDRINUSE") {
     console.error(
-      `Port ${PORT} is already taken — another game server is running.\n` +
+      `Port ${PORT} is already taken - another game server is running.\n` +
         `Stop it first, or run with a different port: PORT=xxxx npm run server`,
     );
     process.exit(1);
@@ -56,7 +56,7 @@ wss.on("connection", (ws: WebSocket) => {
           room = r;
           playerId = msg.identity.id;
           console.log(
-            `[room ${lobby}] ${msg.identity.name} (${playerId}) joined — ${r.size} here`,
+            `[room ${lobby}] ${msg.identity.name} (${playerId}) joined - ${r.size} here`,
           );
         }
       } else if (msg.t === "admin") {
@@ -73,9 +73,9 @@ wss.on("connection", (ws: WebSocket) => {
         const r = rooms.get(lobby);
         const kicked = r?.size ?? 0;
         if (r) {
-          rooms.delete(lobby); // before destroy — it must not resurrect
+          rooms.delete(lobby); // before destroy - it must not resurrect
           r.destroy();
-          console.log(`[room ${lobby}] removed by admin — kicked ${kicked}`);
+          console.log(`[room ${lobby}] removed by admin - kicked ${kicked}`);
         }
         reply(true, r ? `kicked ${kicked} player(s)` : "no live room");
         ws.close();

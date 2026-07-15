@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { JsonFileStorage, type ArchivedEntry } from "./storage";
 
 // The permanent log archive: every wall entry, forever, per lobby.
-// Append-only JSONL — these tests pin the "nothing is ever dropped or
+// Append-only JSONL - these tests pin the "nothing is ever dropped or
 // rewritten" contract that room.record() relies on.
 
 describe("JsonFileStorage.appendLog", () => {

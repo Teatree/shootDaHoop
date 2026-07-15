@@ -1,16 +1,16 @@
 // ════════════════════════════════════════════════════════════════════
-//  THE CHANGE-TYPE VOCABULARY — the seven reusable building blocks a hoop
+//  THE CHANGE-TYPE VOCABULARY - the seven reusable building blocks a hoop
 //  tier composes its transformation from (see HOOP_PROGRESSION.md).
 //
 //  This is the ENGINE half of the data-driven progression:
 //    • these shapes are what the upgrade choreography knows how to PLAY
 //      (client: systems/tierDirector.ts), and
 //    • what the rules engine knows how to FOLD into live gameplay values
-//      — hoop geometry, throw power, looks, orb timing (shared/tierRules.ts).
+//      - hoop geometry, throw power, looks, orb timing (shared/tierRules.ts).
 //
 //  A tier's recipe (shared/tiers.ts) is an ORDERED list of these blocks;
 //  the order is the choreography of the transformation. Adding a new hoop
-//  never touches this file — only a genuinely new KIND of change does:
+//  never touches this file - only a genuinely new KIND of change does:
 //  add the shape here once, teach tierRules/tierDirector to play it, and
 //  every future hoop can use it as data.
 //
@@ -31,7 +31,7 @@ export type BallLookId = "classic" | "red";
 // PREVIOUS tier's hoop, exactly as the design doc phrases them
 // ("+40% taller" means ×1.4 on whatever came before).
 
-/** One beat of a hoop's upgrade animation — presentation only; the
+/** One beat of a hoop's upgrade animation - presentation only; the
  *  gameplay geometry flips atomically when the upgrade fires. */
 export type HoopBeat =
   | { beat: "grow-taller"; fx: FxKind }
@@ -40,7 +40,7 @@ export type HoopBeat =
   | { beat: "lower-appears"; fx: FxKind }
   | { beat: "wait"; delayS: number };
 
-/** The hoop's paint job — board, rim and pole colours (0xRRGGBB). */
+/** The hoop's paint job - board, rim and pole colours (0xRRGGBB). */
 export interface HoopLook {
   board: number;
   boardEdge: number;
@@ -50,15 +50,15 @@ export interface HoopLook {
 
 export interface DoubleHoopSpec {
   /** slimmer top rim; its FRONT tip protrudes this many world px further
-   *  left (further out) than the lower rim's front tip — the "double shot".
+   *  left (further out) than the lower rim's front tip - the "double shot".
    *  rimNetsAboveLower places the upper rim that many "rim with net"
-   *  heights (the lower rim's stroke + hanging net) ABOVE THE LOWER RIM —
+   *  heights (the lower rim's stroke + hanging net) ABOVE THE LOWER RIM -
    *  the backboard ("hoop wall") does NOT follow it; only the rim and its
    *  pole strut go up. */
   upper: { rScale: number; protrudeLeftPx: number; rimNetsAboveLower?: number };
   /** wider bottom rim (rScale relative to the folded single-rim width) */
   lower: { rScale: number };
-  /** vertical gap between the two rims — must clear the ball so each can
+  /** vertical gap between the two rims - must clear the ball so each can
    *  be hit independently (asserted in tiers.test.ts) */
   gapM: number;
 }
@@ -104,7 +104,7 @@ export interface InteractiveElement {
   /** footprint depth, meters (how far the element extends in d) */
   depthM: number;
   /** the trigger button appears when the player is within this many
-   *  world px of the element's edge (doc: "~2 px — very close") */
+   *  world px of the element's edge (doc: "~2 px - very close") */
   proximityPx: number;
   /** true → characters physically stand in it (walk up, occupy a spot);
    *  false → press-in-passing from nearby */

@@ -15,14 +15,14 @@ import {
 import { partTexture } from "./placeholders";
 
 // The parts character: five images in one container (draw order matches
-// the art's layer plan — left hand BEHIND the body, right hand in front)
+// the art's layer plan - left hand BEHIND the body, right hand in front)
 // plus a held ball that appears while aiming. All animation is positional
 // offsets from shared/pose.ts; the rig's job is Phaser plumbing:
 //   - tint once at creation (skin shared by head+hands, shirt hard,
-//     trousers subtle) — no per-colour textures, any colour works
+//     trousers subtle) - no per-colour textures, any colour works
 //   - mirror the whole figure for facing (scaleX = ±1)
 //   - exponentially smooth every part toward its pose target, so kind
-//     changes (idle→aim, fall→idle…) ease instead of snapping — this is
+//     changes (idle→aim, fall→idle…) ease instead of snapping - this is
 //     also what makes 12 Hz remote telemetry look continuous
 //
 // External rotation (the face-plant tween) targets `rig.angle`; the pose's
@@ -35,7 +35,7 @@ export interface RigLook {
   headVariant: number;
 }
 
-/** how fast parts chase their pose targets (1/s) — higher = snappier */
+/** how fast parts chase their pose targets (1/s) - higher = snappier */
 const SMOOTH_RATE = 18;
 
 type PartName = keyof typeof PART_ANCHORS;
@@ -43,7 +43,7 @@ const DRAW_ORDER: PartName[] = ["handL", "lower", "upper", "head", "handR"];
 
 export class CharacterRig {
   readonly container: Phaser.GameObjects.Container;
-  /** face-plant rotation, degrees — tweens target this plain property */
+  /** face-plant rotation, degrees - tweens target this plain property */
   angle = 0;
 
   private readonly parts: Record<PartName, Phaser.GameObjects.Image>;
@@ -56,7 +56,7 @@ export class CharacterRig {
   // ── idle life (local-only, never streamed): every character breathes
   // at its own rolled rate and scratches its belly once in a while ────
   private readonly idleTraits = rollIdleTraits();
-  /** random start phase — a crowd must not inhale in unison */
+  /** random start phase - a crowd must not inhale in unison */
   private idleT = Math.random() * 10;
   private nextItchAt = this.idleT + rollItchDelayS();
 
@@ -112,7 +112,7 @@ export class CharacterRig {
 
   /**
    * Chase the pose for this state. dt smooths transitions; pass a big dt
-   * (e.g. 1) to snap — replays/teleports that must not glide.
+   * (e.g. 1) to snap - replays/teleports that must not glide.
    */
   applyPose(state: PoseState, dt: number) {
     this.idleT += dt;
@@ -122,7 +122,7 @@ export class CharacterRig {
       if (itch > 1) this.nextItchAt = this.idleT + rollItchDelayS();
       target = idlePose(this.idleT, this.idleTraits, itch);
     } else {
-      // doing something — the next itch waits for a calm moment
+      // doing something - the next itch waits for a calm moment
       this.nextItchAt = Math.max(this.nextItchAt, this.idleT + 5);
       target = computePose(state);
     }

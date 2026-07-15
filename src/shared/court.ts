@@ -1,6 +1,6 @@
 import { BALANCE } from "./config";
 
-// Court landmarks & clamps in METERS — the world model shared by client
+// Court landmarks & clamps in METERS - the world model shared by client
 // and server. Dependency-free. (The client's px render mapping lives in
 // src/world.ts, which re-exports this module.)
 //
@@ -59,7 +59,7 @@ export function rollSpawn(rand: () => number = Math.random) {
 
 /**
  * Where a player lands when an upgrade fires: a random spot in a band
- * well clear of the hoop (BALANCE.upgrade — PLACEHOLDER band), giving
+ * well clear of the hoop (BALANCE.upgrade - PLACEHOLDER band), giving
  * the transformation room to play. Rolled by the AUTHORITY, like spawns.
  */
 export function rollUpgradeClearSpot(rand: () => number = Math.random) {

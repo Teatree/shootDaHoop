@@ -12,7 +12,7 @@ import { safe } from "./storage";
 import type { WorldBundle, ArchivedEntry } from "./storage";
 
 // Admin file operations behind `npm run admin` (scripts/admin.ts).
-// Pure functions over a data dir — the CLI is a thin arg-parsing shell,
+// Pure functions over a data dir - the CLI is a thin arg-parsing shell,
 // and these are unit-tested the same way storage is (mkdtemp).
 //
 // "Removing" a lobby is a move, never a delete: worlds/<lobby>.json and
@@ -71,7 +71,7 @@ export async function listLobbies(dataDir: string): Promise<LobbySummary[]> {
   return out.sort((a, b) => b.lastVisited - a.lastVisited);
 }
 
-/** Move a lobby's files to data/backups/<lobby>/ — the "remove" step. */
+/** Move a lobby's files to data/backups/<lobby>/ - the "remove" step. */
 export async function backupLobby(
   dataDir: string,
   lobby: string,
@@ -80,7 +80,7 @@ export async function backupLobby(
   const dest = backupDir(dataDir, lobby);
   if (await exists(dest))
     throw new Error(
-      `a backup for "${lobby}" already exists — restore or purge it first`,
+      `a backup for "${lobby}" already exists - restore or purge it first`,
     );
   if (!(await exists(worldPath(dataDir, lobby))))
     throw new Error(`no such lobby: "${lobby}"`);
@@ -98,7 +98,7 @@ export async function backupLobby(
 /**
  * The reverse move: full progress back (profiles were never touched).
  * If the old link was reopened meanwhile, a FRESH lobby with the same id
- * exists — refuse, unless `force`, which discards the fresh one (the CLI
+ * exists - refuse, unless `force`, which discards the fresh one (the CLI
  * kicks its players first so no live socket re-saves the dropped files).
  */
 export async function restoreLobby(
@@ -112,7 +112,7 @@ export async function restoreLobby(
     if (!force)
       throw new Error(
         `lobby "${lobby}" already exists (someone re-created it via the ` +
-          `old link?) — restore with --force to discard it and bring the ` +
+          `old link?) - restore with --force to discard it and bring the ` +
           `backup back`,
       );
     await rm(worldPath(dataDir, lobby), { force: true });

@@ -36,7 +36,7 @@ import { OrbAuthority } from "./orb";
 
 // One live world. Holds who's here (presence) and the shared world state.
 // A DISCONNECT does not despawn the character: the occupant goes OFFLINE
-// (ws = null, tag grayed on every client) and the character waits around —
+// (ws = null, tag grayed on every client) and the character waits around -
 // after a short delay it walks to a waiting spot (the cheer deck if it
 // exists, else the far sideline) and stays until its player rejoins.
 // Presence is still ephemeral at the ROOM level: when the last CONNECTED
@@ -66,9 +66,9 @@ export class Room {
   private pending = new Set<{ timer: NodeJS.Timeout; fire: () => void }>();
   /** full-ish snapshots: late joiners and dropped packets self-heal */
   private snapshotTimer: NodeJS.Timeout | null = null;
-  /** the teleport orb — a server-authoritative world object (see orb.ts) */
+  /** the teleport orb - a server-authoritative world object (see orb.ts) */
   private readonly orb: OrbAuthority;
-  /** resolves once the world bundle is hydrated — join() waits on this */
+  /** resolves once the world bundle is hydrated - join() waits on this */
   readonly ready: Promise<void>;
 
   constructor(
@@ -105,7 +105,7 @@ export class Room {
     }
   }
 
-  /** Connected players — offline characters don't count. */
+  /** Connected players - offline characters don't count. */
   get size(): number {
     return this.connectedCount();
   }
@@ -124,7 +124,7 @@ export class Room {
   ): Promise<boolean> {
     await this.ready;
     const existing = this.occupants.get(identity.id);
-    // capacity counts CONNECTED players — a waiting offline character
+    // capacity counts CONNECTED players - a waiting offline character
     // must never lock its own player (or friends) out
     if (!existing && this.connectedCount() >= BALANCE.lobby.maxPlayers) {
       send(ws, { t: "join-rejected", reason: "full" });
@@ -144,7 +144,7 @@ export class Room {
     }
 
     // profile is persistent and travels across worlds (budgets are kept
-    // per lobby inside it — see budgetFor)
+    // per lobby inside it - see budgetFor)
     const profile: PlayerProfile = (await this.storage.loadProfile(
       identity.id,
     )) ?? {
@@ -220,7 +220,7 @@ export class Room {
     const occ = this.occupants.get(playerId);
     if (!occ || occ.ws !== ws) return; // stale socket from a reconnect
     // the character does NOT despawn: it goes offline (grayed tag) and
-    // waits around — its player reclaims it on rejoin
+    // waits around - its player reclaims it on rejoin
     occ.ws = null;
     occ.info.offline = true;
     this.broadcast({ t: "player-offline", id: playerId, name: occ.info.name });
@@ -228,7 +228,7 @@ export class Room {
     this.scheduleOfflineWalk(playerId, occ);
     if (this.connectedCount() === 0) {
       // last CONNECTED player gone: flush in-flight outcomes so the
-      // world state stays consistent, then tear down — the offline
+      // world state stays consistent, then tear down - the offline
       // characters evaporate with the room (world persists, they don't)
       for (const p of this.pending) {
         clearTimeout(p.timer);
@@ -245,8 +245,8 @@ export class Room {
 
   /**
    * PLACEHOLDER (behaviour, 2026-07-14): after offlineWalkDelayS the
-   * abandoned character walks to a waiting spot — the cheer deck when the
-   * tier has one, else the upper side of the field — via a normal move
+   * abandoned character walks to a waiting spot - the cheer deck when the
+   * tier has one, else the upper side of the field - via a normal move
    * intent, so every client animates the walk. It stays there until its
    * player rejoins.
    */
@@ -280,12 +280,12 @@ export class Room {
   }
 
   /**
-   * Admin removal: notify + kick everyone WITHOUT persisting anything —
+   * Admin removal: notify + kick everyone WITHOUT persisting anything -
    * the CLI moves the lobby's files right after this, so a stray write
    * from a leave handler or pending outcome would resurrect them.
    * Ordering is load-bearing: occupants cleared first so the socket
    * close handlers' leave() calls no-op; pending timers discarded
-   * (never fired — firing would record() and re-save the world).
+   * (never fired - firing would record() and re-save the world).
    */
   destroy(): void {
     const socks = [...this.occupants.values()].flatMap((o) =>
@@ -310,7 +310,7 @@ export class Room {
   }
 
   /**
-   * The player's throw budget IN THIS LOBBY — budgets are per lobby, so
+   * The player's throw budget IN THIS LOBBY - budgets are per lobby, so
    * a fresh court hands out a fresh set of balls (2026-07-13 fix: they
    * used to be one per-identity pool across every world).
    */
@@ -322,9 +322,9 @@ export class Room {
     });
   }
 
-  /** Append to the wall history and persist the bundle — save on event. */
+  /** Append to the wall history and persist the bundle - save on event. */
   private record(entry: HistoryEntry) {
-    // the permanent archive gets EVERY entry, forever, per lobby —
+    // the permanent archive gets EVERY entry, forever, per lobby -
     // the in-memory wall below stays capped for welcome replay
     void this.storage
       .appendLog(this.lobby, { at: Date.now(), ...entry })
@@ -347,7 +347,7 @@ export class Room {
 
   handle(playerId: string, msg: ClientMsg) {
     const occ = this.occupants.get(playerId);
-    // messages ride a live socket — an offline occupant can't send, and
+    // messages ride a live socket - an offline occupant can't send, and
     // capturing the non-null socket keeps the cases below honest
     const sock = occ?.ws;
     if (!occ || !sock) return;
@@ -357,12 +357,12 @@ export class Room {
         const c = clampToCourt(msg.x, msg.d);
         occ.info.x = c.x;
         occ.info.d = c.d;
-        // intent broadcast — the sender already animates locally
+        // intent broadcast - the sender already animates locally
         this.broadcast({ t: "move-to", id: playerId, x: c.x, d: c.d }, sock);
         break;
       }
       case "pose": {
-        // cosmetic telemetry — sanitize the numbers, relay to everyone
+        // cosmetic telemetry - sanitize the numbers, relay to everyone
         // else, and keep the presence info in step for snapshots
         const s = sanePose(msg.s, this.world.tierId, canUpgrade(this.world));
         if (!s) break;
@@ -398,7 +398,7 @@ export class Room {
         // this player moments ago (the orb is server-side now)
         const slam = msg.launch.slam && Date.now() < occ.levitatingUntil;
         const launch: ThrowLaunch = { ...msg.launch, slam };
-        // the thrower already animates locally — relay to everyone else
+        // the thrower already animates locally - relay to everyone else
         this.broadcast(
           { t: "throw", id: playerId, throwId: msg.throwId, launch },
           sock,
@@ -407,9 +407,9 @@ export class Room {
         // "lands" so score juice lines up with the visual flight
         const orb = this.orb.current;
         const res = resolveThrow(launch, orb, this.world.tierId);
-        const playerName = occ.info.name; // captured — they may leave mid-flight
+        const playerName = occ.info.name; // captured - they may leave mid-flight
         if (res.orbHitAtS !== undefined && orb) {
-          // ruled to hit the orb — confirm when the ball visually gets
+          // ruled to hit the orb - confirm when the ball visually gets
           // there; if the orb is gone by then (expired / another ball
           // took it), the throw plays out as a plain arc instead
           const orbSeq = orb.seq;
@@ -434,11 +434,11 @@ export class Room {
       }
       case "upgrade": {
         // the communal upgrade press: ANY player may trigger it, but the
-        // server owns the rules — threshold met, presser TOUCHING the
+        // server owns the rules - threshold met, presser TOUCHING the
         // hoop (the button sits at its base; the errand walks the
         // presser through the keep-out zone, which the pose clamp opens
         // while an upgrade is available)
-        // a refusal is TOLD to the presser — a silent break here once
+        // a refusal is TOLD to the presser - a silent break here once
         // cost a debugging session (client showed the button, a stale
         // server build still had the old threshold and ate the press)
         const next = nextTier(this.world.tierId);
@@ -495,12 +495,12 @@ export class Room {
         const state = { song, startedAtMs: Date.now() };
         this.world = { ...this.world, jukebox: state };
         this.persistWorld();
-        // heard by EVERYONE in the world — not local
+        // heard by EVERYONE in the world - not local
         this.broadcast({ t: "jukebox", state, byName: occ.info.name });
         break;
       }
       case "jukebox-off": {
-        // the OFF toggle: same box, same proximity — and only meaningful
+        // the OFF toggle: same box, same proximity - and only meaningful
         // while something is (or recently was) playing. Clients gate the
         // button on live playback; the server just clears the state.
         if (!this.world.jukebox) break;
@@ -523,7 +523,7 @@ export class Room {
       case "chat": {
         const text = String(msg.text).slice(0, 1000).trim();
         if (!text) break;
-        // to EVERYONE including the sender — one render path on the client
+        // to EVERYONE including the sender - one render path on the client
         this.broadcast({
           t: "chat",
           id: playerId,
@@ -552,7 +552,7 @@ export class Room {
 
   /**
    * A throw ruled to hit the orb just reached it. If the orb survived
-   * until now, consume it and teleport the thrower (broadcast to all —
+   * until now, consume it and teleport the thrower (broadcast to all -
    * clients that predicted it locally dedupe by seq). Otherwise fall
    * back to the plain-arc outcome, waiting out the rest of the flight.
    */
@@ -570,7 +570,7 @@ export class Room {
         occ.levitatingUntil =
           Date.now() + (BALANCE.orb.levitateS + 1.5) * 1000;
         occ.info.x = taken.x; // snapshots self-heal to the landing spot
-        // hitting the orb keeps the ball — the slam is a FREE throw
+        // hitting the orb keeps the ball - the slam is a FREE throw
         refundThrow(this.budgetFor(occ.profile), new Date());
         void this.storage.saveProfile(occ.profile).catch(logSaveError);
         if (occ.ws)
@@ -604,7 +604,7 @@ export class Room {
     res: ReturnType<typeof resolveThrow>,
   ) {
     // score accumulates; the TIER only advances when a player triggers
-    // the upgrade (see the "upgrade" message) — never automatically
+    // the upgrade (see the "upgrade" message) - never automatically
     this.world = {
       ...this.world,
       sharedScore: this.world.sharedScore + res.points,
@@ -673,9 +673,9 @@ const POSE_KINDS = new Set([
 ]);
 
 /**
- * Pose telemetry is relayed to every client — never let a malformed
+ * Pose telemetry is relayed to every client - never let a malformed
  * payload through. Returns a clean copy, or null to drop the message.
- * Positions clamp to the tier's WALKABLE space — the court plus any
+ * Positions clamp to the tier's WALKABLE space - the court plus any
  * unlocked stand-in areas (the cheer deck is off-court).
  */
 function sanePose(
@@ -707,7 +707,7 @@ function sanePose(
   };
 }
 
-/** Tints are broadcast to every client — keep them valid 24-bit colours. */
+/** Tints are broadcast to every client - keep them valid 24-bit colours. */
 function safeTint(n: unknown): number {
   return Number.isInteger(n) && (n as number) >= 0 && (n as number) <= 0xffffff
     ? (n as number)
@@ -726,7 +726,7 @@ function validLaunch(l: ThrowLaunch, tierId: number): boolean {
   // release point near the shooter; height sane (slams release from high up)
   if (Math.abs(l.x - l.shotX) > 1.5 || l.h < 0 || l.h > 15) return false;
   // launch speed within the TIER's power ceiling (the ball-range permanent
-  // effect raises it) — small float slack
+  // effect raises it) - small float slack
   return (
     Math.hypot(l.vx, l.vh) <= effectivePowerForTier(tierId).maxPowerM * 1.02
   );

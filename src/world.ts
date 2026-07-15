@@ -1,7 +1,7 @@
 import { T } from "./tuning";
 
 // CLIENT render mapping: court meters → world pixels. The court model
-// itself (landmarks, walls, clamps — all in meters) is shared with the
+// itself (landmarks, walls, clamps - all in meters) is shared with the
 // server and lives in src/shared/court.ts; re-exported here so client code
 // keeps one import site.
 
@@ -35,7 +35,7 @@ export function screenToFloor(sx: number, sy: number) {
   return { x, d };
 }
 
-/** Render depth for painter's ordering — nearer (bigger d) draws on top. */
+/** Render depth for painter's ordering - nearer (bigger d) draws on top. */
 export function sortDepth(d: number): number {
   return 100 + d * 10;
 }

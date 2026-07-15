@@ -71,7 +71,7 @@ export class RecordingSystem {
     const t0 = tp ? tp.at - T.ghost.slamPreRollS : this.timeS - T.ghost.preRollS;
     const rec: ThrowRecording = {
       name,
-      ballLook, // stamped NOW — the replay recolour rule reads this
+      ballLook, // stamped NOW - the replay recolour rule reads this
       playerSamples: this.history
         .filter((s) => s.t >= t0)
         .map((s) => ({ ...s, t: s.t - t0 })),
@@ -95,7 +95,7 @@ export class RecordingSystem {
     return rec;
   }
 
-  /** The throw resolved — mark when and how, so the replay knows. */
+  /** The throw resolved - mark when and how, so the replay knows. */
   stampOutcome(rec: ThrowRecording, made: boolean) {
     const ar = this.active.find((a) => a.rec === rec);
     if (!ar) return;
@@ -117,7 +117,7 @@ export class RecordingSystem {
     };
     this.history.push({ t: this.timeS, ...frame });
     // slam recordings rewind to slamPreRollS before the ORB HIT, which can
-    // itself be a full levitation before the throw — keep enough history
+    // itself be a full levitation before the throw - keep enough history
     const keepFrom = this.timeS - (T.ghost.slamPreRollS + T.orb.levitateS + 1);
     while (this.history.length && this.history[0].t < keepFrom)
       this.history.shift();
@@ -138,7 +138,7 @@ export class RecordingSystem {
         ar.rec.duration = ar.rec.outcomeT + T.ghost.postRollS;
         this.active.splice(i, 1);
       } else if (ar.ball.done && ar.rec.outcomeT === undefined) {
-        // ball was consumed (power-up) — no log line, nothing to replay
+        // ball was consumed (power-up) - no log line, nothing to replay
         this.active.splice(i, 1);
       }
     }

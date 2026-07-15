@@ -13,8 +13,8 @@ import { RIM } from "../src/shared/court";
 import { HOOP_TIERS } from "../src/shared/tiers";
 
 // The upgrade is a SERVER-AUTHORITATIVE, communal event: any player may
-// press, but the server owns the rules — threshold met, presser at the
-// button — and the reset + teleport-clear + broadcast that follow.
+// press, but the server owns the rules - threshold met, presser at the
+// button - and the reset + teleport-clear + broadcast that follow.
 
 class FakeWS {
   OPEN = 1;
@@ -63,7 +63,7 @@ const identity = (id: string) => ({
 
 const T2 = HOOP_TIERS[1];
 
-/** Walk the player to the hoop's base via pose telemetry — the Upgrade
+/** Walk the player to the hoop's base via pose telemetry - the Upgrade
  *  errand goes THROUGH the keep-out zone, which move-to never allows;
  *  the pose clamp opens the zone while an upgrade is available. */
 function standAtHoop(room: Room, id: string) {
@@ -151,7 +151,7 @@ describe("offline characters wait around", () => {
       await room.join(ws(a), identity("alice"));
       await room.join(ws(b), identity("bob"));
       room.leave("bob", ws(b));
-      expect(a.of("move-to")).toHaveLength(0); // not yet — it waits first
+      expect(a.of("move-to")).toHaveLength(0); // not yet - it waits first
 
       vi.advanceTimersByTime(BALANCE.presence.offlineWalkDelayS * 1000 + 50);
       const mv = a.of("move-to").find((m) => m.t === "move-to" && m.id === "bob");
@@ -383,7 +383,7 @@ describe("the upgrade press", () => {
     await room.join(b as unknown as WebSocket, identity("bob"));
     room.handle("alice", { t: "move-to", x: 16.8, d: 0 });
 
-    // nothing playing yet — the off press is ignored
+    // nothing playing yet - the off press is ignored
     room.handle("alice", { t: "jukebox-off" });
     expect(a.of("jukebox")).toHaveLength(0);
 

@@ -5,7 +5,7 @@ import { buildBubble } from "./speech";
 import { CharacterRig, type RigLook } from "./characterRig";
 import { FIGURE_H } from "./shared/pose";
 
-// Ghost Records: every throw is recorded as raw per-frame samples — the
+// Ghost Records: every throw is recorded as raw per-frame samples - the
 // player (plus the teleport orb and any speech bubble they could see) from
 // T.ghost.preRollS before the release, the ball from release until the
 // hit/miss plus T.ghost.postRollS of aftermath. Teleport slams rewind
@@ -53,13 +53,13 @@ export class GhostPlayback {
 
   constructor(
     private readonly scene: Phaser.Scene,
-    /** the recorded player's look — recordings are always OWN throws */
+    /** the recorded player's look - recordings are always OWN throws */
     private readonly look: RigLook,
     /** fired at the recording's hit moment so the scene can snap the net */
     private readonly onMade: () => void,
   ) {}
 
-  /** Start replaying — instantly replaces any recording already playing. */
+  /** Start replaying - instantly replaces any recording already playing. */
   play(rec: ThrowRecording) {
     if (rec.evicted || rec.playerSamples.length === 0) return;
     this.stop(true);
@@ -92,7 +92,7 @@ export class GhostPlayback {
       .setVisible(false);
     ball.setDisplaySize(diaPx, diaPx);
     // the upgrade recolour rule: the ghost ball wears the look STAMPED AT
-    // RECORD TIME — a pre-upgrade replay keeps the old look forever
+    // RECORD TIME - a pre-upgrade replay keeps the old look forever
     const lookTint = T.ballLooks[rec.ballLook ?? "classic"];
     if (lookTint !== 0xffffff) ball.setTint(lookTint);
     const bShadow = this.scene.add
@@ -107,7 +107,7 @@ export class GhostPlayback {
       .circle(0, 0, orbR, 0x2e7bff, 0.95 * a)
       .setVisible(false);
 
-    // pop in (the rig fades in above — its scaleX carries the mirror)
+    // pop in (the rig fades in above - its scaleX carries the mirror)
     label.setScale(0);
     this.scene.tweens.add({
       targets: label,
@@ -196,7 +196,7 @@ export class GhostPlayback {
       this.updateBubble(g, ps, sx, sy);
     }
 
-    // ball ghost — exists only across its recorded flight window
+    // ball ghost - exists only across its recorded flight window
     const bArr = rec.ballSamples;
     if (bArr.length > 0 && g.t >= bArr[0].t) {
       if (g.t <= bArr[bArr.length - 1].t) {
@@ -225,7 +225,7 @@ export class GhostPlayback {
         g.bShadow.fillAlpha = T.ghost.alpha * 0.2 * hFrac;
         g.bShadow.setDepth(sortDepth(bs.d) - 1);
       } else if (g.ballShown && g.ball.visible) {
-        // the original ball popped here (rest explode / consumed) — vanish
+        // the original ball popped here (rest explode / consumed) - vanish
         g.ball.setVisible(false);
         g.bShadow.setVisible(false);
       }
@@ -278,7 +278,7 @@ export class GhostPlayback {
         g.bubble = buildBubble(this.scene, text);
         g.bubble.setAlpha(T.ghost.alpha);
         if ((ps.bubble?.age ?? 1) < 0.3) {
-          // freshly said in the recording — replay the pop
+          // freshly said in the recording - replay the pop
           g.bubble.setScale(0.3);
           this.scene.tweens.add({
             targets: g.bubble,
@@ -300,7 +300,7 @@ export class GhostPlayback {
     }
   }
 
-  /** Half-strength blue zapp burst — the ghost of the teleport effect. */
+  /** Half-strength blue zapp burst - the ghost of the teleport effect. */
   private zap(at: { x: number; d: number; h: number }) {
     const { sx, sy } = toScreen(at.x, at.d, at.h + 1);
     const ring = this.scene.add

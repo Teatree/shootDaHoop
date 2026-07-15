@@ -8,7 +8,7 @@ import {
 } from "../server/adminOps";
 import type { ClientMsg, ServerMsg } from "../src/shared/messages";
 
-// Lobby admin CLI — see "Admin: managing lobbies" in README.md.
+// Lobby admin CLI - see "Admin: managing lobbies" in README.md.
 //
 //   npm run admin -- list
 //   npm run admin -- remove <lobby>
@@ -46,10 +46,10 @@ async function main() {
 
     case "remove": {
       const id = await requireLobbyArg();
-      // fail fast on a doomed move — don't kick players for nothing
+      // fail fast on a doomed move - don't kick players for nothing
       if ((await listBackups(DATA_DIR)).some((b) => b.lobby === id))
         throw new Error(
-          `a backup for "${id}" already exists — restore or purge it first`,
+          `a backup for "${id}" already exists - restore or purge it first`,
         );
       console.log(await kickViaServer(id));
       await backupLobby(DATA_DIR, id, Date.now());
@@ -97,14 +97,14 @@ async function main() {
 /**
  * Ask the running server to kick everyone out of the lobby first, so no
  * live socket writes race the file move. A dead server means an empty
- * lobby — carry on with the move.
+ * lobby - carry on with the move.
  */
 function kickViaServer(lobby: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(SERVER);
     const timer = setTimeout(() => {
       ws.terminate();
-      resolve("server unreachable — treating lobby as offline");
+      resolve("server unreachable - treating lobby as offline");
     }, 2000);
     ws.on("open", () => {
       const msg: ClientMsg = { t: "admin", token: TOKEN, cmd: "remove", lobby };
@@ -120,7 +120,7 @@ function kickViaServer(lobby: string): Promise<string> {
     });
     ws.on("error", () => {
       clearTimeout(timer);
-      resolve("server unreachable — treating lobby as offline");
+      resolve("server unreachable - treating lobby as offline");
     });
   });
 }

@@ -1,7 +1,7 @@
 # Asset drop zone
 
 Put final art/sound files in this folder with these exact names. Anything
-missing is covered by a generated placeholder — the game always runs.
+missing is covered by a generated placeholder - the game always runs.
 
 ## Images (PNG)
 
@@ -10,8 +10,8 @@ missing is covered by a generated placeholder — the game always runs.
 | `head_v1.png`    | 26 × 25 head variant (bald). Drawn facing **right**.               |
 | `head_v2.png`    | 28 × 29 head variant (haired).                                     |
 | `head_v3.png`    | 25 × 25 head variant (plain).                                      |
-| `body_upper.png` | 43 × 36 white t-shirt torso — hard-tinted to the shirt colour.     |
-| `body_lower.png` | 43 × 12 trouser band — subtle tint only.                           |
+| `body_upper.png` | 43 × 36 white t-shirt torso - hard-tinted to the shirt colour.     |
+| `body_lower.png` | 43 × 12 trouser band - subtle tint only.                           |
 | `left_hand.png`  | 13 × 14 hand circle (drawn behind the body).                       |
 | `right_hand.png` | 13 × 14 hand circle (drawn in front of the body).                  |
 | `ball.png`       | ~10 × 10 (0.3 m at 32 px/m). Round; spin is applied in code.       |
@@ -19,7 +19,7 @@ missing is covered by a generated placeholder — the game always runs.
 | `hoop.png`       | Optional composite hoop (pole + board + rim), rim at 3.05 m high.  |
 
 > The character is composed from the part files at runtime (characterRig.ts):
-> heads + hands share one skin tint (white→brown ramp — draw them pale so a
+> heads + hands share one skin tint (white→brown ramp - draw them pale so a
 > multiply tint can tan them), `body_upper` is drawn WHITE so a hard tint
 > becomes the exact shirt colour, `body_lower` keeps its own colour and only
 > gets a gentle shade variation. `guy.png` in git history shows the intended

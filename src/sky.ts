@@ -8,12 +8,12 @@ import type { SunMood } from "./shared/tierChanges";
 // Each "configuration" is randomly a lone big sun, a lone small sun, or a
 // big sun with a small companion. The dominant sun drives every drop
 // shadow on the court via lightDir(). The tier's Atmosphere Change hands
-// in a MOOD — colors, size, pace, pulse — via setMood().
+// in a MOOD - colors, size, pace, pulse - via setMood().
 
 /** Where the light comes from, reduced to what shadows need. */
 export interface LightDir {
-  dx: number; //   -1..1 — direction shadows POINT (away from the sun)
-  elev: number; // 0..1  — 0 = sun on the horizon, 1 = apex
+  dx: number; //   -1..1 - direction shadows POINT (away from the sun)
+  elev: number; // 0..1  - 0 = sun on the horizon, 1 = apex
 }
 
 type SunConfig = "bigSolo" | "smallSolo" | "bigPlusCompanion";
@@ -83,7 +83,7 @@ export class SunSystem {
       }
     }
 
-    // ease the reported light toward the raw target — no shadow jerks
+    // ease the reported light toward the raw target - no shadow jerks
     // when one sun sets and the next rises
     const target = this.rawLightDir();
     const k = 1 - Math.exp(-T.sky.lightLerp * dt);
@@ -131,7 +131,7 @@ export class SunSystem {
     } else if (config === "smallSolo") {
       add(T.sky.smallSunPx, 0, 0);
     } else {
-      add(T.sky.bigSunPx, 0, 0); // dominant first — it owns the shadows
+      add(T.sky.bigSunPx, 0, 0); // dominant first - it owns the shadows
       add(T.sky.smallSunPx, T.sky.companionOffsetX, T.sky.companionOffsetY);
     }
 

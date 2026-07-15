@@ -1,9 +1,9 @@
 // ════════════════════════════════════════════════════════════════════
-//  TUNING — every CLIENT-SIDE feel knob lives in this file.
+//  TUNING - every CLIENT-SIDE feel knob lives in this file.
 //  Edit + save → Vite hot-reloads. Expect to spend most time here.
 //
 //  The SHARED balance (court, hoop, physics, scoring, walls, movement,
-//  throw budget — everything the server also needs) lives in
+//  throw budget - everything the server also needs) lives in
 //  src/shared/config.ts and is spread into `T` below, so `T.court…`,
 //  `T.throw…` etc. keep working everywhere on the client.
 //  Units: meters (m), seconds (s), meters/second (m/s) unless noted px.
@@ -43,7 +43,7 @@ export const T = {
     previewAlphaStart: 0.78, // dot alpha at the release point…
     previewAlphaEnd: 0.08, //  …dissipating to this (no hard cutoff)
     previewCapRingPx: 9, //  pulsing ring at the line's end when power = 100%
-    // Boosted trail — active once a tier's ball-range permanent effect
+    // Boosted trail - active once a tier's ball-range permanent effect
     // recolors the ball (tier 2+): visibly longer at every power, and a
     // DISTINCT hue family so the upgrade reads at a glance.
     // PLACEHOLDER (tune): lengths mirror the +25% travel (~×1.25).
@@ -89,14 +89,14 @@ export const T = {
     shadowAlphaHigh: 0.24, //sun overhead → tight, dark
     shadowAlphaLow: 0.1, //  sun at the horizon → long, faint
     shadowStretchMax: 1.7, //horizontal ellipse stretch at low sun
-    // the tier-2 atmosphere's sun pulse — PLACEHOLDER (tune)
+    // the tier-2 atmosphere's sun pulse - PLACEHOLDER (tune)
     pulsateHz: 0.9, //       pulses per second
     pulsateAmp: 0.08, //     ±8% radius breathing
   },
 
   // ── Teleport orb power-up: client FEEL only ───────────────────────
   // The orb's gameplay rules (cadence, lifetime, size, spawn zone,
-  // levitation window) are server-authoritative — see BALANCE.orb.
+  // levitation window) are server-authoritative - see BALANCE.orb.
   tp: {
     popMs: 220, //           appear animation
     fadeMs: 400, //          disappear animation
@@ -113,12 +113,12 @@ export const T = {
     hoopBeatMs: 450, //  each hoop-change beat (pop/splash) holds this long
     changeBeatMs: 700, //each non-hoop change in the ordered list
     // PLACEHOLDER (tune): seconds without input before a player counts
-    // as AFK — an upgrade firing then is held and replayed on return
+    // as AFK - an upgrade firing then is held and replayed on return
     afkTimeoutS: 60,
   },
 
   // ── Ball looks (Permanent Effect: "balls become more red") ─────────
-  // multiply tints over the ball art — world balls, held ball, ghosts;
+  // multiply tints over the ball art - world balls, held ball, ghosts;
   // the HUD icons get the matching CSS class (style.css)
   ballLooks: {
     classic: 0xffffff,

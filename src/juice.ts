@@ -34,7 +34,7 @@ export function ballExplode(scene: Phaser.Scene, x: number, y: number) {
 
 const PUFF_TINTS = [0xfff3d6, 0xf3e2c0, 0xe8d5b5];
 
-/** A small dust puff — a character appearing on the court. */
+/** A small dust puff - a character appearing on the court. */
 export function puff(scene: Phaser.Scene, x: number, y: number) {
   const em = scene.add.particles(x, y - 20, "px", {
     speed: { min: 15, max: 55 },

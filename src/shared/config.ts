@@ -1,8 +1,8 @@
 // ════════════════════════════════════════════════════════════════════
-//  SHARED BALANCE — the single config surface for everything that the
+//  SHARED BALANCE - the single config surface for everything that the
 //  SIMULATION and RULES depend on: court geometry, hoop, throw physics,
 //  scoring, walls, movement limits, throw budget. Imported by BOTH the
-//  client and the (future) server — so it must stay dependency-free:
+//  client and the (future) server - so it must stay dependency-free:
 //  no Phaser, no DOM, no Node.
 //
 //  Client-side FEEL knobs (camera, juice, aim preview, sky, ghosts…)
@@ -27,7 +27,7 @@ export const BALANCE = {
 
   // ── Hoop geometry & materials (tier 1 "static" hoop) ─────────────
   hoop: {
-    rimHeightM: 5.55, //     regulation 3.05 + 2.5 (80 px) — sky hoop
+    rimHeightM: 5.55, //     regulation 3.05 + 2.5 (80 px) - sky hoop
     rimRadiusM: 0.69, //     rim opening half-width (scaled with the 3× ball)
     boardGapM: 0.25, //      gap between back rim and backboard face
     boardBottomM: 5.1, //    backboard vertical extent (tracks the raised rim)
@@ -38,7 +38,7 @@ export const BALANCE = {
     scoreDepthM: 0.3, //     tighter depth window to actually count the bucket
   },
 
-  // ── Boundary walls — physical scene edges past both baselines ─────
+  // ── Boundary walls - physical scene edges past both baselines ─────
   wall: {
     offsetPx: 300, //      distance past each baseline, world px
     restitution: 0.6, //   horizontal energy kept when the ball hits a wall
@@ -47,7 +47,7 @@ export const BALANCE = {
   // ── Movement ──────────────────────────────────────────────────────
   move: {
     speedM: 4.5, //          walk speed, m/s
-    minXM: 0.4, //           left clamp (far baseline — one court length from hoop)
+    minXM: 0.4, //           left clamp (far baseline - one court length from hoop)
     hoopStandoffM: 5.0, //   keep-out radius around the hoop (160 world px; was 6.25, -20% 2026-07-10)
     arriveEps: 0.08, //      "close enough" to the click target, m
     spawnAreaM: 3.125, //    players spawn in this square (100 px) just outside the keep-out zone
@@ -60,7 +60,7 @@ export const BALANCE = {
     releaseForwardM: 0.5, // ball spawns this far toward the hoop
     depthEaseRate: 2.2, //   how fast depth converges on the rim lane (1/s)
     spinRadPerM: 2.6, //     ball spin ∝ horizontal speed
-    // the active ball type's size — ball types are data (see balls.ts)
+    // the active ball type's size - ball types are data (see balls.ts)
     ballRadiusM: BALL_TYPES[DEFAULT_BALL].radiusM,
     substepTravelFrac: 0.5, // max travel per physics substep, in ball radii (CCD-ish)
     maxSubsteps: 10,
@@ -111,11 +111,11 @@ export const BALANCE = {
   // ── Upgrade trigger (shared: the server validates presses) ────────
   upgrade: {
     // PLACEHOLDER (tune): how close to the HOOP'S BASE a presser must
-    // stand for the press to count — the button sits at the hoop and
+    // stand for the press to count - the button sits at the hoop and
     // the errand walks the character through the keep-out zone to it
     proximityM: 2.5,
     // PLACEHOLDER (tune): where players teleport when the upgrade fires
-    // — a random spot in this x-band, well clear of the hoop, so the
+    // - a random spot in this x-band, well clear of the hoop, so the
     // transformation has room to play
     clearMinXM: 8,
     clearMaxXM: 14,
@@ -128,10 +128,10 @@ export const BALANCE = {
     offlineWalkDelayS: 20,
   },
 
-  // ── Jukebox (Hoop 3 interactive — synced to everyone) ─────────────
+  // ── Jukebox (Hoop 3 interactive - synced to everyone) ─────────────
   jukebox: {
     songs: 3, //           the three reference song slots (assets/music/)
-    // PLACEHOLDER (tune): server-side press validation slack — the
+    // PLACEHOLDER (tune): server-side press validation slack - the
     // client button needs the doc's "very close", the server just
     // checks the presser is plausibly at the box
     pressProximityM: 3,

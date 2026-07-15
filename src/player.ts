@@ -8,28 +8,28 @@ import type { AvatarState } from "./shared/messages";
 
 /** the throw follow-through sweep, seconds */
 const THROW_ANIM_S = 0.15;
-/** the out-of-balls air punch, seconds — PLACEHOLDER (tune) */
+/** the out-of-balls air punch, seconds - PLACEHOLDER (tune) */
 const PUNCH_ANIM_S = 0.35;
 
 export class Player {
-  // court position, meters — spawn at the free-throw spot, but never
+  // court position, meters - spawn at the free-throw spot, but never
   // inside the hoop's keep-out zone
   x = clampToCourt(FREE_THROW_X, RIM.d).x;
   d = RIM.d;
-  /** Feet height above the floor — non-zero while teleport-levitating/falling. */
+  /** Feet height above the floor - non-zero while teleport-levitating/falling. */
   airH = 0;
   /** What the player may do: walking needs "full", aiming needs ≥ "throwOnly". */
   control: "full" | "throwOnly" | "none" = "full";
 
   aiming = false;
-  /** live aim readout (AimController writes it) — null in the deadzone */
+  /** live aim readout (AimController writes it) - null in the deadzone */
   aimInfo: { angle: number; power: number } | null = null;
   /** the teleport system's override while airborne/floored */
   tpKind: "fall" | "lie" | null = null;
-  /** a scripted activity's pose (the cheer area) — beats normal kinds */
+  /** a scripted activity's pose (the cheer area) - beats normal kinds */
   poseOverride: "cheer" | null = null;
 
-  /** the visible body — teleport tweens target rig.angle */
+  /** the visible body - teleport tweens target rig.angle */
   readonly rig: CharacterRig;
 
   private walking = false;
@@ -45,7 +45,7 @@ export class Player {
   private throwAim = { angle: 0.9, power: 0.5 };
   // out-of-balls aim: the arm points where the trail would have gone
   private pointing = false;
-  private pointAim = 0.9; //  WORLD angle — bodyAim splits facing on stream
+  private pointAim = 0.9; //  WORLD angle - bodyAim splits facing on stream
   private punchT = Infinity; // < PUNCH_ANIM_S while the punch plays
   private punchAim = 0.9; //  body-relative, frozen at release
 
@@ -63,7 +63,7 @@ export class Player {
         fontStyle: "bold",
         color: "#ffffff",
         stroke: "#20303a",
-        strokeThickness: 3, // dark outline — readable against sky and court
+        strokeThickness: 3, // dark outline - readable against sky and court
       })
       .setOrigin(0.5, 1)
       .setResolution(2); // keep the small text legible under pixelArt
@@ -85,7 +85,7 @@ export class Player {
     this.walking = false;
   }
 
-  /** Hide/show the whole character (rig + shadow + name tag) — used
+  /** Hide/show the whole character (rig + shadow + name tag) - used
    *  while the first-entry controls pop-up holds the join back: the
    *  character exists for NOBODY until the ✕ is pressed. */
   setVisible(v: boolean) {
@@ -96,7 +96,7 @@ export class Player {
 
   /**
    * Scripted errands (the Upgrade press walking THROUGH the keep-out
-   * zone to the hoop) go exactly where they're told — no court clamp.
+   * zone to the hoop) go exactly where they're told - no court clamp.
    * User clicks still route through walkTo.
    */
   walkToUnclamped(x: number, d: number) {
@@ -106,7 +106,7 @@ export class Player {
     if (Math.abs(x - this.x) > 0.01) this.facingRight = x >= this.x;
   }
 
-  /** Scripted turns (the cheer crowd looking around) — walk/aim input
+  /** Scripted turns (the cheer crowd looking around) - walk/aim input
    *  keeps overriding this the moment it runs again. */
   flipFacing() {
     this.facingRight = !this.facingRight;
@@ -150,7 +150,7 @@ export class Player {
     this.pointing = false;
   }
 
-  /** The ball just left the hands — play the follow-through sweep. */
+  /** The ball just left the hands - play the follow-through sweep. */
   startThrow(angle: number, power: number) {
     // backwards throws turn the whole character around (world → body space)
     const a = bodyAim(angle);
@@ -159,7 +159,7 @@ export class Player {
     this.throwT = 0;
   }
 
-  /** The pose the world should see this frame — also what gets streamed. */
+  /** The pose the world should see this frame - also what gets streamed. */
   poseState(): PoseState {
     const kind = this.currentKind();
     if (kind !== this.lastKind) {
@@ -195,7 +195,7 @@ export class Player {
       case "cheer":
         return { kind, t: this.stateT }; // drives the waggle / pump rhythm
       default:
-        // idle/lie/getup are static — a constant clock keeps the
+        // idle/lie/getup are static - a constant clock keeps the
         // telemetry dirty-check quiet while standing around
         return { kind, t: 0 };
     }
@@ -227,7 +227,7 @@ export class Player {
     this.stateT += dt;
     this.throwT += dt;
     this.punchT += dt;
-    // aiming backwards spins the character to face the aim direction —
+    // aiming backwards spins the character to face the aim direction -
     // the out-of-balls point turns the body exactly the same way
     if (this.aiming && this.aimInfo)
       this.facingRight = bodyAim(this.aimInfo.angle).facing === 1;

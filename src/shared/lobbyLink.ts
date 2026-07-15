@@ -1,5 +1,5 @@
 // Lobby invite links, minted client-side in the Settings pop-up. A
-// generated link is JUST a link — no server call here. The lobby comes
+// generated link is JUST a link - no server call here. The lobby comes
 // into existence the moment the first visitor opens it and enters a
 // name (the server creates worlds on demand, keyed by ?lobby=).
 // Dependency-free so both the UI and vitest can import it.
@@ -19,7 +19,7 @@ const NOUNS = [
 /**
  * `adjective-noun-hhhh`, e.g. "mossy-fox-3f2a". Lowercase [a-z0-9-]
  * throughout, so it survives the server's filename sanitizer unchanged
- * and needs no URL encoding. ~37M combinations — a collision just means
+ * and needs no URL encoding. ~37M combinations - a collision just means
  * two groups share a court, same as sharing a link on purpose.
  */
 export function generateLobbyId(
@@ -48,7 +48,7 @@ export function buildLobbyUrl(
   return `${origin}${pathname}?${out.toString()}`;
 }
 
-/** "velvet-vulture-83d0" → "velvet vulture" — the hex tail is plumbing. */
+/** "velvet-vulture-83d0" → "velvet vulture" - the hex tail is plumbing. */
 export function courtName(lobbyId: string): string {
   return lobbyId.replace(/-[0-9a-f]{4}$/, "").replace(/-/g, " ");
 }
@@ -67,7 +67,7 @@ export function buildInvite(lobbyId: string, url: string): string {
     frame,
     "",
     "The court is open and the rim is",
-    "calling — come shoot a hoop.",
+    "calling - come shoot a hoop.",
     "",
     `▶ ${url}`,
   ].join("\n");

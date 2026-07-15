@@ -25,14 +25,14 @@ import { BackendEmitter, type Backend, type BackendEvents } from "./types";
 // Single-player: the whole "server" runs in-process and echoes
 // synchronously, so the game plays EXACTLY as the prototype did. The
 // client's live ball is the authority here (reportOutcome, reportOrbHit)
-// — its frame-time-fed simulation is the feel we're preserving. In
+// - its frame-time-fed simulation is the feel we're preserving. In
 // multiplayer the SocketBackend ignores reports and the server resolves
 // instead. The teleport orb lifecycle mirrors server/orb.ts: spawn after
 // cadenceS, expire after lifeS, respawn cadenceS after it's gone.
 
 export type LocalIdentity = Cosmetics;
 
-/** Offline daily budget — persisted per browser, same UTC reset as the server. */
+/** Offline daily budget - persisted per browser, same UTC reset as the server. */
 const BUDGET_KEY = "shootDaHoop.budget";
 
 function loadBudget(): BudgetFields {
@@ -105,13 +105,13 @@ export class LocalBackend implements Backend {
     }, orbTimingForTier(this.world.tierId).lifeS * 1000);
   }
 
-  /** The live ball touched the orb — authoritative in single player. */
+  /** The live ball touched the orb - authoritative in single player. */
   reportOrbHit(seq: number): void {
     const o = this.orb;
-    if (!o || o.seq !== seq) return; // expired first — nothing to take
+    if (!o || o.seq !== seq) return; // expired first - nothing to take
     this.orb = null;
     if (this.orbTimer) clearTimeout(this.orbTimer);
-    // hitting the orb keeps the ball — same free-slam rule as the server
+    // hitting the orb keeps the ball - same free-slam rule as the server
     refundThrow(this.budget, new Date());
     this.saveBudget();
     this.emitter.emit("budget", {
@@ -130,7 +130,7 @@ export class LocalBackend implements Backend {
   }
 
   sendPose(): void {
-    // single player — nobody to telegraph to
+    // single player - nobody to telegraph to
   }
 
   requestThrow(throwId: string, launch: ThrowLaunch): void {
@@ -158,7 +158,7 @@ export class LocalBackend implements Backend {
     },
   ): void {
     if (!this.pendingThrows.delete(throwId)) return; // unknown/duplicate
-    // PLACEHOLDER (tune): double-shot points mirror shared/simulate.ts —
+    // PLACEHOLDER (tune): double-shot points mirror shared/simulate.ts -
     // pointsForDistance × rims made
     const points = o.made
       ? o.slam
@@ -184,7 +184,7 @@ export class LocalBackend implements Backend {
     });
   }
 
-  /** The Upgrade press — mirrors server/room.ts (threshold, reset, clear). */
+  /** The Upgrade press - mirrors server/room.ts (threshold, reset, clear). */
   upgrade(): void {
     const next = nextTier(this.world.tierId);
     if (!canUpgrade(this.world) || !next) {
@@ -204,7 +204,7 @@ export class LocalBackend implements Backend {
     });
   }
 
-  /** The jukebox press — mirrors server/room.ts (re-roll ≠ current). */
+  /** The jukebox press - mirrors server/room.ts (re-roll ≠ current). */
   jukeboxPress(): void {
     const box = interactivesForTier(this.world.tierId).find(
       (el) => el.element === "jukebox",
@@ -219,7 +219,7 @@ export class LocalBackend implements Backend {
     this.emitter.emit("jukebox", { state, byName: this.self.name });
   }
 
-  /** The OFF toggle — mirrors server/room.ts (only while playing). */
+  /** The OFF toggle - mirrors server/room.ts (only while playing). */
   jukeboxOffPress(): void {
     if (!this.world.jukebox) return;
     this.world = { ...this.world, jukebox: null };

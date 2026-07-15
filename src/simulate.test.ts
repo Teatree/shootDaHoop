@@ -44,7 +44,7 @@ describe("resolveThrow (the server-side authority)", () => {
   });
 
   it("is deterministic: the same launch always resolves identically", () => {
-    const { vx, vh } = arcTo(RIM.x - RIM.r, RIM.h, 0.8); // rim rattle — knife-edge
+    const { vx, vh } = arcTo(RIM.x - RIM.r, RIM.h, 0.8); // rim rattle - knife-edge
     const a = resolveThrow(launch(vx, vh));
     const b = resolveThrow(launch(vx, vh));
     expect(a).toEqual(b);

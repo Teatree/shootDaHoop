@@ -4,11 +4,11 @@ import { M, sortDepth, toScreen } from "./world";
 import { orbHitTest, type OrbState } from "./shared/orb";
 
 // The teleport orb, RENDER side only: a pulsing blue circle that hangs in
-// the air near the hoop. The orb is a server-authoritative world object —
+// the air near the hoop. The orb is a server-authoritative world object -
 // the authority (server Room, or LocalBackend offline) decides when one
 // spawns, expires, or is consumed; this class just draws the state it is
 // told and answers overlap queries for the local player's own balls
-// (optimistic feel — the authority's ruling still wins).
+// (optimistic feel - the authority's ruling still wins).
 
 interface OrbView {
   state: OrbState;
@@ -21,7 +21,7 @@ interface OrbView {
 
 export class TeleportOrb {
   private orb: OrbView | null = null;
-  /** highest seq already removed here — dedupes echo/snapshot races */
+  /** highest seq already removed here - dedupes echo/snapshot races */
   private removedSeq = 0;
 
   constructor(private readonly scene: Phaser.Scene) {}
@@ -43,7 +43,7 @@ export class TeleportOrb {
     o.glow.setAlpha(0.3 + 0.12 * Math.sin(o.age * Math.PI * 2 * T.tp.pulseHz));
   }
 
-  /** What's on screen right now — sampled by ghost recordings. */
+  /** What's on screen right now - sampled by ghost recordings. */
   sample(): { x: number; d: number; h: number; age: number } | null {
     const o = this.orb;
     return o && !o.fading
@@ -51,7 +51,7 @@ export class TeleportOrb {
       : null;
   }
 
-  /** Ball overlap test (does NOT remove — the caller reports the hit). */
+  /** Ball overlap test (does NOT remove - the caller reports the hit). */
   hitTest(bx: number, bd: number, bh: number): OrbState | null {
     const o = this.current;
     return o && orbHitTest(o, bx, bd, bh) ? o : null;
@@ -60,7 +60,7 @@ export class TeleportOrb {
   /**
    * The authority spawned an orb (or a snapshot is self-healing one in).
    * `pop` = play the appear animation; tier 3's ambient change spawns
-   * orbs with none — they simply come into existence.
+   * orbs with none - they simply come into existence.
    */
   show(orb: OrbState, pop = true) {
     if (orb.seq <= this.removedSeq) return; // already removed locally
@@ -94,7 +94,7 @@ export class TeleportOrb {
   }
 
   /**
-   * The orb is gone: consumed (instant — a zap replaces it) or expired
+   * The orb is gone: consumed (instant - a zap replaces it) or expired
    * (fade out). Idempotent per seq, so the authority's confirmation of a
    * locally-predicted hit is a no-op.
    */

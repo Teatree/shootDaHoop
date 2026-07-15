@@ -31,7 +31,7 @@ export class CameraRig {
 
     // hoop bounds: rim structure from floor to board top OR the highest
     // rim, whichever reaches higher (tier 3's raised upper rim sits well
-    // above the board — the board no longer bounds the structure)
+    // above the board - the board no longer bounds the structure)
     const g = this.geom();
     const hoopMinX = Math.min(...g.rims.map((r) => (r.x - r.r) * M)) - 20;
     const hoopMaxX = g.boardX * M + 24;

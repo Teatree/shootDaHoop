@@ -14,14 +14,14 @@ import type { HoopGeometry } from "./shared/tierRules";
 import type { CourtLookId, HoopLook } from "./shared/tierChanges";
 
 // Placeholder pixel art, generated at boot. Any texture the user supplies
-// in public/assets/ (see the README there) takes priority — we only
+// in public/assets/ (see the README there) takes priority - we only
 // generate a stand-in when the key is missing from the texture cache.
 
 const SHIRT_COLOURS = [
   0xd96a6a, 0x6a9ad9, 0x6ac48a, 0xd9b56a, 0xa97ad9, 0xd97ab0, 0x7ac4c4,
 ];
 
-// Skin: MULTIPLY tints over the pale part art — 0xffffff leaves it as
+// Skin: MULTIPLY tints over the pale part art - 0xffffff leaves it as
 // drawn, browner entries tan it. Deliberately gentle steps ("colorized
 // only a little bit"); head + both hands always share one entry.
 const SKIN_TINTS = [
@@ -45,17 +45,17 @@ function persistentPick(pool: readonly number[], key: string): number {
   return v;
 }
 
-/** The player's skin tint (head + hands) — rolled once per storage key. */
+/** The player's skin tint (head + hands) - rolled once per storage key. */
 export function persistentSkin(storageKey = "shootDaHoop.skin"): number {
   return persistentPick(SKIN_TINTS, storageKey);
 }
 
-/** The trouser tint — rolled once, seeded independently of the skin. */
+/** The trouser tint - rolled once, seeded independently of the skin. */
 export function persistentLower(storageKey = "shootDaHoop.lower"): number {
   return persistentPick(LOWER_TINTS, storageKey);
 }
 
-/** Which head (1-based) — rolled once per storage key. */
+/** Which head (1-based) - rolled once per storage key. */
 export function persistentHead(storageKey = "shootDaHoop.head"): number {
   const stored = Number(localStorage.getItem(storageKey));
   if (Number.isInteger(stored) && stored >= 1 && stored <= HEAD_VARIANTS)
@@ -66,7 +66,7 @@ export function persistentHead(storageKey = "shootDaHoop.head"): number {
 }
 
 /**
- * The player's shirt colour — their visual identity, rolled once and then
+ * The player's shirt colour - their visual identity, rolled once and then
  * persistent under the given localStorage key. OFFLINE that key is global
  * to the browser; in a LOBBY main.ts passes a per-lobby key, so each lobby
  * remembers its own colour (rolled the first time you enter it).
@@ -78,7 +78,7 @@ export function persistentShirt(storageKey = "shootDaHoop.shirt"): number {
 export function ensurePlaceholderTextures(scene: Phaser.Scene) {
   const tex = scene.textures;
 
-  // 3×3 white square — particle building block
+  // 3×3 white square - particle building block
   if (!tex.exists("px")) {
     const g = scene.make.graphics({ x: 0, y: 0 }, false);
     g.fillStyle(0xffffff).fillRect(0, 0, 3, 3);
@@ -86,7 +86,7 @@ export function ensurePlaceholderTextures(scene: Phaser.Scene) {
     g.destroy();
   }
 
-  // Ball — orange circle with a seam, generated at its on-screen size so
+  // Ball - orange circle with a seam, generated at its on-screen size so
   // the pixelArt upscale doesn't turn it to mush (display-sized in Ball)
   if (!tex.exists("ball")) {
     const px = Math.max(10, Math.round(T.throw.ballRadiusM * 2 * M));
@@ -174,7 +174,7 @@ function ensurePartPlaceholders(scene: Phaser.Scene) {
   }
 }
 
-/** The backdrop's recolour veil — the tier's sky colour fades over the
+/** The backdrop's recolour veil - the tier's sky colour fades over the
  *  whole desert (owner 2026-07-15: "the whole background becomes light
  *  gray"). `veil` is the recolour's 0..1 strength; setPalette derives
  *  the layer shades from the tier's sky colour. */
@@ -201,7 +201,7 @@ export function drawBackdrop(scene: Phaser.Scene): Backdrop {
       .setDepth(-100);
   });
 
-  // rolling dunes — three rows of overlapping mounds straddling the horizon,
+  // rolling dunes - three rows of overlapping mounds straddling the horizon,
   // drawn once (static silhouettes; only the suns move)
   const rows: { tint: number; rise: number; rx: number; ry: number }[] = [
     { tint: 0xdfb877, rise: 26, rx: 340, ry: 70 }, // far, palest
@@ -271,7 +271,7 @@ export function drawBackdrop(scene: Phaser.Scene): Backdrop {
 }
 
 /**
- * Boundary walls past both baselines — sandstone, physical obstacles the
+ * Boundary walls past both baselines - sandstone, physical obstacles the
  * ball bounces off (ball.ts). Distinct from the log panel's brick look:
  * the log is a screen-space DOM element, not part of the scene.
  */
@@ -425,20 +425,20 @@ export interface HoopRimParts {
 }
 
 export interface HoopParts {
-  /** pole + backboard + rim strokes — one graphics object */
+  /** pole + backboard + rim strokes - one graphics object */
   body: Phaser.GameObjects.Graphics;
   /** one per hittable rim, top-most first (mirrors geom.rims) */
   rims: HoopRimParts[];
-  /** the rim juice targets by default — the lowest one */
+  /** the rim juice targets by default - the lowest one */
   primary: HoopRimParts;
-  shadow: Phaser.GameObjects.Ellipse; // live — the sun system steers it
+  shadow: Phaser.GameObjects.Ellipse; // live - the sun system steers it
   /** the foot contraption's screen: "current / required" toward the next
    *  upgrade, or current alone at the ladder's top (required = null) */
   setScoreDisplay(current: number, required: number | null): void;
   destroy(): void;
 }
 
-/** Tier 1's hoop paint — the fallback when no look is passed. */
+/** Tier 1's hoop paint - the fallback when no look is passed. */
 const DEFAULT_HOOP_LOOK: HoopLook = {
   board: 0xf6ead2,
   boardEdge: 0x8a6a4a,
@@ -472,7 +472,7 @@ export function createHoop(
   const boardW = 12;
   const lowest = geom.rims.reduce((a, b) => (a.h < b.h ? a : b));
 
-  // floor shadow — its own object so it can track the moving suns
+  // floor shadow - its own object so it can track the moving suns
   const shadow = scene.add
     .ellipse(
       RIM.x * M + 8,
@@ -487,11 +487,11 @@ export function createHoop(
   const armColor = darken(look.pole);
   const housingR = 52;
   const g = scene.add.graphics().setDepth(sortDepth(RIM.d));
-  // pole (behind the board, down INTO the foot housing — the housing is
+  // pole (behind the board, down INTO the foot housing - the housing is
   // a separate lower-depth object, so the pole must stop at its crown).
   // A rim RAISED above the board (tier 3's lifted upper) needs the post
   // to keep climbing past the board top so its tie-arm has something to
-  // hang from — "one post carrying two stacked rims".
+  // hang from - "one post carrying two stacked rims".
   const highestRimY = baseY - Math.max(...geom.rims.map((r) => r.h)) * M;
   const poleTop = Math.min(boardTop + 14, highestRimY - 2);
   g.fillStyle(look.pole).fillRect(
@@ -503,7 +503,7 @@ export function createHoop(
   g.fillStyle(armColor).fillRect(boardX - 2, boardTop + 22, boardW + 8, 5); // arm
   // a POLE-COLOURED strut ties the raised top rim of a double hoop back
   // to the post, so the rim doesn't read as hovering (owner 2026-07-15).
-  // Render-only — physics never sees it. Drawn BEFORE the board so the
+  // Render-only - physics never sees it. Drawn BEFORE the board so the
   // board covers the stretch behind it.
   const strutRim = geom.rims.length > 1 ? geom.rims[0] : null;
   if (strutRim) {
@@ -518,7 +518,7 @@ export function createHoop(
 
   // the score contraption at the pole's foot: a semicircular housing
   // wrapped around the pole base with a rectangular screen inside that
-  // shows "current / required" toward the next upgrade — part of the
+  // shows "current / required" toward the next upgrade - part of the
   // hoop itself, rebuilt (and repainted) with it every tier. Drawn just
   // BELOW the character/ball band at the rim lane, so anyone walking up
   // to the hoop (and any bouncing ball) covers the screen, not the
@@ -541,7 +541,7 @@ export function createHoop(
       fontFamily: '"Courier New", Courier, monospace',
       fontSize: "14px",
       fontStyle: "bold",
-      color: "#ffd97a", // warm LED — clearly readable on the dark screen
+      color: "#ffd97a", // warm LED - clearly readable on the dark screen
     })
     .setOrigin(0.5)
     .setResolution(2)
@@ -559,7 +559,7 @@ export function createHoop(
     g.strokePath();
     g.fillStyle(look.rim).fillCircle(rimL, rimY, 3); // front hook
     // an arm tying a protruding rim back to the board (the strutted top
-    // rim already carries its pole strut — don't double-draw)
+    // rim already carries its pole strut - don't double-draw)
     if (rim !== strutRim && rim.x + rim.r + 4 < geom.boardX) {
       g.fillStyle(armColor).fillRect(rimR, rimY - 2, boardX - rimR, 4);
     }

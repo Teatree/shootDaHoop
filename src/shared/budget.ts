@@ -1,11 +1,11 @@
 import { BALANCE } from "./config";
 
-// The daily throw budget. In multiplayer it is SERVER-authoritative — the
+// The daily throw budget. In multiplayer it is SERVER-authoritative - the
 // client may display the remaining count; it never decides it. Offline the
 // LocalBackend enforces the same rule against a localStorage-persisted
 // counter, so practice and live play spend balls identically.
 //
-// DECIDE (recorded): the budget resets at UTC MIDNIGHT — simple, identical
+// DECIDE (recorded): the budget resets at UTC MIDNIGHT - simple, identical
 // for every world, trivially explainable ("resets at midnight UTC") and
 // testable. Rolling-24h windows and per-world local time were considered
 // and rejected for this pass (rolling is opaque to players; per-world
@@ -44,7 +44,7 @@ export function consumeThrow(p: BudgetFields, now: Date): boolean {
 }
 
 /**
- * Give one throw back — a ball that hit the teleport orb is "the same
+ * Give one throw back - a ball that hit the teleport orb is "the same
  * ball" (the slam is a free throw). No-op if the UTC day rolled over
  * since the throw (the new day already granted a fresh budget).
  */

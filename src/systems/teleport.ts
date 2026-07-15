@@ -9,9 +9,9 @@ import type { AimController } from "../aiming";
 import type { Ball } from "../ball";
 
 // The teleport power-up, local-player side: renders the (authority-owned)
-// orb via TeleportOrb, checks OUR OWN balls against it — never remote
+// orb via TeleportOrb, checks OUR OWN balls against it - never remote
 // players' balls; their hits are the authority's ruling, delivered as a
-// `teleported` event — and runs the levitate → fall → face-down → get-up
+// `teleported` event - and runs the levitate → fall → face-down → get-up
 // state machine. CourtScene ticks it and asks isLevitating.
 
 const ZAP = [0x2e7bff, 0x9fd0ff, 0xffffff] as const;
@@ -26,9 +26,9 @@ export interface TeleportDeps {
   aim: AimController;
   /** the timed-out-while-aiming weak up-throw (a slam attempt) */
   throwWeak: () => void;
-  /** teleport happened — recording system anchors slam replays on this */
+  /** teleport happened - recording system anchors slam replays on this */
   onTeleport: (from: Xyz, to: Xyz) => void;
-  /** our ball took orb `seq` — report it upstream (Backend.reportOrbHit) */
+  /** our ball took orb `seq` - report it upstream (Backend.reportOrbHit) */
   onOrbHit: (seq: number) => void;
 }
 
@@ -74,7 +74,7 @@ export class TeleportSystem {
     }
 
     if (this.state === "levitate") {
-      // suspended, drifting down a little — even while aiming
+      // suspended, drifting down a little - even while aiming
       this.player.airH -= T.tp.sinkSpeedM * dt;
       this.timer -= dt;
       if (this.timer <= 0) {
@@ -110,7 +110,7 @@ export class TeleportSystem {
       this.timer -= dt;
       if (this.timer <= 0) {
         this.state = "none";
-        // rig.angle animating back to 0 IS the "getup" pose window —
+        // rig.angle animating back to 0 IS the "getup" pose window -
         // the hands only come down once it lands at upright
         this.player.tpKind = null;
         this.scene.tweens.add({
@@ -126,14 +126,14 @@ export class TeleportSystem {
     }
   }
 
-  /** The levitation throw is the last act up there — falling starts now. */
+  /** The levitation throw is the last act up there - falling starts now. */
   onThrowReleased() {
     if (this.state === "levitate") this.startFall();
   }
 
   /**
    * The authority ruled that OUR ball hit the orb. Usually we predicted
-   * it (already levitating) — then this is a no-op. If our variable-dt
+   * it (already levitating) - then this is a no-op. If our variable-dt
    * ball narrowly missed where the fixed-dt ruling hit, honor the ruling
    * and zap late.
    */

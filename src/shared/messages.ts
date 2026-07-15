@@ -1,4 +1,4 @@
-// The typed client↔server vocabulary — ONE file, so a payload-shape
+// The typed client↔server vocabulary - ONE file, so a payload-shape
 // mismatch is a compile error, not a runtime surprise. Dependency-free;
 // imported by the client Backend implementations and the server.
 
@@ -11,7 +11,7 @@ export type { PoseState };
 /**
  * Everything needed to draw a character at one instant. Streamed as
  * telemetry (~12 Hz, interpolated on arrival), sampled per-frame into
- * ghost recordings — ONE format for both, by design.
+ * ghost recordings - ONE format for both, by design.
  */
 export interface AvatarState {
   x: number; //      court meters
@@ -27,13 +27,13 @@ export interface AvatarState {
 export interface PlayerInfo {
   id: string; //         platform identity (Telegram/Discord user id) or local
   name: string;
-  shirtColor: number; // 0xRRGGBB — hard tint on the white t-shirt part
-  skinTint: number; //   0xRRGGBB — multiply tint shared by head + hands
-  lowerTint: number; //  0xRRGGBB — subtle tint on the trouser band
+  shirtColor: number; // 0xRRGGBB - hard tint on the white t-shirt part
+  skinTint: number; //   0xRRGGBB - multiply tint shared by head + hands
+  lowerTint: number; //  0xRRGGBB - subtle tint on the trouser band
   headVariant: number; // 1-based index into the head_v* part textures
   x: number; //          court meters (last known/spawn)
   d: number;
-  /** the player disconnected but their character waits around — clients
+  /** the player disconnected but their character waits around - clients
    *  gray the name tag (absent = online, keeps old payloads parsing) */
   offline?: boolean;
 }
@@ -50,7 +50,7 @@ export interface Cosmetics {
 /** The jukebox loop everyone in the world hears (Hoop 3+). */
 export interface JukeboxState {
   song: number; //        0-based index into the song slots
-  startedAtMs: number; // epoch ms the loop began — clients seek to sync
+  startedAtMs: number; // epoch ms the loop began - clients seek to sync
 }
 
 export interface WorldState {
@@ -62,7 +62,7 @@ export interface WorldState {
 
 /**
  * Everything needed to reproduce a throw anywhere: release point + velocity
- * (+ where the shooter stood, which drives the points table) — clients
+ * (+ where the shooter stood, which drives the points table) - clients
  * animate the arc themselves; nobody streams the ball.
  */
 export interface ThrowLaunch {
@@ -82,7 +82,7 @@ export interface ThrowOutcome {
   made: boolean;
   swish: boolean;
   slam: boolean;
-  /** rims made — 2 on a tier-3 "double shot" through both rims */
+  /** rims made - 2 on a tier-3 "double shot" through both rims */
   rims: number;
   distM: number;
   points: number;
@@ -97,7 +97,7 @@ export type HistoryEntry =
       made: boolean;
       swish: boolean;
       slam: boolean;
-      /** rims made (2 = double shot) — absent on entries from before tier 3 */
+      /** rims made (2 = double shot) - absent on entries from before tier 3 */
       rims?: number;
       distM: number;
       points: number;
@@ -119,14 +119,14 @@ export type ClientMsg =
     }
   | { t: "move-to"; x: number; d: number }
   | { t: "throw"; throwId: string; launch: ThrowLaunch }
-  /** press the Upgrade button — the server validates threshold + proximity */
+  /** press the Upgrade button - the server validates threshold + proximity */
   | { t: "upgrade" }
-  /** press the jukebox — re-rolls the song everyone hears (tier 3+) */
+  /** press the jukebox - re-rolls the song everyone hears (tier 3+) */
   | { t: "jukebox" }
-  /** the OFF toggle beside a PLAYING jukebox — stops it for everyone */
+  /** the OFF toggle beside a PLAYING jukebox - stops it for everyone */
   | { t: "jukebox-off" }
   | { t: "chat"; text: string }
-  /** pose telemetry, ~12 Hz while animating — cosmetic, relayed as-is */
+  /** pose telemetry, ~12 Hz while animating - cosmetic, relayed as-is */
   | { t: "pose"; s: AvatarState }
   /** admin CLI (scripts/admin.ts): kick a lobby before its files move */
   | { t: "admin"; token: string; cmd: "remove"; lobby: string };
@@ -146,7 +146,7 @@ export type ServerMsg =
   | { t: "join-rejected"; reason: "full" }
   | { t: "player-joined"; player: PlayerInfo }
   | { t: "player-left"; id: string; name: string }
-  /** the player disconnected; their character STAYS, tag grayed —
+  /** the player disconnected; their character STAYS, tag grayed -
    *  player-joined with the same id later = they reclaimed it */
   | { t: "player-offline"; id: string; name: string }
   | { t: "move-to"; id: string; x: number; d: number }
@@ -171,17 +171,17 @@ export type ServerMsg =
   /**
    * The Upgrade press was refused (sent to the presser only). Client and
    * server share tiers.ts, so "threshold" here while the client showed
-   * the button usually means the SERVER IS RUNNING A STALE BUILD — tsx
+   * the button usually means the SERVER IS RUNNING A STALE BUILD - tsx
    * doesn't hot-reload; restart it after editing shared code.
    */
   | { t: "upgrade-rejected"; reason: "threshold" | "proximity" }
-  /** someone pressed the jukebox — the new song (or null = turned OFF),
+  /** someone pressed the jukebox - the new song (or null = turned OFF),
    *  synced to everyone */
   | { t: "jukebox"; state: JukeboxState | null; byName: string }
   | { t: "budget"; throwsRemaining: number }
-  /** someone joined with a ?reset link — the shared score was wiped */
+  /** someone joined with a ?reset link - the shared score was wiped */
   | { t: "world-reset"; name: string; world: WorldState }
-  /** the admin removed this lobby — show a notice, expect the close */
+  /** the admin removed this lobby - show a notice, expect the close */
   | { t: "lobby-removed" }
   /** ack for an admin command (sent to the CLI socket only) */
   | { t: "admin-result"; ok: boolean; detail: string }
@@ -190,7 +190,7 @@ export type ServerMsg =
   /** byId present = consumed by that player's ball; absent = expired */
   | { t: "orb-removed"; seq: number; byId?: string }
   /**
-   * A player's ball hit the orb — they zap up to it (h = orb height).
+   * A player's ball hit the orb - they zap up to it (h = orb height).
    * throwId identifies the consumed ball so every client can pop it.
    */
   | { t: "teleported"; id: string; throwId?: string; x: number; d: number; h: number }

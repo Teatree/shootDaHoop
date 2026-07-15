@@ -1,7 +1,7 @@
 // Player identity: asked via a DOM overlay, then remembered in
 // localStorage. OFFLINE the name is global to the browser; in a LOBBY the
 // name is per-lobby (asked again the first time you enter each lobby, then
-// fixed for that lobby — main.ts passes the per-lobby storage key). The
+// fixed for that lobby - main.ts passes the per-lobby storage key). The
 // name shows above the character and in every court-wall log line.
 
 const NAME_KEY = "shootDaHoop.playerName";

@@ -8,13 +8,13 @@ import type { InteractiveElement } from "../shared/tierChanges";
 // The Cheering Area (Hoop 2's Interactive Element): a small wooden deck
 // above the spawn area, outside the court, that ~3 characters can stand
 // in. Walk very close → a "Cheer" button pops up → pressing it walks the
-// character UP INTO the deck — already cheering on the way (the doc's
-// beat) — and they stand there pumping until other input pulls them out:
+// character UP INTO the deck - already cheering on the way (the doc's
+// beat) - and they stand there pumping until other input pulls them out:
 // a walk/throw click first walks the character back DOWN out of the
 // area, then obeys (leaveThen).
 //
 // Occupancy is cosmetic: each client picks a free-looking spot from the
-// remote avatars it can see. PLACEHOLDER: no authority arbitrates spots —
+// remote avatars it can see. PLACEHOLDER: no authority arbitrates spots -
 // two players entering at once can share one. Fine for ~3-crowd decks.
 
 type Phase = "idle" | "entering" | "occupying" | "leaving";
@@ -196,7 +196,7 @@ export class CheerArea {
   }
 
   /**
-   * Distance (world px) from the player to the deck rect, PER AXIS —
+   * Distance (world px) from the player to the deck rect, PER AXIS -
    * "within N px each way from the edges": the trigger area is the
    * bench's rectangle grown by proximityPx on every side.
    */

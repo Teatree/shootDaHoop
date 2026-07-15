@@ -1,4 +1,4 @@
-// Ball types — DATA-DRIVEN: a ball is a data entry, so the later per-player
+// Ball types - DATA-DRIVEN: a ball is a data entry, so the later per-player
 // ball progression is a content change, not a code change. Dependency-free.
 //
 // NOTE: today the whole sim runs on one active type (BALANCE.throw reads the
