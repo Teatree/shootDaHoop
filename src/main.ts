@@ -4,6 +4,7 @@ import { initHUD } from "./hud";
 import { initSettings } from "./settings";
 import { AUDIO_MANIFEST, IMAGE_MANIFEST, MUSIC_MANIFEST } from "./assets";
 import { askPlayerName, getStoredName } from "./playerName";
+import { initShare } from "./share";
 import { LocalBackend } from "./backend/local";
 import { SocketBackend } from "./backend/socket";
 import type { Backend } from "./backend/types";
@@ -88,6 +89,7 @@ async function boot() {
 
   const params = new URLSearchParams(location.search);
   const lobby = params.get("lobby");
+  const share = initShare(lobby);
 
   // first visit (per lobby) asks; afterwards that court knows you
   const { identity, freshName } = await resolveIdentity(lobby);
@@ -144,6 +146,7 @@ async function boot() {
         chooseBackend(params, lobby, identity),
         lobby,
         freshName, // just chose a name → the controls pop-up follows
+        share,
       ),
     ],
   });

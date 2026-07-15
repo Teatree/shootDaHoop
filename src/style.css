@@ -224,6 +224,28 @@ body {
   user-select: all;
 }
 
+/* The share button: top-center of the game section, where the score
+   display used to live - shares the session's throw roll + lobby link */
+#share-btn {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: bold;
+  color: #2b1e16;
+  background: #e8b878;
+  border: 2px solid #7a5a3a;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#share-btn:hover {
+  background: #ffd97a;
+}
+
 /* ── First-entry controls pop-up: two looping videos (walk, throw)
    over animated mice (left CLICK / CLICK-AND-HOLD) ─────────────── */
 

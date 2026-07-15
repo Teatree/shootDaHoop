@@ -111,11 +111,12 @@ function buildOverlay(cardHtml: string): HTMLDivElement {
  * Clipboard API first; a throwaway textarea + execCommand keeps
  * plain-HTTP LAN testing working (the visible input only holds the bare
  * URL, so it can't stand in for the multi-line invite). If everything
- * fails, the URL stays selected - Ctrl+C at least shares the link.
+ * fails, the fallback input (when given) stays selected - Ctrl+C at
+ * least shares the link. Exported: the share button reuses it.
  */
-async function copyText(
+export async function copyText(
   text: string,
-  fallback: HTMLInputElement,
+  fallback?: HTMLInputElement,
 ): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);
@@ -134,7 +135,7 @@ async function copyText(
       ok = false;
     }
     ta.remove();
-    if (!ok) fallback.select();
+    if (!ok) fallback?.select();
     return ok;
   }
 }
