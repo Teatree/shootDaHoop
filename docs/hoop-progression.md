@@ -471,3 +471,31 @@ Three BUGS plus a jukebox pass and two sweeps:
 - Gotcha for future text edits: PowerShell's `Get-Content -Raw` +
   `-replace` + `Set-Content` MOJIBAKES BOM-less UTF-8 (â†' arrows) -
   use `[IO.File]::ReadAllText/WriteAllText` with `UTF8Encoding($false)`.
+
+---
+
+## 11. Owner-feedback batch #6, 2026-07-16 (third of the day)
+
+- **The FUNNEL** (the second-hoop registration bug): a ball through the
+  upper rim was net-dragged nearly straight down - LEFT of the lower
+  opening (the upper protrudes), so the second hoop rarely registered.
+  `checkScore` now steers the ball at the next rim below after a
+  non-lowest score (solve the fall time, set vx toward the opening) -
+  pure, deterministic, shared by client flight and server resolution.
+  Every upper make is now a guaranteed double shot (2x points - the
+  owner's explicit "go through one ... then the other will also
+  register").
+- **Share button v2**: appears ONLY when the balls run out (wired to
+  the budget events), GREEN, pops in (`sharePop`) then pulsates
+  (`sharePulse`, with `forwards` on the pop so the transform doesn't
+  revert during the pulse's start delay - and translateX lives INSIDE
+  the keyframes, or the animation would un-center the button).
+- **Chat links are clickable**: `hud.linkify` wraps URL matches in
+  already-ESCAPED text with `<a target="_blank" rel="noopener">`; both
+  the live chat handler and the history replay use it.
+- **Cancel-aim**: left-click mid-aim cancels the throw and walks. The
+  pointerdown handler now branches on `p.button` (the CAUSING button),
+  not `p.rightButtonDown()` (button STATE) - the old state check made a
+  left press mid-aim restart the aim, a latent bug.
+- Basketball-emoji favicon (inline SVG data URI - also kills the
+  console's favicon 404); cheer trigger halved (proximityPx 100 → 50).
