@@ -1,7 +1,12 @@
 import Phaser from "phaser";
 import { T } from "./tuning";
 import { M, WALL_LEFT_X, WALL_RIGHT_X, floorY, sortDepth, toScreen } from "./world";
-import { type BallState, createBallState, stepBall } from "./shared/physics";
+import {
+  type BallState,
+  createBallState,
+  PHYSICS_DT,
+  stepBall,
+} from "./shared/physics";
 import type { HoopGeometry } from "./shared/tierRules";
 import { ballExplode } from "./juice";
 import { playSfx } from "./sfx";
@@ -23,7 +28,7 @@ interface BallOpts {
   shotDistM: number;
   /** thrown by the local player (remote balls never trigger local power-ups) */
   own: boolean;
-  /** the ACTIVE tier's hoop — a getter so an upgrade mid-flight is read
+  /** the ACTIVE tier's hoop - a getter so an upgrade mid-flight is read
    *  consistently on the next step */
   geom: () => HoopGeometry;
   /** the tier's ball look, as a multiply tint (T.ballLooks) */
@@ -40,6 +45,8 @@ export class Ball {
 
   private life = 0;
   private dead = false;
+  /** frame time not yet consumed by fixed-step physics (see update) */
+  private acc = 0;
   private lastRimSfxAt = -1; // substeps can rattle many times per frame
   private light: LightDir = { dx: 0, elev: 1 };
 
@@ -68,7 +75,7 @@ export class Ball {
     if (opts.tint !== 0xffffff) this.sprite.setTint(opts.tint);
     const baseScale = this.sprite.scaleX;
 
-    // release "pop" — tween back to baseScale, NOT 1, or it undoes the sizing
+    // release "pop" - tween back to baseScale, NOT 1, or it undoes the sizing
     this.sprite.setScale(baseScale * T.throwFx.releasePopScale);
     scene.tweens.add({
       targets: this.sprite,
@@ -93,7 +100,7 @@ export class Ball {
     this.render();
   }
 
-  /** True once fully cleaned up — the scene drops it from its list. */
+  /** True once fully cleaned up - the scene drops it from its list. */
   get done(): boolean {
     return this.dead;
   }
@@ -103,7 +110,7 @@ export class Ball {
     return this.opts.own;
   }
 
-  /** Current court position (meters) — for power-up overlap checks. */
+  /** Current court position (meters) - for power-up overlap checks. */
   get pos() {
     return { x: this.s.x, d: this.s.d, h: this.s.h };
   }
@@ -120,10 +127,23 @@ export class Ball {
     if (this.dead) return;
     this.life += dt;
 
-    for (const e of stepBall(this.s, dt, this.opts.geom())) {
+    // FIXED-STEP physics: accumulate frame time and step in the same
+    // PHYSICS_DT quanta the server's resolveThrow uses, so the flight on
+    // screen IS the authoritative trajectory (variable frame dt made the
+    // sims diverge on rim rattles - visual swish, ruled miss). The cap
+    // stops a long-stalled frame from spiralling into a step burst.
+    this.acc = Math.min(this.acc + dt, 0.25);
+    const events: ReturnType<typeof stepBall> = [];
+    while (this.acc >= PHYSICS_DT && !this.dead) {
+      this.acc -= PHYSICS_DT;
+      events.push(...stepBall(this.s, PHYSICS_DT, this.opts.geom()));
+    }
+
+    for (const e of events) {
+      if (this.dead) return; // a handler above may have exploded the ball
       switch (e) {
         case "score":
-          // one rim made — juice hooks land here later; the throw's
+          // one rim made - juice hooks land here later; the throw's
           // OUTCOME fires on "made" (a double shot scores twice first)
           break;
         case "made":
@@ -202,7 +222,7 @@ export class Ball {
     this.sprite.rotation += this.s.vx * T.throw.spinRadPerM * (1 / 60); // frame-ish spin, reads fine
     this.sprite.setDepth(sortDepth(this.s.d) + 1);
 
-    // shadow shrinks/fades with height and leans away from the sun —
+    // shadow shrinks/fades with height and leans away from the sun -
     // the higher the ball, the further its shadow slides
     const hFrac = Phaser.Math.Clamp(1 - this.s.h / 6, 0.25, 1);
     const li = this.light;

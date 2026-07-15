@@ -6,22 +6,31 @@ import {
   type RimSpec,
 } from "./tierRules";
 
-// Pure ball physics — no Phaser, no DOM, no Node. Shared by the client
+// Pure ball physics - no Phaser, no DOM, no Node. Shared by the client
 // (Ball in ball.ts owns the sprites and feeds this stepper) and the server
 // (resolveThrow in simulate.ts); unit tests drive it directly.
 //
 // The integration is substepped so travel per step never exceeds a
 // fraction of the ball radius. Scoring is a SWEPT test against the segment
-// travelled this substep — "is past the plane" position checks teleport
+// travelled this substep - "is past the plane" position checks teleport
 // fast balls (see docs/gameplay-prototype.md, discoveries #1/#2). The
 // backboard is a circle-vs-segment overlap test, which the substep travel
 // cap makes tunnel-proof (a one-shot plane-crossing test let lobs through
-// the upper board — see collideBackboard).
+// the upper board - see collideBackboard).
 //
-// Determinism note (deliberate design decision): stepBall is deterministic
-// for a fixed dt sequence, but live play feeds it variable frame times, so
-// real-game outcomes stay organic and the game never feels "solved".
-// Replays therefore record positions rather than re-simulating.
+// Determinism: stepBall is deterministic for a fixed dt sequence, and
+// EVERY consumer now feeds it the same PHYSICS_DT quanta - the server's
+// resolveThrow and the client's visual Ball (which accumulates frame time
+// and steps in fixed chunks). One launch = one trajectory everywhere, so
+// what the player SEES going through the rim is exactly what the
+// authority scored (owner bug 2026-07-16: variable frame-dt stepping let
+// the visual ball swish while the server's fixed-dt sim ruled a miss).
+// Outcomes stay organic because launch params come from analog input.
+// Replays still record positions rather than re-simulating.
+
+/** The one step size every ball simulation uses (server resolution AND
+ *  the client's visual flight) - sharing it is what keeps them agreeing. */
+export const PHYSICS_DT = 1 / 120;
 
 export interface BallState {
   x: number; //  court meters
@@ -31,21 +40,21 @@ export interface BallState {
   vh: number; // m/s up
   scored: boolean; //   any rim made
   rimsMade: string[]; //rim ids made, in order (tier 3: a "double shot" has 2)
-  rimTouched: boolean; // any rim/board contact — spoils the swish
+  rimTouched: boolean; // any rim/board contact - spoils the swish
   resolved: boolean; //  score/miss decided
   resting: boolean; //   rolling out on the floor
   restT: number;
 }
 
 export type BallEvent =
-  | "score" //    crossed a rim plane inside its opening — one bucket
+  | "score" //    crossed a rim plane inside its opening - one bucket
   | "made" //     the throw RESOLVED as made (fires exactly once)
-  | "miss" //     touched the floor with no bucket — can no longer score
+  | "miss" //     touched the floor with no bucket - can no longer score
   | "rim" //      bounced off a rim tip
   | "board" //    bounced off the backboard
   | "wall" //     bounced off a boundary wall
   | "bounce" //   hit the floor
-  | "restDone"; // sat still long enough — despawn me
+  | "restDone"; // sat still long enough - despawn me
 
 export function createBallState(
   x: number,
@@ -71,7 +80,7 @@ export function createBallState(
 
 /**
  * Advance the ball by dt seconds; returns what happened along the way.
- * `geom` is the ACTIVE tier's hoop (shared/tierRules.ts) — every rim in it
+ * `geom` is the ACTIVE tier's hoop (shared/tierRules.ts) - every rim in it
  * is hittable and scoreable; the throw resolves once nothing below the
  * lowest made point can still score. Defaults to the tier-1 hoop so
  * geometry-agnostic callers/tests behave exactly as before.
@@ -94,7 +103,7 @@ export function stepBall(
     return ev;
   }
 
-  // substepped so travel per step ≤ frac·radius — CCD-ish safety
+  // substepped so travel per step ≤ frac·radius - CCD-ish safety
   const speed = Math.hypot(s.vx, s.vh);
   const maxTravel = T.throw.substepTravelFrac * T.throw.ballRadiusM;
   const steps = clamp(Math.ceil((speed * dt) / maxTravel), 1, T.throw.maxSubsteps);
@@ -157,12 +166,12 @@ function collideRimPoint(s: BallState, px: number, ph: number): boolean {
 /**
  * Circle-vs-segment board collision: the board is the vertical segment
  * (bx, boardBottom)–(bx, boardTop) and the ball hits it whenever its
- * circle overlaps — the substep travel cap (half a radius) means overlap
+ * circle overlaps - the substep travel cap (half a radius) means overlap
  * can't be stepped over. Resolving along the ACTUAL contact normal (face,
  * top/bottom edge, either side) fixes two bugs the old one-shot plane
  * crossing had: "is past the plane" teleports (discovery #2), and lobs
  * whose edge reached the plane while the CENTER was still above boardTop
- * — the height check failed at the only substep that could fire, and the
+ * - the height check failed at the only substep that could fire, and the
  * ball sailed down through the upper board.
  */
 function collideBackboard(
@@ -200,11 +209,11 @@ function collideBackboard(
 /**
  * Swept scoring against ONE rim: the segment travelled this substep must
  * cross that rim's plane downward, and the interpolated crossing point
- * must fit its opening with the FULL ball radius — physics decides, not
+ * must fit its opening with the FULL ball radius - physics decides, not
  * whichever position the frame happened to sample.
  *
  * Each rim scores at most once. The throw only RESOLVES when the lowest
- * rim is made (nothing below can still score) — a ball that swished the
+ * rim is made (nothing below can still score) - a ball that swished the
  * upper rim of a double hoop keeps flying, net-dragged, toward the lower
  * one: the "double shot".
  */
@@ -232,7 +241,7 @@ function checkScore(
   return true;
 }
 
-/** Boundary walls past both baselines — the physical scene edges. */
+/** Boundary walls past both baselines - the physical scene edges. */
 function collideWall(s: BallState): boolean {
   const r = T.throw.ballRadiusM;
   if (s.vx > 0 && s.x + r > WALL_RIGHT_X) {
@@ -253,7 +262,7 @@ function stepGround(s: BallState, ev: BallEvent[]) {
   if (s.h <= r && s.vh < 0) {
     s.h = r;
     if (!s.resolved) {
-      // once it hits the floor it can't score further — resolve now: a
+      // once it hits the floor it can't score further - resolve now: a
       // miss if nothing was made, or the final "made" for a ball that
       // took an upper rim but never reached the lower one
       s.resolved = true;
