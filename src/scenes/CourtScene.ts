@@ -5,7 +5,7 @@ import { burst, flash, puff } from "../juice";
 import { SunSystem, shadowShift } from "../sky";
 import { SpeechBubbles } from "../speech";
 import type { HUD } from "../hud";
-import { esc } from "../hud";
+import { esc, linkify } from "../hud";
 import {
   createHoop,
   createKeepOutZone,
@@ -130,7 +130,7 @@ export class CourtScene extends Phaser.Scene {
      *  so the controls pop-up follows the name modal */
     private readonly firstEntry: boolean = false,
     /** the top-center SHARE button - fed the local player's hit/miss roll */
-    private readonly share: ShareTracker = { noteResult() {} },
+    private readonly share: ShareTracker = { noteResult() {}, setOutOfBalls() {} },
   ) {
     super("court");
   }
@@ -301,6 +301,7 @@ export class CourtScene extends Phaser.Scene {
       this.hud.setThrowsRemaining(e.throwsRemaining);
       // gates immediately if we rejoin with 0 left
       this.throwsRemaining = e.throwsRemaining;
+      this.share.setOutOfBalls(e.throwsRemaining <= 0);
       if (e.orb) this.teleport.orb.show(e.orb);
       for (const p of e.players) {
         if (p.id !== e.selfId) {
@@ -319,6 +320,8 @@ export class CourtScene extends Phaser.Scene {
       // the authority (server room / LocalBackend) recounted - gate on it
       this.throwsRemaining = e.throwsRemaining;
       this.hud.setThrowsRemaining(e.throwsRemaining);
+      // the SHARE button lives exactly where the balls end
+      this.share.setOutOfBalls(e.throwsRemaining <= 0);
     });
     this.backend.on("joinRejected", () => {
       this.hud.log("presence", "This court is full - try again later.");
@@ -422,7 +425,7 @@ export class CourtScene extends Phaser.Scene {
     this.backend.on("chatMessage", (e) => {
       this.hud.log(
         "chat",
-        `<span class="who">${esc(e.name)}:</span> ${esc(e.text)}`,
+        `<span class="who">${esc(e.name)}:</span> ${linkify(esc(e.text))}`,
       );
       if (document.hidden) return; // the wall has it; no stale bubbles
       if (e.id === this.selfId) this.speech.say(e.text);
@@ -735,7 +738,7 @@ export class CourtScene extends Phaser.Scene {
       if (h.kind === "chat") {
         this.hud.log(
           "chat",
-          `<span class="who">${esc(h.name)}:</span> ${esc(h.text)}`,
+          `<span class="who">${esc(h.name)}:</span> ${linkify(esc(h.text))}`,
         );
       } else if (h.kind === "presence") {
         this.hud.log(

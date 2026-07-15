@@ -178,3 +178,16 @@ export function initHUD(): HUD {
 export function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
+
+/**
+ * Turn bare URLs in ALREADY-ESCAPED text into clickable links that open
+ * in a new tab (owner 2026-07-16: links shared in chat are interactable).
+ * Run esc() first - this only trusts the URL match itself, and `<` was
+ * escaped away so a URL can't smuggle markup.
+ */
+export function linkify(escaped: string): string {
+  return escaped.replace(
+    /https?:\/\/[^\s<]+/g,
+    (url) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`,
+  );
+}

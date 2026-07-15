@@ -67,7 +67,10 @@ the dotted line itself communicates everything:
 
 - **Left-click:** walk to the clicked floor point (click ripple feedback).
   Walking is clamped: never within 160px of the hoop (see §6) and never off the
-  court band.
+  court band. **Left-clicking MID-AIM cancels the throw and walks away**
+  (owner, 2026-07-16) - the pointerdown handler branches on `p.button` (the
+  button that CAUSED the event), which also fixed a latent bug where a left
+  press during a held right-click restarted the aim from the new cursor spot.
 - **Enter:** focus chat; Enter again sends; Esc blurs. A **Send button** and an
   **emoji picker** (closes after picking one, like Discord) round out the chat
   bar. Chat max length 1000.

@@ -58,9 +58,16 @@ export class AimController {
     scene.input.on(
       "pointerdown",
       (p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
-        if (p.rightButtonDown()) {
+        // branch on the button that CAUSED the event (p.button), not on
+        // button state - a left press mid-aim also has rightButtonDown()
+        // true and used to restart the aim from the new cursor spot
+        if (p.button === 2) {
           this.begin(p);
-        } else if (p.leftButtonDown() && !this.aiming && over.length === 0) {
+        } else if (p.button === 0) {
+          // left-click DURING an aim cancels the throw and walks away
+          // (owner 2026-07-16: walking out of a held right-click aim)
+          if (this.aiming || this.pointing) this.cancel();
+          if (over.length > 0) return;
           // clicks on interactive world objects (upgrade button, jukebox…)
           // are theirs - a bare floor click is a walk
           const wp = scene.cameras.main.getWorldPoint(p.x, p.y);

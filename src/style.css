@@ -225,25 +225,52 @@ body {
 }
 
 /* The share button: top-center of the game section, where the score
-   display used to live - shares the session's throw roll + lobby link */
+   display used to live - shares the session's throw roll + lobby link.
+   GREEN, appears with a pop when the balls run out, then pulsates on an
+   interval as a "brag about it" reminder (owner 2026-07-16). */
 #share-btn {
   position: absolute;
   top: 10px;
   left: 50%;
-  transform: translateX(-50%);
   padding: 8px 14px;
   font-family: inherit;
   font-size: 14px;
   font-weight: bold;
-  color: #2b1e16;
-  background: #e8b878;
-  border: 2px solid #7a5a3a;
+  color: #fdf6e3;
+  background: #2ea86a;
+  border: 2px solid #fdf6e3;
   border-radius: 4px;
   cursor: pointer;
 }
 
 #share-btn:hover {
-  background: #ffd97a;
+  background: #37c17c;
+}
+
+#share-btn.appear {
+  /* `forwards` holds the pop's end frame through the pulse's delay -
+     without it the transform would briefly revert between the two */
+  animation:
+    sharePop 0.35s ease-out forwards,
+    sharePulse 1.8s ease-in-out 0.6s infinite;
+}
+
+/* translateX rides inside the keyframes: `transform` in the animation
+   would otherwise override the centering */
+@keyframes sharePop {
+  0% { transform: translateX(-50%) scale(0.2); }
+  70% { transform: translateX(-50%) scale(1.12); }
+  100% { transform: translateX(-50%) scale(1); }
+}
+
+@keyframes sharePulse {
+  0%, 100% { transform: translateX(-50%) scale(1); }
+  50% { transform: translateX(-50%) scale(1.07); }
+}
+
+/* keep the button centered when no animation runs */
+#share-btn:not(.appear) {
+  transform: translateX(-50%);
 }
 
 /* ── First-entry controls pop-up: two looping videos (walk, throw)
@@ -681,6 +708,17 @@ body {
 
 .log-line.chat .who {
   color: #ffb84d;
+}
+
+/* URLs shared in chat are real links (owner 2026-07-16) */
+.log-line a {
+  color: #8ecdf8;
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+.log-line a:hover {
+  color: #b8e2ff;
 }
 
 /* Presence - join / leave / errors, subdued (filterable) */
