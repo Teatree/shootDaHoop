@@ -3,11 +3,11 @@ import { M, RIM, floorY } from "../world";
 import { BUTTON_DEPTH } from "./proximityButton";
 
 // The beckoning "Upgrade" button (HOOP_PROGRESSION.md): once the shared
-// score reaches the next tier's threshold it appears under the hoop —
+// score reaches the next tier's threshold it appears under the hoop -
 // bobbing, pulsing, visibly calling a player over. ANY player can walk
 // up and press it; the authority validates threshold + proximity.
 
-/** The button's floor spot, court meters — directly at the bottom of the
+/** The button's floor spot, court meters - directly at the bottom of the
  *  hoop. Pressing it is an errand: the character walks THROUGH the
  *  keep-out zone up to the hoop and touches it. */
 export function upgradeButtonSpot() {
@@ -18,6 +18,12 @@ export class UpgradeButton {
   private readonly container: Phaser.GameObjects.Container;
   private readonly bob: Phaser.Tweens.Tween;
   private shown = false;
+  /** the in-flight show/hide transition - killed on every state flip.
+   *  A sleeping tab (Phaser pauses on hidden) can QUEUE several flips
+   *  (threshold → upgrade → next threshold); on wake they'd all run
+   *  concurrently and a stale hide's onComplete could setVisible(false)
+   *  AFTER the final show finished - the button looked gone for good. */
+  private fade: Phaser.Tweens.Tween | null = null;
 
   constructor(scene: Phaser.Scene, onPress: () => void) {
     const spot = upgradeButtonSpot();
@@ -84,15 +90,16 @@ export class UpgradeButton {
     });
   }
 
-  /** Show when the threshold is met, hide otherwise — with a pop. */
+  /** Show when the threshold is met, hide otherwise - with a pop. */
   setAvailable(on: boolean) {
     if (on === this.shown) return;
     this.shown = on;
     const c = this.container;
     const scene = c.scene;
+    this.fade?.remove(); // the LAST state flip wins - drop any stale transition
     if (on) {
       c.setVisible(true).setScale(0.3).setAlpha(0);
-      scene.tweens.add({
+      this.fade = scene.tweens.add({
         targets: c,
         scale: 1,
         alpha: 1,
@@ -102,7 +109,7 @@ export class UpgradeButton {
       this.bob.resume();
     } else {
       this.bob.pause();
-      scene.tweens.add({
+      this.fade = scene.tweens.add({
         targets: c,
         scale: 0.3,
         alpha: 0,

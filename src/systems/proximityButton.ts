@@ -4,7 +4,7 @@ import Phaser from "phaser";
 // "when a character is very close, a button appears"): a small bobbing
 // pill anchored over the element, popped in/out as the player crosses
 // the trigger distance. The OWNER decides when it's near (each element
-// measures its own edge-to-edge distance) — this class only presents.
+// measures its own edge-to-edge distance) - this class only presents.
 
 /** Buttons float above every world object (hoop tops out ≈ sortDepth 160)
  *  but below the aim preview (900). PLACEHOLDER (tune). */
@@ -12,7 +12,13 @@ export const BUTTON_DEPTH = 500;
 
 export class ProximityButton {
   private readonly container: Phaser.GameObjects.Container;
+  private readonly text: Phaser.GameObjects.Text;
   private shown = false;
+  /** the in-flight show/hide transition - killed on every state flip so
+   *  flips queued on a sleeping tab can't fight each other on wake (a
+   *  stale hide's onComplete would setVisible(false) after a show; see
+   *  upgradeButton.ts, same fix) */
+  private fade: Phaser.Tweens.Tween | null = null;
 
   constructor(
     scene: Phaser.Scene,
@@ -29,6 +35,7 @@ export class ProximityButton {
         color: "#fdf6e3",
       })
       .setOrigin(0.5);
+    this.text = text;
     const w = Math.max(64, text.width + 24);
     const h = 26;
     const g = scene.add.graphics();
@@ -65,15 +72,22 @@ export class ProximityButton {
     });
   }
 
+  /** Swap the label in place (the jukebox's play/pause toggle). The pill
+   *  keeps its size - meant for same-width glyph labels. */
+  setLabel(label: string) {
+    if (this.text.text !== label) this.text.setText(label);
+  }
+
   /** Show/hide with a pop as the player crosses the trigger distance. */
   setNear(near: boolean) {
     if (near === this.shown) return;
     this.shown = near;
     const c = this.container;
     const scene = c.scene;
+    this.fade?.remove(); // the LAST state flip wins
     if (near) {
       c.setVisible(true).setScale(0.3).setAlpha(0);
-      scene.tweens.add({
+      this.fade = scene.tweens.add({
         targets: c,
         scale: 1,
         alpha: 1,
@@ -81,7 +95,7 @@ export class ProximityButton {
         ease: "Back.easeOut",
       });
     } else {
-      scene.tweens.add({
+      this.fade = scene.tweens.add({
         targets: c,
         scale: 0.3,
         alpha: 0,
