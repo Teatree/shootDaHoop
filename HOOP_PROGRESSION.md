@@ -152,6 +152,11 @@ Everything below is these blocks with specific parameters filled in.
   hands in the air in a quick rhythm.**
 - The cheer animation is **already playing while the character walks up** to the
   area (not only once arrived).
+- AFK cheer (owner, 2026-07-15): an **abandoned (offline) character** that walks
+  onto the Cheering platform **cheers too — but tired**: the animation runs
+  **40% slower** and the **head hangs somewhat lower**, so offline cheerers
+  stand out. (The owner's note said 30% in one line and 40% in the refinement;
+  40% is implemented — `WEARY_CHEER_RATE`, PLACEHOLDER.)
 
 **3. Permanent Effect — Ball Upgrade.**
 - Effect: **balls travel 25% further** — permanent, all players.
@@ -185,9 +190,17 @@ Everything below is these blocks with specific parameters filled in.
   **upper is slimmer, the lower is wider** — with **enough vertical gap to hit each
   independently.** The **upper hoop protrudes ~20 px further left** (further out)
   than the lower one, which is what enables a **"double shot."**
+- Raised second hoop (owner, 2026-07-15): the **second (upper) hoop sits ONE
+  FULL HOOP TALLNESS higher** — one whole floor-to-rim height above the
+  structure. The **hoop wall (backboard) does NOT move**; only the rim and its
+  tie-arm go up, with the post climbing to carry it.
+- Paint (owner, 2026-07-15): the hoop turns **dark red** (from Hoop 2's black
+  and gray), and the **rims are pink/magenta** so they read well on the new
+  light-gray background.
 - Animation: a **pop with splash** — first the hoop **gets taller**, then the
-  **upper hoop juts forward** (it sits further out now), then after a delay the
-  **second (lower) hoop appears beneath** with another **splash + pop.**
+  **upper hoop juts forward** (it sits further out now, already at its raised
+  height), then after a delay the **second (lower) hoop appears beneath** with
+  another **splash + pop.**
 
 **2. Interactive Element — Jukebox.**
 - Placement: **left of the Cheering Area**, off to the side, **off the court.**
@@ -217,12 +230,15 @@ Everything below is these blocks with specific parameters filled in.
   mahogany version.
 - Animation: **pops in with a splash effect**, then the glass court appears.
 
-**4. Atmosphere Change — Blue-Gray Dusk.**
-- Look: the **whole background (and area) turns a bit blue-gray** — a very
-  transparent blue-gray wash over the camera.
-- Suns: **smaller** and **very light blue**, and they **move slower** across the
-  sky.
-- Animation: lands as its own beat — a soft flash, then the wash fades in.
+**4. Atmosphere Change — Light-Gray World** *(reworked from Blue-Gray Dusk —
+owner, 2026-07-15)*.
+- Look: the **whole background just recolours to LIGHT GRAY** — the sky bands,
+  the dunes and the sand all go light gray (a recolour veil over the drawn
+  backdrop), plus a faint neutral wash over the scene.
+- Suns: unchanged from the dusk design — **smaller**, **very light blue**, and
+  they **move slower** across the sky; they stay visible on the gray sky.
+- Animation: **gradual** — the recolour **fades in across the WHOLE upgrade
+  choreography**, alongside the other sequences (no beat of its own, no flash).
 
 **5. Ambient / Spawn Change — Blue Orbs.**
 - Behaviour: the **Blue Orb is the existing in-game interactive object, unchanged

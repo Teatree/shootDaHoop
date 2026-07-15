@@ -331,3 +331,55 @@ the second player):
   The server now answers `upgrade-rejected` (`threshold` | `proximity`) to
   the presser, and the client logs it on the court wall — including the
   restart-the-server hint.
+
+---
+
+## 7. Owner-feedback batch #2, 2026-07-15
+
+Four changes; tests + browser-verified (Playwright, offline world, faked
+remote via `__court.addRemote` with a full cosmetic identity — an info
+object missing `shirtColor`/`headVariant` renders as a broken box).
+
+- **Settings gear at the very right of the game section.** Out of the
+  chat cluster (`index.html`), absolutely positioned `right: 12px;
+  bottom: 12px` inside `#game-wrap` (`style.css`).
+- **Offline characters CHEER on the deck — wearily.** The server already
+  walks an abandoned character to the cheer deck; now the client's
+  fallback machine (`RemoteAvatar.updateFallback`) plays the cheer once
+  it stands there: the clock advances at `WEARY_CHEER_RATE = 0.6` (40%
+  slower — the owner's refining sub-point; an earlier line said 30%) and
+  the pose hangs its head (`weary` flag on `PoseState`, −5 px head in
+  `computePose`'s cheer case). The deck check is a scene-supplied
+  callback (`avatar.onCheerDeck`) reading the ACTIVE tier, so resets are
+  safe. Offline avatars stream no telemetry, so every client renders the
+  same weary cheer deterministically (phase differs — cosmetic).
+- **Tier 3 recolours the whole background to light gray, gradually.**
+  Key discovery: the visible "sky" is NOT the camera background — it's
+  DRAWN band/dune/sand rectangles (`drawBackdrop`, depths −100/−90/−80,
+  suns at −95). A camera `setBackgroundColor` alone changes nothing. The
+  fix is a **recolour veil**: gray twins of every backdrop layer (sky
+  twin at −96, UNDER the suns so they stay visible; dune twin −89; sand
+  twin −79), faded by `Backdrop.veil` 0..1. The atmosphere vocabulary
+  grew `sky` (colour, folded last-wins with "keep previous" semantics)
+  and `gradual` (the fade spans the WHOLE choreography: the director
+  collects gradual atmospheres, gives them no beat slot, and schedules
+  them at `leadMs` with `fadeMs = total − leadMs`). Tier 3's recipe:
+  `sky: 0xd9dcdf`, faint neutral wash `0xc9cdd2 @ 0.1` (replacing the
+  blue-gray dusk wash), suns unchanged.
+- **Tier-3 hoop: dark red + pink/magenta rims, upper rim ONE FULL HOOP
+  TALLNESS higher.** `doubleHoop.upper.raiseByHoopHeights: 1` — the fold
+  raises `upper.h` to `topH × (1 + raise)` while the board extents stay
+  pinned to the unraised `topH` (owner: "don't change the hoop wall").
+  Two engine consequences found by looking at the actual screen:
+  1. **CameraRig fit** used `boardTopM` as the structure top — with the
+     rim above the wall the camera cut it off. Now
+     `max(boardTopM, …rims.h + 0.6)`.
+  2. **The pole render** stopped at the board crown — the raised rim's
+     tie-arm floated. `createHoop` now runs the post up to the highest
+     rim ("one post carrying two stacked rims").
+  Reachability check before committing to the interpretation: tier-3 max
+  launch 19·√1.25 ≈ 21.2 m/s, g = 13 → apex ≈ 19.5 m > rim at ~17.1 m,
+  and the double-shot grid-search test still finds a working launch.
+  One physics test needed a longer arc (`t = 2.2` not `1.6`): the old
+  arc's apex cleared the raised rim by only 4 cm and never dropped
+  through — a good reminder that `arcTo(…, t)` picks the apex margin.
