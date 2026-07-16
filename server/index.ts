@@ -1,11 +1,17 @@
 import { WebSocketServer, type WebSocket } from "ws";
 import { Room } from "./room";
 import { JsonFileStorage } from "./storage";
+import { createWebServer } from "./web";
 import type { ClientMsg } from "../src/shared/messages";
 
 // The game server: a WebSocket relay with one Room per lobby id. Lobbies
 // are created on demand (keyed by the ?lobby= id from the invite link) and
 // torn down when the last player leaves.
+//
+// Deployed (render.com), this ONE process is the whole site: web.ts
+// serves the built client over HTTP and the WebSocket rides the same
+// port - the client connects to wss://<host> (same origin, main.ts).
+// In dev vite serves the client and this stays the plain :9999 relay.
 
 const PORT = Number(process.env.PORT ?? 9999);
 
@@ -28,9 +34,10 @@ function roomFor(lobby: string): Room {
   return room;
 }
 
-const wss = new WebSocketServer({ port: PORT });
+const web = createWebServer(process.env.DIST_DIR ?? "dist");
+const wss = new WebSocketServer({ server: web });
 
-wss.on("error", (err: NodeJS.ErrnoException) => {
+web.on("error", (err: NodeJS.ErrnoException) => {
   if (err.code === "EADDRINUSE") {
     console.error(
       `Port ${PORT} is already taken - another game server is running.\n` +
@@ -40,6 +47,8 @@ wss.on("error", (err: NodeJS.ErrnoException) => {
   }
   console.error("server error:", err);
 });
+
+wss.on("error", (err) => console.error("ws server error:", err));
 
 wss.on("connection", (ws: WebSocket) => {
   let room: Room | null = null;
@@ -98,6 +107,8 @@ wss.on("connection", (ws: WebSocket) => {
   ws.on("error", (err) => console.error("socket error:", err));
 });
 
-wss.on("listening", () =>
-  console.log(`shootDaHoop server listening on ws://localhost:${PORT}`),
+web.listen(PORT, () =>
+  console.log(
+    `shootDaHoop server listening on http://localhost:${PORT} (ws same port)`,
+  ),
 );

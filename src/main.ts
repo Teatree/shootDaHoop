@@ -62,8 +62,15 @@ function chooseBackend(
   identity: Cosmetics,
 ): Backend {
   if (!lobby) return new LocalBackend(identity);
+  // dev: vite serves the page, the relay lives on :9999. Deployed
+  // (shootdahoop.onrender.com): ONE server serves page + WebSocket, so
+  // the socket is simply the page's own origin - links minted anywhere
+  // (Settings invite, SHARE) carry location.origin and just work.
+  const defaultUrl = import.meta.env.DEV
+    ? `ws://${location.hostname}:9999`
+    : `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`;
   return new SocketBackend({
-    url: params.get("server") ?? `ws://${location.hostname}:9999`,
+    url: params.get("server") ?? defaultUrl,
     lobby,
     identity: { id: params.get("pid") ?? devIdentity(), ...identity },
     // ?reset wipes the lobby's shared score on join (dev/owner tool)
