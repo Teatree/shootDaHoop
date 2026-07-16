@@ -22,7 +22,7 @@ missing is covered by a generated placeholder - the game always runs.
 > heads + hands share one skin tint (white→brown ramp - draw them pale so a
 > multiply tint can tan them), `body_upper` is drawn WHITE so a hard tint
 > becomes the exact shirt colour, `body_lower` keeps its own colour and only
-> gets a gentle shade variation. `guy.png` in git history shows the intended
+> gets a gentle shade variation. `assets-src/guy.png` shows the intended
 > assembly. A legacy single-sprite `player.png` is no longer used.
 
 ## Audio (WAV)

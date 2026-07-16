@@ -21,7 +21,7 @@ ghost replays all render **the exact same poses from the same data**.
 | Piece | File |
 | --- | --- |
 | Part art (user-drawn) | `public/assets/head_v1..3.png`, `body_upper.png`, `body_lower.png`, `left_hand.png`, `right_hand.png` (sizes in `public/assets/README.md`) |
-| Assembly reference | `guy.png` + `PlayerCharacter.psd` in git history (checkpoint `1e0556d`) |
+| Assembly reference | `assets-src/guy.png` + `assets-src/PlayerCharacter.psd` |
 | Pose math (pure, unit-tested) | `src/shared/pose.ts` - all tuning constants are here |
 | Pose tests | `src/pose.test.ts` |
 | The Phaser rig | `src/characterRig.ts` |

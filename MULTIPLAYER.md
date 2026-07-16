@@ -464,9 +464,9 @@ chat+bubble, walk, teleport slam, ghost replays) all green.
       Unit-tested in `server/storage.test.ts`.
 11. ✅ **Parts-rig character + pose telemetry (2026-07-11):** the character
     is now composed from owner-drawn part PNGs (`public/assets/`: 3 heads,
-    white t-shirt torso, trouser band, two hand circles - `guy.png` in git
-    history is the assembly reference) instead of a single generated
-    sprite.
+    white t-shirt torso, trouser band, two hand circles -
+    `assets-src/guy.png` is the assembly reference) instead of a single
+    generated sprite.
     - **Tinting:** skin (head + both hands, one shared white→brown
       multiply tint), shirt (hard tint on the white torso - the per-colour
       texture cache is GONE, any colour works), trousers (subtle tint).

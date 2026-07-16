@@ -58,7 +58,7 @@ the dotted line itself communicates everything:
   owner explicitly asked that the power *limit* be shown "as part of the dotted
   line somehow".
 - **Dissipation:** dots shrink and fade toward the arc's end (no hard cutoff) -
-  reference implementation was `bb_ornith.html`'s `drawTrajectory()`
+  reference implementation was `assets-src/bb_ornith.html`'s `drawTrajectory()`
   (`size = 5 - i*0.1`, `alpha = 0.55 - i*0.01`).
 - **It never lies:** the dots are produced by the *same* integration as the real
   ball, **including the depth-lane easing** - see Discovery #3 below.

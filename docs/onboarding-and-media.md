@@ -28,8 +28,9 @@ which both needed processing before use. This doc records how and why.
 
 ## Tutorial clips (`public/assets/tutorial/tut_{walk,throw}.webm`)
 
-- Sources: the owner's `tut_vid_walk.mp4` (232×234) and
-  `tut_vid_throw.mp4` (204×230), both 4.3 s.
+- Sources: the owner's `assets-src/tut_vid_walk.mp4` (232×234) and
+  `assets-src/tut_vid_throw.mp4` (204×230), both 4.3 s (raw mp3/mp4 in
+  `assets-src/` is gitignored - only the processed files ship).
 - Cropped to EXACTLY the same frame per the owner's priority - the walk
   clip braver, the throw clip gently (it needs its top for the ball's
   arc): both to **200×220**, walk at offset (16,10), throw at (2,2).

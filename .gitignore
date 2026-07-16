@@ -10,3 +10,7 @@ dist/
 
 # server persistence (local dev JSON storage)
 data/
+
+# raw audio/video sources - only processed files in public/assets/ ship
+assets-src/*.mp3
+assets-src/*.mp4
