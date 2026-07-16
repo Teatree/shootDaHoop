@@ -95,10 +95,13 @@ export function initHUD(): HUD {
         ballsResetCb();
         return;
       }
-      const pad = (n: number) => String(n).padStart(2, "0");
-      timerEl.textContent = `🕐 ${pad(Math.floor(leftS / 3600))}:${pad(
-        Math.floor((leftS % 3600) / 60),
-      )}:${pad(leftS % 60)}`;
+      // "1d 12h 22m 3s" (owner format 2026-07-17); the day only appears
+      // when it's nonzero - the UTC-midnight reset is always under 24h
+      const d = Math.floor(leftS / 86400);
+      const h = Math.floor((leftS % 86400) / 3600);
+      const m = Math.floor((leftS % 3600) / 60);
+      const s = leftS % 60;
+      timerEl.textContent = `${d > 0 ? `${d}d ` : ""}${h}h ${m}m ${s}s`;
     };
     tick();
     timerEl.hidden = false;

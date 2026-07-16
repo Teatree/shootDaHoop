@@ -16,11 +16,15 @@
 // does a click on the dark backdrop (owner ask 2026-07-16); Escape
 // still doesn't.
 
-/** One animated mouse: body + left button (the part that animates). */
+/** One animated mouse: body + both button panes. Walking animates the
+ *  LEFT button (plain click); throwing animates the RIGHT one (the aim
+ *  is a right-click-and-hold - owner fix 2026-07-17: it wrongly showed
+ *  a left click before). */
 function mouseHtml(kind: "click" | "hold"): string {
   return `
     <div class="tut-mouse tut-mouse-${kind}">
       <div class="tut-mouse-left"></div>
+      <div class="tut-mouse-right"></div>
       <div class="tut-mouse-wheel"></div>
     </div>`;
 }
