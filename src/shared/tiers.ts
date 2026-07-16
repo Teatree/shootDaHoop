@@ -173,7 +173,14 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
           // the second (upper) hoop sits exactly 2 rim-with-net heights
           // above the LOWER rim; the hoop wall (backboard) stays put, and
           // a pole-coloured strut ties the rim to the post (render-only).
-          upper: { rScale: 0.8, protrudeLeftPx: 20, rimNetsAboveLower: 2 }, // rScale PLACEHOLDER (tune)
+          // rScale PLACEHOLDER (tune) - 1.1, was 0.8: at 0.8 the opening
+          // left only +-0.275 m for the ball's CENTER (ball r 0.36) ten
+          // meters up - 0.5% of the whole realistic launch space entered
+          // cleanly, so to a human the upper "never registered" (owner,
+          // three sessions running; measured 2026-07-17, grid script).
+          // At 1.1 the center window is +-0.51 m - still the harder rim
+          // (it sits 3.5 m above the lower), but honestly hittable.
+          upper: { rScale: 1.1, protrudeLeftPx: 20, rimNetsAboveLower: 2 },
           lower: { rScale: 1.0 }, // keeps the tier-2 width → the wider one
           gapM: 2.0, // PLACEHOLDER (tune): the lower rim's drop below the structure top
         },

@@ -9,7 +9,8 @@ import {
   screenToFloor,
   toScreen,
 } from "../world";
-import { announceText, burst, flash, puff } from "../juice";
+import { announceText, burst, flash, floatText, netSnap, puff } from "../juice";
+import { pointsForDistance } from "../shared/scoring";
 import { SunSystem, shadowShift } from "../sky";
 import { SpeechBubbles } from "../speech";
 import type { HUD } from "../hud";
@@ -988,6 +989,7 @@ export class CourtScene extends Phaser.Scene {
         // the ball is gone - a held miss can't become a catch anymore
         this.flushPendingMiss(throwId);
       },
+      onRimScore: (rimId, distM) => this.rimScoreJuice(rimId, distM),
     });
     rec = this.recording.beginThrow(
       ball,
@@ -1027,9 +1029,35 @@ export class CourtScene extends Phaser.Scene {
         // their ball is gone here and no catch arrived - the miss stands
         this.flushPendingMiss(throwId);
       },
+      // spectators see the upper-rim hit the moment it happens too
+      onRimScore: (rimId, distM) => this.rimScoreJuice(rimId, distM),
     });
     this.ballsByThrowId.set(throwId, ball);
     this.balls.push(ball);
+  }
+
+  /**
+   * A rim registered MID-FLIGHT without resolving the throw - the upper
+   * of the double hoop. Juice THAT rim right now so the hit visibly
+   * counts (owner 2026-07-17: "the upper rim doesn't register" - it
+   * did, silently; the score only showed at the LOWER rim's resolution
+   * half a second later). The outcome still carries the real points -
+   * this preview uses the same per-rim table the authority sums.
+   */
+  private rimScoreJuice(rimId: string, shotDistM: number) {
+    if (document.hidden) return; // log-only tabs skip stale juice
+    const rim = this.hoop.rims.find((r) => r.id === rimId) ?? this.hoop.primary;
+    netSnap(this, rim.net);
+    flash(this, rim.rimSX, rim.rimSY, 30);
+    floatText(
+      this,
+      rim.rimSX,
+      rim.rimSY - 26,
+      `${rimId === "upper" ? "UPPER HOOP!" : "SCORE!"} +${pointsForDistance(shotDistM)}`,
+      "#ffb84d",
+      20,
+    );
+    playSfx(this, "sfx_score", 0.8);
   }
 
   // ── catch the ball (owner ask 2026-07-16): an OWN missed ball landing

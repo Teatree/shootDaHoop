@@ -69,8 +69,16 @@ describe("hoopGeometryForTier", () => {
     // LOWER rim - one unit = the rim stroke (5 px) + the hanging net (2×r)
     const rimNetM = 5 / BALANCE.court.meterPx + 2 * lower.r;
     expect(upper.h).toBeCloseTo(lower.h + 2 * rimNetM, 10);
-    // the upper is the slimmer one, the lower the wider one
-    expect(upper.r).toBeLessThan(lower.r);
+    // the upper is now the (slightly) WIDER one - owner 2026-07-17: at
+    // rScale 0.8 its opening left +-0.275 m for the ball's center ten
+    // meters up and a human could never register it; 1.1 keeps it the
+    // harder rim by height while making it honestly hittable
+    expect(upper.r).toBeCloseTo(lower.r * 1.1, 10);
+    // a regression guard on the invariant that actually matters: the
+    // CENTER window (r - ballR) must be a decent multiple of the ball
+    expect(upper.r - BALANCE.throw.ballRadiusM).toBeGreaterThan(
+      BALANCE.throw.ballRadiusM,
+    );
     // lower keeps the tier-2 rim width
     expect(lower.r).toBeCloseTo(hoopGeometryForTier(2).rims[0].r, 10);
   });

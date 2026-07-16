@@ -525,3 +525,20 @@ Three BUGS plus a jukebox pass and two sweeps:
   projected crossing is inside the opening (full-radius margin) is NOT
   grabbed by the tips - a clean bucket stays a bucket. All 190 arcs
   register now (and funnel into doubles). Pinned by test.
+- **The upper rim was a needle's eye** (owner 2026-07-17: "still
+  doesn't register", the third session on this rim). Measured with a
+  29k-launch grid over the whole realistic input space (shot spots x
+  angles x powers): at rScale 0.8 the upper opening left +-0.275 m for
+  the ball's CENTER (ball r 0.36) at TEN meters up - 0.5% of all
+  launches entered cleanly, vs 7.4% reaching the lower. The physics was
+  fine (87% of clean arcs register; the rest clip tips/board) - the
+  TARGET was unhittable for a human, and the rare success was silent:
+  the upper "score" event was an empty stub client-side, the only juice
+  arriving with the outcome at the LOWER rim half a second later. Two
+  fixes: upper rScale 0.8 -> 1.1 (center window +-0.51 m, upper hit
+  rate x1.8; still the harder rim by height), and a Ball.onRimScore
+  hook - a NON-resolving rim crossing (the upper) now snaps ITS net,
+  flashes, floats "UPPER HOOP! +pts" and pops the score sfx the moment
+  the ball drops through, on every screen (own and remote balls alike).
+  The funnel then guarantees the lower follows: one upper entry = two
+  visibly separate scores summing in the outcome ("DOUBLE! +2x").

@@ -36,6 +36,12 @@ interface BallOpts {
   onScore: (o: ShotOutcome) => void;
   onMiss: (o: ShotOutcome) => void;
   onDone: (ball: Ball) => void;
+  /**
+   * A rim registered MID-FLIGHT without resolving the throw - the upper
+   * of the double hoop (the resolving rim's juice rides the outcome).
+   * Fires the instant the crossing happens, so the hit visibly counts.
+   */
+  onRimScore?: (rimId: string, shotDistM: number) => void;
 }
 
 // A thrown ball: the Phaser face (sprite, shadow, trail, sfx, callbacks)
@@ -143,8 +149,16 @@ export class Ball {
       if (this.dead) return; // a handler above may have exploded the ball
       switch (e) {
         case "score":
-          // one rim made - juice hooks land here later; the throw's
-          // OUTCOME fires on "made" (a double shot scores twice first)
+          // one rim made; the throw's OUTCOME fires on "made" (a double
+          // shot scores twice first). A NON-resolving crossing (the
+          // upper rim) juices immediately via onRimScore - before this
+          // the upper registered in silence and read as a dead rim
+          // (owner 2026-07-17)
+          if (!this.s.resolved)
+            this.opts.onRimScore?.(
+              this.s.rimsMade[this.s.rimsMade.length - 1],
+              this.opts.shotDistM,
+            );
           break;
         case "made":
           this.opts.onScore(this.outcome(true));
