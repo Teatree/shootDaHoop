@@ -3,7 +3,6 @@ import { T } from "./tuning";
 import {
   M,
   RIM,
-  THREE_PT_X,
   FREE_THROW_X,
   WALL_LEFT_X,
   WALL_RIGHT_X,
@@ -86,28 +85,95 @@ export function ensurePlaceholderTextures(scene: Phaser.Scene) {
     g.destroy();
   }
 
-  // Ball - orange circle with a seam, generated at its on-screen size so
-  // the pixelArt upscale doesn't turn it to mush (display-sized in Ball)
+  // Ball - the platform's 🏀 emoji rendered to a canvas (owner ask
+  // 2026-07-17: "make the ball look more like an actual basketball -
+  // scale an emoji if you have to"). The glyph is alpha-cropped so the
+  // ball FILLS the texture: setDisplaySize then gives the physics-true
+  // diameter instead of an emoji floating inside its em-box padding.
+  // Drawn at 2x the on-screen size; the nearest-neighbour downscale
+  // keeps it crisp. Platforms with no colour-emoji font fall back to
+  // the drawn ball.
   if (!tex.exists("ball")) {
     const px = Math.max(10, Math.round(T.throw.ballRadiusM * 2 * M));
-    const r = px / 2;
-    const g = scene.make.graphics({ x: 0, y: 0 }, false);
-    g.fillStyle(0xd2691e).fillCircle(r, r, r);
-    g.fillStyle(0xf0955a).fillCircle(r * 0.8, r * 0.8, r * 0.4); // highlight
-    g.lineStyle(2, 0x8a4310);
-    g.beginPath();
-    g.moveTo(r, 0);
-    g.lineTo(r, px);
-    g.strokePath();
-    g.beginPath();
-    g.moveTo(0, r);
-    g.lineTo(px, r);
-    g.strokePath();
-    g.generateTexture("ball", px, px);
-    g.destroy();
+    const emoji = emojiBallCanvas(px * 2);
+    if (emoji) {
+      tex.addCanvas("ball", emoji);
+    } else {
+      const r = px / 2;
+      const g = scene.make.graphics({ x: 0, y: 0 }, false);
+      g.fillStyle(0xd2691e).fillCircle(r, r, r);
+      g.fillStyle(0xf0955a).fillCircle(r * 0.8, r * 0.8, r * 0.4); // highlight
+      g.lineStyle(2, 0x8a4310);
+      g.beginPath();
+      g.moveTo(r, 0);
+      g.lineTo(r, px);
+      g.strokePath();
+      g.beginPath();
+      g.moveTo(0, r);
+      g.lineTo(px, r);
+      g.strokePath();
+      g.generateTexture("ball", px, px);
+      g.destroy();
+    }
   }
 
   ensurePartPlaceholders(scene);
+}
+
+/**
+ * Render 🏀 onto a square canvas, cropped to the glyph's alpha bounding
+ * box so the ball artwork spans the full texture. Returns null when the
+ * platform rendered nothing (no colour-emoji font) - caller falls back.
+ */
+function emojiBallCanvas(sizePx: number): HTMLCanvasElement | null {
+  const pad = 8;
+  const raw = sizePx * 2 + pad * 2;
+  const scratch = document.createElement("canvas");
+  scratch.width = scratch.height = raw;
+  const sc = scratch.getContext("2d", { willReadFrequently: true });
+  if (!sc) return null;
+  sc.textAlign = "center";
+  sc.textBaseline = "middle";
+  sc.font = `${sizePx * 2}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+  sc.fillText("🏀", raw / 2, raw / 2);
+
+  const img = sc.getImageData(0, 0, raw, raw).data;
+  let minX = raw;
+  let minY = raw;
+  let maxX = -1;
+  let maxY = -1;
+  for (let y = 0; y < raw; y++) {
+    for (let x = 0; x < raw; x++) {
+      if (img[(y * raw + x) * 4 + 3] > 16) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  if (maxX < 0) return null; // nothing drawn - no emoji support
+
+  // center the glyph's bounding box inside a square, scale to size
+  const w = maxX - minX + 1;
+  const h = maxY - minY + 1;
+  const box = Math.max(w, h);
+  const out = document.createElement("canvas");
+  out.width = out.height = sizePx;
+  out
+    .getContext("2d")!
+    .drawImage(
+      scratch,
+      minX - (box - w) / 2,
+      minY - (box - h) / 2,
+      box,
+      box,
+      0,
+      0,
+      sizePx,
+      sizePx,
+    );
+  return out;
 }
 
 /**
@@ -364,24 +430,76 @@ export function drawCourt(
     }
   }
 
-  // painted lines
+  // ── painted lines: real half-court markings (owner ask 2026-07-17),
+  //    drawn in this view's projection - x and d both map LINEARLY to
+  //    the screen (32 px/m along, 16 px/m deep), so floor rectangles
+  //    stay rectangles and floor circles become 2:1-squashed ellipses ──
   const line = pal.line;
+
+  /** A circle painted ON THE FLOOR: plot it in court meters, project
+   *  each point through floorY - the foreshortening falls out free. */
+  const floorArc = (
+    cxM: number,
+    cdM: number,
+    rM: number,
+    a0: number,
+    a1: number,
+    steps = 48,
+  ) => {
+    g.beginPath();
+    for (let i = 0; i <= steps; i++) {
+      const a = a0 + ((a1 - a0) * i) / steps;
+      const px = (cxM + Math.cos(a) * rM) * M;
+      const py = floorY(cdM + Math.sin(a) * rM);
+      if (i === 0) g.moveTo(px, py);
+      else g.lineTo(px, py);
+    }
+    g.strokePath();
+  };
+
   g.lineStyle(3, line, 0.9);
   g.strokeRect(x0 + 1, yTop + 1, x1 - x0 - 2, yBot - yTop - 2); // boundary
 
-  const vline = (xm: number, alpha = 0.9) => {
-    g.lineStyle(3, line, alpha);
-    g.beginPath();
-    g.moveTo(xm * M, yTop);
-    g.lineTo(xm * M, yBot);
-    g.strokePath();
-  };
-  vline(T.court.lengthM / 2, 0.7); // half-court
-  vline(THREE_PT_X); //               3-point line
-  vline(FREE_THROW_X, 0.7); //        free-throw line
+  // half-court line + center circle (radius 1.8 m, like the real thing)
+  g.lineStyle(3, line, 0.7);
+  const half = (T.court.lengthM / 2) * M;
+  g.beginPath();
+  g.moveTo(half, yTop);
+  g.lineTo(half, yBot);
+  g.strokePath();
+  floorArc(T.court.lengthM / 2, RIM.d, 1.8, 0, Math.PI * 2);
 
-  // free-throw spot marker (spawn)
-  g.fillStyle(line, 0.9).fillCircle(FREE_THROW_X * M, floorY(RIM.d), 4);
+  // the key (the paint): baseline to the free-throw line, 4.9 m wide,
+  // centered on the rim lane; a whisper of fill so it reads as painted
+  const keyHalfM = 4.9 / 2;
+  const keyX = FREE_THROW_X * M;
+  const keyTop = floorY(RIM.d - keyHalfM);
+  const keyBot = floorY(RIM.d + keyHalfM);
+  g.fillStyle(line, 0.08).fillRect(keyX, keyTop, x1 - keyX, keyBot - keyTop);
+  g.lineStyle(3, line, 0.9);
+  g.strokeRect(keyX, keyTop, x1 - keyX - 2, keyBot - keyTop);
+
+  // free-throw circle on the key's head: the half away from the hoop is
+  // solid, the half inside the key dashed - like the painted original
+  floorArc(FREE_THROW_X, RIM.d, 1.8, Math.PI / 2, (Math.PI * 3) / 2);
+  g.lineStyle(3, line, 0.75);
+  const DASHES = 8;
+  for (let i = 0; i < DASHES; i++) {
+    const span = Math.PI / DASHES;
+    const a0 = -Math.PI / 2 + i * span;
+    floorArc(FREE_THROW_X, RIM.d, 1.8, a0, a0 + span * 0.55, 6);
+  }
+
+  // the 3-point arc, centered under the rim; the band is narrower than
+  // a real court, so the arc runs sideline to sideline (its corner legs
+  // would lie ON the sidelines - the boundary already draws them)
+  const reach = Math.asin(Math.min(1, T.court.depthM / 2 / T.court.threePtM));
+  g.lineStyle(3, line, 0.9);
+  floorArc(RIM.x, RIM.d, T.court.threePtM, Math.PI - reach, Math.PI + reach);
+
+  // the restricted-area arc under the rim (1.25 m)
+  g.lineStyle(2, line, 0.8);
+  floorArc(RIM.x, RIM.d, 1.25, Math.PI / 2, (Math.PI * 3) / 2);
   return g;
 }
 
