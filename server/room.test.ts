@@ -323,6 +323,28 @@ describe("catch the ball", () => {
     }
   });
 
+  it("a catch racing the outcome timer is parked and lands with it", async () => {
+    vi.useFakeTimers();
+    try {
+      const { room } = await makeRoom(0);
+      const b = new FakeWS();
+      await room.join(ws(b), identity("bob"));
+      room.handle("bob", { t: "throw", throwId: "t1", launch: missLaunch });
+      // the miss resolves AT floor contact - the same instant the client
+      // detects the landing, so the catch can arrive before the timer
+      room.handle("bob", { t: "catch", throwId: "t1" });
+      expect(b.of("caught")).toHaveLength(0); // parked, not applied yet
+      vi.advanceTimersByTime(10_000); // the outcome fires -> retry lands
+      expect(b.of("caught")).toHaveLength(1);
+      const budgets = b.of("budget");
+      const last = budgets[budgets.length - 1];
+      if (last?.t !== "budget") throw new Error("no budget update");
+      expect(last.throwsRemaining).toBe(BALANCE.budget.throwsPerDay);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("only the thrower may catch, and only a resolved miss", async () => {
     vi.useFakeTimers();
     try {

@@ -138,7 +138,11 @@ export const T = {
     // around the player's feet
     halfXM: ((54 / 32) * 1.1) / 2, // ~0.93 m left/right
     halfDM: (2.0 * 1.1) / 2, //      1.1 m in depth
-    landHM: 0.35, //   ball center this close to the floor = "landed"
+    // "landed" = ball center this close to the floor. MUST clear the
+    // ball's rest height (= its radius, where a grounded ball sits) -
+    // a bare 0.35 here once sat 1cm below the 0.36 radius and no ball
+    // could ever be caught
+    landHM: BALANCE.throw.ballRadiusM + 0.2,
     msgSizePx: 30, //  the centered CATCH! announcement
     msgHoldMs: 700, // how long it holds before fading
   },

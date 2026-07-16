@@ -76,6 +76,11 @@ export class Room {
       atMs: number;
     }
   >();
+  /** catches that RACED the scheduled outcome: the miss resolves at
+   *  floor contact - the very instant the thrower's client detects the
+   *  landing - so the catch message can beat the outcome timer by a
+   *  breath. Parked here; applyOutcome retries them as the miss lands. */
+  private earlyCatches = new Map<string, { playerId: string; atMs: number }>();
   /** outcomes scheduled to fire when the ball "lands" (resolvedAtS) */
   private pending = new Set<{ timer: NodeJS.Timeout; fire: () => void }>();
   /** full-ish snapshots: late joiners and dropped packets self-heal */
@@ -465,36 +470,15 @@ export class Room {
         // thrower's client's truth (physics is non-deterministic across
         // machines by design) - the server rules the rest: THEIR throw,
         // ruled a MISS, inside the window, and not born from a catch.
-        // A failed check is a silent skip: the client played the catch
+        // A refused check is a silent skip: the client played the catch
         // optimistically, but no refund ever happens without this.
-        const m = this.recentMisses.get(msg.throwId);
-        if (
-          !m ||
-          m.playerId !== playerId ||
-          !m.catchable ||
-          Date.now() - m.atMs > BALANCE.catchBall.windowS * 1000
-        )
-          break;
-        this.recentMisses.delete(msg.throwId); // once per ball
-        // it never was a miss: late joiners skip the wall line (the disk
-        // log keeps the raw miss - the forever archive stays raw)
-        m.entry.caught = true;
-        occ.catchCredits++;
-        // the refund follows the orb pattern; it no-ops across a UTC day
-        // change (shared/budget.ts), the catch still logs
-        refundThrow(this.budgetFor(occ.profile), new Date());
-        void this.storage.saveProfile(occ.profile).catch(logSaveError);
-        send(sock, {
-          t: "budget",
-          throwsRemaining: remainingThrows(this.budgetFor(occ.profile), new Date()),
-        });
-        this.record({ kind: "catch", name: occ.info.name }); // also persists
-        this.broadcast({
-          t: "caught",
-          id: playerId,
-          name: occ.info.name,
-          throwId: msg.throwId,
-        });
+        if (this.tryCatch(playerId, msg.throwId) === "unknown") {
+          // likely raced the outcome timer - park it for applyOutcome
+          const cutoff = Date.now() - BALANCE.catchBall.windowS * 1000;
+          for (const [id, c] of this.earlyCatches)
+            if (c.atMs < cutoff) this.earlyCatches.delete(id);
+          this.earlyCatches.set(msg.throwId, { playerId, atMs: Date.now() });
+        }
         break;
       }
       case "upgrade": {
@@ -726,7 +710,56 @@ export class Room {
       const cutoff = Date.now() - BALANCE.catchBall.windowS * 1000;
       for (const [id, m] of this.recentMisses)
         if (m.atMs < cutoff) this.recentMisses.delete(id);
+      // a catch that raced this outcome by a breath lands right now
+      const early = this.earlyCatches.get(throwId);
+      if (early) {
+        this.earlyCatches.delete(throwId);
+        this.tryCatch(early.playerId, throwId);
+      }
     }
+  }
+
+  /**
+   * Validate + apply a catch: THEIR throw, ruled a MISS, catchable
+   * (not born from a catch), inside the window - then refund (the orb
+   * pattern; a UTC day change makes the refund a no-op, the catch still
+   * logs), retro-mark the wall line and tell everyone.
+   * "unknown" = no such miss (yet) - the caller may park and retry.
+   */
+  private tryCatch(
+    playerId: string,
+    throwId: string,
+  ): "done" | "unknown" | "refused" {
+    const m = this.recentMisses.get(throwId);
+    if (!m) return "unknown";
+    const occ = this.occupants.get(playerId);
+    if (
+      !occ ||
+      m.playerId !== playerId ||
+      !m.catchable ||
+      Date.now() - m.atMs > BALANCE.catchBall.windowS * 1000
+    )
+      return "refused";
+    this.recentMisses.delete(throwId); // once per ball
+    // it never was a miss: late joiners skip the wall line (the disk
+    // log keeps the raw miss - the forever archive stays raw)
+    m.entry.caught = true;
+    occ.catchCredits++;
+    refundThrow(this.budgetFor(occ.profile), new Date());
+    void this.storage.saveProfile(occ.profile).catch(logSaveError);
+    if (occ.ws)
+      send(occ.ws, {
+        t: "budget",
+        throwsRemaining: remainingThrows(this.budgetFor(occ.profile), new Date()),
+      });
+    this.record({ kind: "catch", name: occ.info.name }); // also persists
+    this.broadcast({
+      t: "caught",
+      id: playerId,
+      name: occ.info.name,
+      throwId,
+    });
+    return "done";
   }
 
   private broadcast(msg: ServerMsg, except?: WebSocket) {
