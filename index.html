@@ -4,6 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>shootDaHoop</title>
+    <!-- Link previews (chat apps fetch these). The description is the
+         STATIC fallback; a shared link carries ?need=&hoop= and the
+         serving layer rewrites it via shared/shareMeta.ts (dev: the
+         vite.config.ts plugin; a future production HTTP layer must call
+         the same helper). -->
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:title"
+      content="shootDaHoop - Your daily provider of Hoop related activities"
+    />
+    <meta property="og:description" content="Come and Shoot Some Hoop!" />
+    <meta name="twitter:card" content="summary" />
     <!-- the tab icon: a basketball emoji rendered as an inline SVG -->
     <link
       rel="icon"

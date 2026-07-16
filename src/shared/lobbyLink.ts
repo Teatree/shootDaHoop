@@ -35,17 +35,35 @@ export function generateLobbyId(
  * The invite URL. Deliberately keeps ONLY ?server= from the current
  * address: a leaked ?reset would wipe the new lobby's score on every
  * open, and a shared ?pid would merge the friends into one identity.
+ * `extras` rides along verbatim (the share blurb adds need/hoop so the
+ * link preview can echo the court's progress - see shared/shareMeta.ts).
  */
 export function buildLobbyUrl(
   origin: string,
   pathname: string,
   search: string,
   lobbyId: string,
+  extras?: Record<string, string>,
 ): string {
   const out = new URLSearchParams({ lobby: lobbyId });
   const server = new URLSearchParams(search).get("server");
   if (server) out.set("server", server);
+  for (const [k, v] of Object.entries(extras ?? {})) out.set(k, v);
   return `${origin}${pathname}?${out.toString()}`;
+}
+
+/**
+ * "mossy-fox-3f2a" → 1-999: the share blurb's tiny court tag
+ * ("# shootDaHoop #123") - just enough to tell two courts apart at a
+ * glance. FNV-1a, so the same lobby always wears the same number.
+ */
+export function shortLobbyTag(lobbyId: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < lobbyId.length; i++) {
+    h ^= lobbyId.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0) % 999 + 1;
 }
 
 /** "velvet-vulture-83d0" → "velvet vulture" - the hex tail is plumbing. */

@@ -4,6 +4,7 @@ import {
   buildLobbyUrl,
   courtName,
   generateLobbyId,
+  shortLobbyTag,
 } from "./lobbyLink";
 import { safe } from "../../server/storage";
 
@@ -50,6 +51,29 @@ describe("buildLobbyUrl", () => {
       "new-court-0000",
     );
     expect(url).toBe("http://h/?lobby=new-court-0000");
+  });
+
+  it("appends extras (the share blurb's need/hoop progress)", () => {
+    expect(
+      buildLobbyUrl("http://h", "/", "", "a-b-c", { need: "450", hoop: "3" }),
+    ).toBe("http://h/?lobby=a-b-c&need=450&hoop=3");
+  });
+});
+
+describe("shortLobbyTag", () => {
+  it("is stable, and 1-999", () => {
+    expect(shortLobbyTag("mossy-fox-3f2a")).toBe(shortLobbyTag("mossy-fox-3f2a"));
+    for (let i = 0; i < 200; i++) {
+      const tag = shortLobbyTag(generateLobbyId());
+      expect(tag).toBeGreaterThanOrEqual(1);
+      expect(tag).toBeLessThanOrEqual(999);
+    }
+  });
+
+  it("usually tells two courts apart", () => {
+    expect(shortLobbyTag("mossy-fox-3f2a")).not.toBe(
+      shortLobbyTag("velvet-vulture-83d0"),
+    );
   });
 });
 

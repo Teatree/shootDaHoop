@@ -130,7 +130,11 @@ export class CourtScene extends Phaser.Scene {
      *  so the controls pop-up follows the name modal */
     private readonly firstEntry: boolean = false,
     /** the top-center SHARE button - fed the local player's hit/miss roll */
-    private readonly share: ShareTracker = { noteResult() {}, setOutOfBalls() {} },
+    private readonly share: ShareTracker = {
+      noteResult() {},
+      setOutOfBalls() {},
+      setWorldProgress() {},
+    },
   ) {
     super("court");
   }
@@ -611,6 +615,12 @@ export class CourtScene extends Phaser.Scene {
     this.upgradeBtn.setAvailable(canUpgrade(w));
     this.updateHoopScreen();
     this.rememberSeenTier();
+    // the share blurb's link preview echoes the court's progress
+    const next = nextTier(w.tierId);
+    this.share.setWorldProgress(
+      next ? Math.max(0, next.threshold - w.sharedScore) : null,
+      next?.id ?? null,
+    );
   }
 
   /** The hoop-foot screen: shared score / next threshold (or score alone
@@ -946,7 +956,7 @@ export class CourtScene extends Phaser.Scene {
   private presentOutcome(e: ThrowOutcome) {
     this.setWorld(e.world);
     // the share button's roll tracks OWN throws only: 🏀 hit, ✖ miss
-    if (e.playerId === this.selfId) this.share.noteResult(e.made);
+    if (e.playerId === this.selfId) this.share.noteResult(e.made, e.points);
     // recordings exist only for OWN throws - never match a remote outcome
     const rec =
       e.playerId === this.selfId ? this.recsByThrowId.get(e.throwId) : undefined;
