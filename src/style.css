@@ -278,14 +278,20 @@ body {
 
 .controls-card {
   position: relative;
-  padding: 34px 34px 26px;
+  /* roomier than the base modal so the videos (fixed 200x220) float
+     with clear air between the ✕, the title and the content */
+  padding: 44px 48px 34px;
+}
+
+.controls-title {
+  margin-bottom: 6px;
 }
 
 #controls-close {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  padding: 2px 8px;
+  top: 12px;
+  right: 12px;
+  padding: 4px 10px;
   font-family: inherit;
   font-size: 16px;
   font-weight: bold;
@@ -302,7 +308,7 @@ body {
 
 .controls-cols {
   display: flex;
-  gap: 28px; /* the space between the two videos */
+  gap: 36px; /* the space between the two videos */
 }
 
 .controls-col {

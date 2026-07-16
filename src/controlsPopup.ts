@@ -10,10 +10,11 @@
 // separate flag to go stale (owner bug 2026-07-16: a localStorage
 // seen-flag got consumed by a page load the owner never looked at).
 //
-// Until the player presses the ✕ their character exists for NOBODY:
-// the caller keeps backend.connect() behind onClose, so the join (and
-// the spawn broadcast) simply hasn't happened yet. Only the ✕ closes
-// it; outside clicks and Escape don't.
+// Until the player closes it their character exists for NOBODY: the
+// caller keeps backend.connect() behind onClose, so the join (and the
+// spawn broadcast) simply hasn't happened yet. The ✕ closes it, and so
+// does a click on the dark backdrop (owner ask 2026-07-16); Escape
+// still doesn't.
 
 /** One animated mouse: body + left button (the part that animates). */
 function mouseHtml(kind: "click" | "hold"): string {
@@ -30,6 +31,7 @@ export function showControlsPopup(onClose: () => void): void {
   overlay.innerHTML = `
     <div class="modal-card controls-card">
       <button id="controls-close" type="button" title="Close">✕</button>
+      <div class="modal-title controls-title">How to Play</div>
       <div class="controls-cols">
         <div class="controls-col">
           <video src="assets/tutorial/tut_walk.webm" autoplay loop muted playsinline></video>
@@ -44,8 +46,14 @@ export function showControlsPopup(onClose: () => void): void {
   // keep keys from reaching the game while the pop-up is up
   overlay.addEventListener("keydown", (e) => e.stopPropagation());
   document.body.appendChild(overlay);
-  overlay.querySelector("#controls-close")!.addEventListener("click", () => {
+  const close = () => {
     overlay.remove();
     onClose();
+  };
+  overlay.querySelector("#controls-close")!.addEventListener("click", close);
+  // clicking the backdrop = clicking the ✕; clicks inside the card land
+  // on the card, never on the overlay itself, so they don't close it
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) close();
   });
 }
