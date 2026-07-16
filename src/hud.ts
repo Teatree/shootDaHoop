@@ -25,8 +25,11 @@ const FILTERS = [
 ] as const;
 
 export interface HUD {
-  /** dim ball slots beyond the server's remaining daily throw budget */
+  /** dim ball slots beyond the server's remaining daily throw budget;
+   *  at zero the refill countdown covers the row (UTC-midnight reset) */
   setThrowsRemaining(n: number): void;
+  /** the countdown hit zero with the tab open - the budget is fresh */
+  onBallsReset(cb: () => void): void;
   /** the tier's ball look on the UI icons; splash = play the upgrade pop */
   setBallLook(red: boolean, splash: boolean): void;
   /** text may contain the placeholders handled below; kept plain-text safe. */
@@ -61,6 +64,46 @@ export function initHUD(): HUD {
   const emojiPop = el<HTMLDivElement>("emoji-pop");
 
   let chatCb: (msg: string) => void = () => {};
+
+  // ── out-of-balls countdown (owner ask 2026-07-16): the balls refill at
+  //    UTC MIDNIGHT (shared/budget.ts) whether or not they were spent,
+  //    but the timer only shows once ALL of them are. A DOM interval, not
+  //    the Phaser clock - it must keep counting in a hidden tab. ────────
+  const timerEl = el<HTMLDivElement>("ball-timer");
+  let timerId: number | null = null;
+  let ballsResetCb: () => void = () => {};
+
+  const stopTimer = () => {
+    if (timerId !== null) clearInterval(timerId);
+    timerId = null;
+    timerEl.hidden = true;
+  };
+
+  const startTimer = () => {
+    if (timerId !== null) return; // already counting
+    const now = new Date();
+    const target = Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() + 1,
+    );
+    const tick = () => {
+      const leftS = Math.ceil((target - Date.now()) / 1000);
+      if (leftS <= 0) {
+        // midnight passed with the tab open - fresh balls, no reload
+        stopTimer();
+        ballsResetCb();
+        return;
+      }
+      const pad = (n: number) => String(n).padStart(2, "0");
+      timerEl.textContent = `🕐 ${pad(Math.floor(leftS / 3600))}:${pad(
+        Math.floor((leftS % 3600) / 60),
+      )}:${pad(leftS % 60)}`;
+    };
+    tick();
+    timerEl.hidden = false;
+    timerId = window.setInterval(tick, 1000);
+  };
 
   const sendMsg = () => {
     const msg = chatEl.value.trim();
@@ -144,6 +187,12 @@ export function initHUD(): HUD {
     setThrowsRemaining(n: number) {
       const slots = document.querySelectorAll("#ball-slots .slot");
       slots.forEach((slot, i) => slot.classList.toggle("used", i >= n));
+      if (n <= 0) startTimer();
+      else stopTimer();
+    },
+
+    onBallsReset(cb) {
+      ballsResetCb = cb;
     },
 
     setBallLook(red: boolean, splash: boolean) {

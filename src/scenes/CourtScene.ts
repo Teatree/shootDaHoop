@@ -356,6 +356,14 @@ export class CourtScene extends Phaser.Scene {
       // the SHARE button lives exactly where the balls end
       this.share.setOutOfBalls(e.throwsRemaining <= 0);
     });
+    this.hud.onBallsReset(() => {
+      // the countdown hit UTC midnight with the tab open: the authority
+      // recounts on the next throw anyway (shared/budget.ts resets by
+      // date) - un-stick the local gate so that throw can even be sent
+      this.throwsRemaining = T.budget.throwsPerDay;
+      this.hud.setThrowsRemaining(this.throwsRemaining);
+      this.share.setOutOfBalls(false);
+    });
     this.backend.on("joinRejected", () => {
       this.hud.log("presence", "This court is full - try again later.");
     });
