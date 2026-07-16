@@ -124,6 +124,24 @@ export const T = {
     classic: 0xffffff,
     red: 0xff5f4a,
   } as Record<string, number>,
+  // PLACEHOLDER (tune): YOUR ball vs everyone else's - a warm cream
+  // multiply over whatever look the tier gives, so it composes with the
+  // tier-2 red instead of replacing it (owner ask 2026-07-16, in aid of
+  // "you can only catch your OWN ball")
+  ownBallMarker: 0xffe0b8,
+
+  // ── Catch the ball (own missed ball landing at your feet) ─────────
+  catchFeel: {
+    // PLACEHOLDER (tune): the catch zone is the character's footprint
+    // plus 10% each way (owner spec) - width from the 54px shadow,
+    // "height" read as the ~2m figure, both as floor extents (x, d)
+    // around the player's feet
+    halfXM: ((54 / 32) * 1.1) / 2, // ~0.93 m left/right
+    halfDM: (2.0 * 1.1) / 2, //      1.1 m in depth
+    landHM: 0.35, //   ball center this close to the floor = "landed"
+    msgSizePx: 30, //  the centered CATCH! announcement
+    msgHoldMs: 700, // how long it holds before fading
+  },
 
   // ── Ghost records (click a log throw → replay it on the court) ────
   ghost: {

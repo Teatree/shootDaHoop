@@ -89,6 +89,41 @@ export function floatText(
   });
 }
 
+/** A big announcement pinned to the CENTER OF THE SCREEN (scroll-proof),
+ *  e.g. "CATCH! +🏀" - holds a beat, then floats up and fades. */
+export function announceText(scene: Phaser.Scene, str: string, color: string) {
+  const cam = scene.cameras.main;
+  const t = scene.add
+    .text(cam.width / 2, cam.height / 2, str, {
+      fontFamily: '"Courier New", Courier, monospace',
+      fontSize: `${T.catchFeel.msgSizePx}px`,
+      fontStyle: "bold",
+      color,
+      stroke: "#5a3d28",
+      strokeThickness: 6,
+    })
+    .setOrigin(0.5)
+    .setScrollFactor(0)
+    .setDepth(2500)
+    .setScale(0.3);
+
+  scene.tweens.add({
+    targets: t,
+    scale: 1,
+    duration: 140,
+    ease: "Back.easeOut",
+  });
+  scene.tweens.add({
+    targets: t,
+    y: cam.height / 2 - 40,
+    alpha: 0,
+    delay: T.catchFeel.msgHoldMs,
+    duration: 450,
+    ease: "Cubic.easeOut",
+    onComplete: () => t.destroy(),
+  });
+}
+
 export function flash(
   scene: Phaser.Scene,
   x: number,

@@ -47,6 +47,9 @@ export interface BackendEvents {
   /** the authoritative result (server-decided in multiplayer) */
   outcome: (e: ThrowOutcome) => void;
   throwRejected: (e: { throwId: string; reason: "budget" | "invalid" }) => void;
+  /** a player caught their own missed ball back - the held miss for this
+   *  throwId is dropped and a catch line logs instead (throw refunded) */
+  caught: (e: { id: string; name: string; throwId: string }) => void;
   chatMessage: (e: { id: string; name: string; text: string }) => void;
   /**
    * A player pressed the Upgrade button: score reset, tier advanced,
@@ -95,6 +98,13 @@ export interface Backend {
   /** cosmetic pose telemetry - LocalBackend no-ops (nobody's watching) */
   sendPose(s: AvatarState): void;
   requestThrow(throwId: string, launch: ThrowLaunch): void;
+  /**
+   * My missed ball landed at my feet - catch it (owner ask 2026-07-16).
+   * The authority validates (own throw, ruled a miss, not born from a
+   * catch), refunds the throw and broadcasts `caught`. The client plays
+   * the catch optimistically; a refused catch just never refunds.
+   */
+  catchBall(throwId: string): void;
   /** press the Upgrade button - the authority validates and broadcasts */
   upgrade(): void;
   /** press the jukebox - the authority re-rolls the synced song */

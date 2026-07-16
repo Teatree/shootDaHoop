@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { T } from "./tuning";
-import { M, floorY, sortDepth, toScreen } from "./world";
+import { M, floorY, multiplyTint, sortDepth, toScreen } from "./world";
+import { floatText } from "./juice";
 import { buildBubble } from "./speech";
 import { CharacterRig, type RigLook } from "./characterRig";
 import { FIGURE_H } from "./shared/pose";
@@ -44,6 +45,7 @@ interface Ghosts {
   bubbleText: string | null;
   ballShown: boolean;
   outcomeFired: boolean;
+  catchFired: boolean;
   zapFired: boolean;
   fading: boolean;
 }
@@ -92,8 +94,12 @@ export class GhostPlayback {
       .setVisible(false);
     ball.setDisplaySize(diaPx, diaPx);
     // the upgrade recolour rule: the ghost ball wears the look STAMPED AT
-    // RECORD TIME - a pre-upgrade replay keeps the old look forever
-    const lookTint = T.ballLooks[rec.ballLook ?? "classic"];
+    // RECORD TIME - a pre-upgrade replay keeps the old look forever.
+    // Recordings are always OWN throws, so the own-ball marker rides too.
+    const lookTint = multiplyTint(
+      T.ballLooks[rec.ballLook ?? "classic"],
+      T.ownBallMarker,
+    );
     if (lookTint !== 0xffffff) ball.setTint(lookTint);
     const bShadow = this.scene.add
       .ellipse(0, 0, diaPx * 1.2, diaPx * 0.4, 0x000000, 0)
@@ -130,6 +136,7 @@ export class GhostPlayback {
       bubbleText: null,
       ballShown: false,
       outcomeFired: false,
+      catchFired: false,
       zapFired: false,
       fading: false,
     };
@@ -242,6 +249,13 @@ export class GhostPlayback {
     if (!g.outcomeFired && rec.outcomeT !== undefined && g.t >= rec.outcomeT) {
       g.outcomeFired = true;
       if (rec.made) this.onMade();
+    }
+
+    // the recorded catch: the ball popped back to the player right here
+    // (the ball samples end at the pop; this is the celebration)
+    if (!g.catchFired && rec.catchT !== undefined && g.t >= rec.catchT) {
+      g.catchFired = true;
+      floatText(this.scene, g.ball.x, g.ball.y - 8, "CATCH!", "#6ac48a", 14);
     }
 
     // played out in full → fade away

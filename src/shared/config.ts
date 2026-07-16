@@ -145,6 +145,16 @@ export const BALANCE = {
     throwsPerDay: 5,
   },
 
+  // ── Catch the ball (own missed ball landing at your feet comes back;
+  //    the zone geometry is client tuning, this is the authority's part) ─
+  catchBall: {
+    // PLACEHOLDER (tune): the authority forgets a miss this long after
+    // it resolved - comfortably past ground.maxLifeS, so any ball still
+    // physically on a court is catchable, and a stale/replayed catch
+    // message can't refund an ancient throw
+    windowS: 20,
+  },
+
   // ── Lobby limits (server-enforced) ────────────────────────────────
   lobby: {
     maxPlayers: 8, //      DECIDE default: small worlds; overflow is rejected

@@ -99,6 +99,13 @@ export class SocketBackend implements Backend {
           reason: m.reason,
         });
         break;
+      case "caught":
+        this.emitter.emit("caught", {
+          id: m.id,
+          name: m.name,
+          throwId: m.throwId,
+        });
+        break;
       case "chat":
         this.emitter.emit("chatMessage", {
           id: m.id,
@@ -187,6 +194,12 @@ export class SocketBackend implements Backend {
       throwId,
       launch,
     });
+  }
+
+  /** The catch is validated (and refunded) by the server; the client's
+   *  pop/announcement already played optimistically. */
+  catchBall(throwId: string): void {
+    this.send({ t: "catch", throwId });
   }
 
   /** The server is the authority - the local ball's opinion is cosmetic. */

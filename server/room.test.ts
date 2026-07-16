@@ -267,6 +267,105 @@ describe("throw budgets are PER LOBBY", () => {
   });
 });
 
+describe("catch the ball", () => {
+  const ws = (f: FakeWS) => f as unknown as WebSocket;
+  // a weak lob from mid-court: never reaches the rim - always a miss
+  const missLaunch = {
+    shotX: 20,
+    shotD: 3,
+    x: 20.5,
+    d: 3,
+    h: 2.2,
+    vx: 5,
+    vh: 5,
+    slam: false,
+  };
+
+  /** Throw and let the scheduled outcome fire (well past resolvedAtS,
+   *  well inside catchBall.windowS). */
+  function missOne(r: Room, throwId: string) {
+    r.handle("bob", { t: "throw", throwId, launch: missLaunch });
+    vi.advanceTimersByTime(10_000);
+  }
+
+  it("refunds the throw, retro-marks the wall line, tells everyone", async () => {
+    vi.useFakeTimers();
+    try {
+      const { room, storage } = await makeRoom(0);
+      const a = new FakeWS();
+      const b = new FakeWS();
+      await room.join(ws(a), identity("alice"));
+      await room.join(ws(b), identity("bob"));
+      missOne(room, "t1");
+      expect(b.of("outcome")).toHaveLength(1);
+
+      room.handle("bob", { t: "catch", throwId: "t1" });
+
+      // both hear it; the catcher's budget is whole again
+      expect(a.of("caught")).toHaveLength(1);
+      expect(b.of("caught")).toHaveLength(1);
+      const budgets = b.of("budget");
+      const last = budgets[budgets.length - 1];
+      if (last?.t !== "budget") throw new Error("no budget update");
+      expect(last.throwsRemaining).toBe(BALANCE.budget.throwsPerDay);
+      // the wall: the miss is retro-marked caught, a catch entry follows
+      expect(storage.logs.some((e) => e.kind === "catch")).toBe(true);
+      const late = new FakeWS();
+      await room.join(ws(late), identity("carol"));
+      const [w] = late.of("welcome");
+      if (w?.t !== "welcome") throw new Error("no welcome");
+      const outcome = w.history.find((h) => h.kind === "outcome");
+      if (outcome?.kind !== "outcome") throw new Error("no outcome entry");
+      expect(outcome.caught).toBe(true);
+      expect(w.history.some((h) => h.kind === "catch")).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("only the thrower may catch, and only a resolved miss", async () => {
+    vi.useFakeTimers();
+    try {
+      const { room } = await makeRoom(0);
+      const a = new FakeWS();
+      const b = new FakeWS();
+      await room.join(ws(a), identity("alice"));
+      await room.join(ws(b), identity("bob"));
+      // unknown throw: nothing happens
+      room.handle("bob", { t: "catch", throwId: "nope" });
+      expect(b.of("caught")).toHaveLength(0);
+      // someone else's miss: nothing happens
+      missOne(room, "t1");
+      room.handle("alice", { t: "catch", throwId: "t1" });
+      expect(a.of("caught")).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("once per ball: the throw made with a caught ball is not catchable", async () => {
+    vi.useFakeTimers();
+    try {
+      const { room } = await makeRoom(0);
+      const b = new FakeWS();
+      await room.join(ws(b), identity("bob"));
+      missOne(room, "t1");
+      room.handle("bob", { t: "catch", throwId: "t1" });
+      expect(b.of("caught")).toHaveLength(1);
+      // the refunded ball flies again and misses again…
+      missOne(room, "t2");
+      room.handle("bob", { t: "catch", throwId: "t2" });
+      // …but this ball was already caught once - no second refund
+      expect(b.of("caught")).toHaveLength(1);
+      // and a repeat catch of the first throw is spent too
+      room.handle("bob", { t: "catch", throwId: "t1" });
+      expect(b.of("caught")).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("the upgrade press", () => {
   it("resets the score, advances the tier, and teleports everyone clear", async () => {
     const { room, storage } = await makeRoom(T2.threshold);

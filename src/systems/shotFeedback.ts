@@ -105,6 +105,16 @@ export function presentMiss(
   );
 }
 
+/** The player took their missed ball back - never a miss, its own line. */
+export function presentCatch(ctx: FeedbackCtx, onReplay?: () => void) {
+  ctx.hud.log(
+    "throw",
+    `${esc(ctx.who)} caught their ball back! <span class="catch">+🏀</span>`,
+    undefined,
+    onReplay,
+  );
+}
+
 /** The ghost replay's made-basket moment: snap the real net, small flash. */
 export function replayMadeEffect(scene: Phaser.Scene, hoop: HoopParts) {
   netSnap(scene, hoop.primary.net);

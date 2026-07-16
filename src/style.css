@@ -659,6 +659,11 @@ body {
   font-weight: bold;
 }
 
+.log-line.throw .catch {
+  color: #6ac48a;
+  font-weight: bold;
+}
+
 /* Big score (>300 pts in one shot) - swimming animated rainbow.
    The line must be plain text: background-clip:text fights inner spans. */
 .log-line.throw.bigscore {

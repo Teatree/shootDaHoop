@@ -56,12 +56,26 @@ interface Occupant {
   levitatingUntil: number;
   /** the one-shot walk-to-the-waiting-spot after going offline */
   offlineWalkTimer: NodeJS.Timeout | null;
+  /** catches banked: the NEXT throw is born from a caught ball and can
+   *  never be caught again - the once-per-ball rule */
+  catchCredits: number;
 }
 
 export class Room {
   private occupants = new Map<string, Occupant>();
   private world: WorldState = { sharedScore: 0, tierId: 1 };
   private history: HistoryEntry[] = [];
+  /** resolved misses still inside the catch window, by throwId - the
+   *  entry ref lets a catch retro-mark the wall line as caught */
+  private recentMisses = new Map<
+    string,
+    {
+      playerId: string;
+      entry: HistoryEntry & { kind: "outcome" };
+      catchable: boolean;
+      atMs: number;
+    }
+  >();
   /** outcomes scheduled to fire when the ball "lands" (resolvedAtS) */
   private pending = new Set<{ timer: NodeJS.Timeout; fire: () => void }>();
   /** full-ish snapshots: late joiners and dropped packets self-heal */
@@ -199,6 +213,7 @@ export class Room {
         profile,
         levitatingUntil: 0,
         offlineWalkTimer: null,
+        catchCredits: 0,
       });
       this.broadcast({ t: "player-joined", player: info }, ws);
       this.record({ kind: "presence", name: identity.name, joined: true });
@@ -398,6 +413,9 @@ export class Room {
         // this player moments ago (the orb is server-side now)
         const slam = msg.launch.slam && Date.now() < occ.levitatingUntil;
         const launch: ThrowLaunch = { ...msg.launch, slam };
+        // a throw made with a caught ball can't be caught again
+        const bornFromCatch = occ.catchCredits > 0;
+        if (bornFromCatch) occ.catchCredits--;
         // the thrower already animates locally - relay to everyone else
         this.broadcast(
           { t: "throw", id: playerId, throwId: msg.throwId, launch },
@@ -421,15 +439,62 @@ export class Room {
                 plain,
                 hitAtS,
                 slam,
+                bornFromCatch,
               }),
             hitAtS * 1000,
           );
         } else {
           this.schedule(
-            () => this.applyOutcome(playerId, playerName, msg.throwId, slam, res),
+            () =>
+              this.applyOutcome(
+                playerId,
+                playerName,
+                msg.throwId,
+                slam,
+                res,
+                bornFromCatch,
+              ),
             Math.max(200, res.resolvedAtS * 1000),
           );
         }
+        break;
+      }
+      case "catch": {
+        // catch the ball (owner ask 2026-07-16): the client saw its own
+        // missed ball land at the player's feet. The landing spot is the
+        // thrower's client's truth (physics is non-deterministic across
+        // machines by design) - the server rules the rest: THEIR throw,
+        // ruled a MISS, inside the window, and not born from a catch.
+        // A failed check is a silent skip: the client played the catch
+        // optimistically, but no refund ever happens without this.
+        const m = this.recentMisses.get(msg.throwId);
+        if (
+          !m ||
+          m.playerId !== playerId ||
+          !m.catchable ||
+          Date.now() - m.atMs > BALANCE.catchBall.windowS * 1000
+        )
+          break;
+        this.recentMisses.delete(msg.throwId); // once per ball
+        // it never was a miss: late joiners skip the wall line (the disk
+        // log keeps the raw miss - the forever archive stays raw)
+        m.entry.caught = true;
+        occ.catchCredits++;
+        // the refund follows the orb pattern; it no-ops across a UTC day
+        // change (shared/budget.ts), the catch still logs
+        refundThrow(this.budgetFor(occ.profile), new Date());
+        void this.storage.saveProfile(occ.profile).catch(logSaveError);
+        send(sock, {
+          t: "budget",
+          throwsRemaining: remainingThrows(this.budgetFor(occ.profile), new Date()),
+        });
+        this.record({ kind: "catch", name: occ.info.name }); // also persists
+        this.broadcast({
+          t: "caught",
+          id: playerId,
+          name: occ.info.name,
+          throwId: msg.throwId,
+        });
         break;
       }
       case "upgrade": {
@@ -561,7 +626,12 @@ export class Room {
     playerName: string,
     throwId: string,
     orbSeq: number,
-    opts: { plain: ReturnType<typeof resolveThrow>; hitAtS: number; slam: boolean },
+    opts: {
+      plain: ReturnType<typeof resolveThrow>;
+      hitAtS: number;
+      slam: boolean;
+      bornFromCatch: boolean;
+    },
   ) {
     const taken = this.orb.consume(orbSeq);
     if (taken) {
@@ -591,7 +661,15 @@ export class Room {
       return;
     }
     this.schedule(
-      () => this.applyOutcome(playerId, playerName, throwId, opts.slam, opts.plain),
+      () =>
+        this.applyOutcome(
+          playerId,
+          playerName,
+          throwId,
+          opts.slam,
+          opts.plain,
+          opts.bornFromCatch,
+        ),
       Math.max(0, (opts.plain.resolvedAtS - opts.hitAtS) * 1000),
     );
   }
@@ -602,6 +680,7 @@ export class Room {
     throwId: string,
     slam: boolean,
     res: ReturnType<typeof resolveThrow>,
+    bornFromCatch = false,
   ) {
     // score accumulates; the TIER only advances when a player triggers
     // the upgrade (see the "upgrade" message) - never automatically
@@ -623,7 +702,7 @@ export class Room {
         world: { ...this.world },
       },
     });
-    this.record({
+    const entry: HistoryEntry & { kind: "outcome" } = {
       kind: "outcome",
       name: playerName,
       made: res.made,
@@ -632,7 +711,22 @@ export class Room {
       rims: res.rims,
       distM: res.distM,
       points: res.points,
-    });
+    };
+    this.record(entry);
+    // a miss opens the catch window: the thrower may take the ball back
+    // while it is physically still on the court (client-detected landing;
+    // the server only rules WHOSE throw, WAS a miss, ONCE per ball)
+    if (!res.made) {
+      this.recentMisses.set(throwId, {
+        playerId,
+        entry,
+        catchable: !bornFromCatch,
+        atMs: Date.now(),
+      });
+      const cutoff = Date.now() - BALANCE.catchBall.windowS * 1000;
+      for (const [id, m] of this.recentMisses)
+        if (m.atMs < cutoff) this.recentMisses.delete(id);
+    }
   }
 
   private broadcast(msg: ServerMsg, except?: WebSocket) {

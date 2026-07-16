@@ -103,6 +103,13 @@ export class RecordingSystem {
     rec.made = made;
   }
 
+  /** The thrower caught the missed ball back - the replay pops it there. */
+  stampCatch(rec: ThrowRecording) {
+    const ar = this.active.find((a) => a.rec === rec);
+    if (!ar) return;
+    rec.catchT = this.timeS - ar.t0;
+  }
+
   play(rec: ThrowRecording) {
     this.playback.play(rec);
   }
@@ -132,10 +139,14 @@ export class RecordingSystem {
       }
       if (
         ar.rec.outcomeT !== undefined &&
-        rt >= ar.rec.outcomeT + T.ghost.postRollS
+        rt >= ar.rec.outcomeT + T.ghost.postRollS &&
+        // a missed ball may still be CAUGHT while it bounces - keep
+        // recording until it pops, so the catch moment always lands
+        (ar.rec.made || ar.ball.done)
       ) {
         ar.rec.done = true;
-        ar.rec.duration = ar.rec.outcomeT + T.ghost.postRollS;
+        // misses can outlive the post-roll; hold a beat past the pop
+        ar.rec.duration = Math.max(ar.rec.outcomeT + T.ghost.postRollS, rt + 0.5);
         this.active.splice(i, 1);
       } else if (ar.ball.done && ar.rec.outcomeT === undefined) {
         // ball was consumed (power-up) - no log line, nothing to replay

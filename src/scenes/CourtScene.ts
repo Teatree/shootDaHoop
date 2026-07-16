@@ -1,7 +1,15 @@
 import Phaser from "phaser";
 import { T } from "../tuning";
-import { M, RIM, floorDistToRim, floorY, screenToFloor, toScreen } from "../world";
-import { burst, flash, puff } from "../juice";
+import {
+  M,
+  RIM,
+  floorDistToRim,
+  floorY,
+  multiplyTint,
+  screenToFloor,
+  toScreen,
+} from "../world";
+import { announceText, burst, flash, puff } from "../juice";
 import { SunSystem, shadowShift } from "../sky";
 import { SpeechBubbles } from "../speech";
 import type { HUD } from "../hud";
@@ -59,10 +67,22 @@ import { RemoteAvatar } from "../remoteAvatar";
 import { TeleportSystem } from "../systems/teleport";
 import { RecordingSystem } from "../systems/recording";
 import {
+  presentCatch,
   presentMiss,
   presentScore,
   replayMadeEffect,
 } from "../systems/shotFeedback";
+
+/** One of OUR live throws - drives the catch-the-ball window. */
+interface OwnThrow {
+  ball: Ball;
+  rec: ThrowRecording;
+  /** the LOCAL ball ruled a miss - the catch window is open */
+  missed: boolean;
+  /** thrown with a caught ball - can never be caught again */
+  bornFromCatch: boolean;
+  caught: boolean;
+}
 
 // The court itself: builds the world, wires the systems together, and owns
 // the frame order. Feature logic lives in the systems -
@@ -108,6 +128,15 @@ export class CourtScene extends Phaser.Scene {
   private recsByThrowId = new Map<string, ThrowRecording>();
   /** live balls by throwId (own + remote) - popped on rejection/orb hit */
   private ballsByThrowId = new Map<string, Ball>();
+  /** OUR live throws - the catch-the-ball bookkeeping */
+  private ownThrows = new Map<string, OwnThrow>();
+  /** miss lines held back while the ball can still be caught */
+  private pendingMisses = new Map<
+    string,
+    { present: () => void; timeoutId: number }
+  >();
+  /** catches banked: the NEXT own throw is born-from-catch (once per ball) */
+  private catchCredits = 0;
   private remotes = new Map<
     string,
     { avatar: RemoteAvatar; bubbles: SpeechBubbles }
@@ -390,6 +419,22 @@ export class CourtScene extends Phaser.Scene {
       }
     });
     this.backend.on("outcome", (e) => this.presentOutcome(e));
+    this.backend.on("caught", (e) => {
+      // the authority confirmed a catch: it never was a miss - the held
+      // line dies on every screen and the catch line logs instead
+      this.dropPendingMiss(e.throwId);
+      // remote screens may still show the cosmetic ball bouncing - pop it
+      // (the catcher's own ball already popped in doCatch)
+      if (e.id !== this.selfId) this.ballsByThrowId.get(e.throwId)?.consume();
+      const rec =
+        e.id === this.selfId ? this.recsByThrowId.get(e.throwId) : undefined;
+      this.recsByThrowId.delete(e.throwId);
+      const who = e.id === this.selfId ? this.playerName : e.name;
+      presentCatch(
+        { scene: this, hud: this.hud, hoop: this.hoop, who },
+        rec ? () => this.recording.play(rec) : undefined,
+      );
+    });
     this.backend.on("throwRejected", (e) => {
       // the optimistic ball was cosmetic - pop it, nothing can come of it
       this.ballsByThrowId.get(e.throwId)?.consume();
@@ -762,7 +807,14 @@ export class CourtScene extends Phaser.Scene {
           "world",
           `${esc(h.name)} upgraded the court to Hoop ${h.tierId}.`,
         );
+      } else if (h.kind === "catch") {
+        this.hud.log(
+          "throw",
+          `${esc(h.name)} caught their ball back! <span class="catch">+🏀</span>`,
+        );
       } else {
+        // a caught miss never was a miss - its catch entry follows
+        if (!h.made && h.caught) continue;
         const d = h.distM.toFixed(1);
         const who = esc(h.name);
         this.hud.log(
@@ -792,6 +844,7 @@ export class CourtScene extends Phaser.Scene {
     this.cheer?.update(dt);
     this.jukebox?.update(dt);
     for (const b of this.balls) b.update(dt, light);
+    this.updateCatch(); // right after the balls moved, before cleanup
     this.teleport.update(dt, this.balls);
     this.recording.update(dt);
 
@@ -881,6 +934,10 @@ export class CourtScene extends Phaser.Scene {
 
   /** A confirmed throw: spawn the live feel-simulation ball + recorder. */
   private spawnBall(throwId: string, launch: ThrowLaunch) {
+    // a throw made with a caught ball can't be caught again (the
+    // authority tracks the same credit - see backend catchBall)
+    const bornFromCatch = this.catchCredits > 0;
+    if (bornFromCatch) this.catchCredits--;
     // the recorder is created right after the ball; callbacks fire only
     // from later update ticks, so `rec` is always assigned by then
     let rec!: ThrowRecording;
@@ -893,7 +950,9 @@ export class CourtScene extends Phaser.Scene {
       shotDistM: floorDistToRim(launch.shotX, launch.shotD),
       own: true,
       geom: () => this.geom(),
-      tint: this.ballTint,
+      // YOUR ball reads slightly different from everyone else's (you can
+      // only catch your own) - composed over the tier's look
+      tint: multiplyTint(this.ballTint, T.ownBallMarker),
       onScore: (o) => {
         this.recording.stampOutcome(rec, true);
         this.backend.reportOutcome(throwId, {
@@ -906,6 +965,8 @@ export class CourtScene extends Phaser.Scene {
       },
       onMiss: (o) => {
         this.recording.stampOutcome(rec, false);
+        const ot = this.ownThrows.get(throwId);
+        if (ot) ot.missed = true; // the catch window opens
         this.backend.reportOutcome(throwId, {
           made: false,
           swish: false,
@@ -916,6 +977,8 @@ export class CourtScene extends Phaser.Scene {
       },
       onDone: () => {
         this.ballsByThrowId.delete(throwId);
+        // the ball is gone - a held miss can't become a catch anymore
+        this.flushPendingMiss(throwId);
       },
     });
     rec = this.recording.beginThrow(
@@ -926,6 +989,13 @@ export class CourtScene extends Phaser.Scene {
     );
     this.recsByThrowId.set(throwId, rec);
     this.ballsByThrowId.set(throwId, ball);
+    this.ownThrows.set(throwId, {
+      ball,
+      rec,
+      missed: false,
+      bornFromCatch,
+      caught: false,
+    });
     this.balls.push(ball);
   }
 
@@ -946,31 +1016,107 @@ export class CourtScene extends Phaser.Scene {
       onMiss: () => {},
       onDone: () => {
         this.ballsByThrowId.delete(throwId);
+        // their ball is gone here and no catch arrived - the miss stands
+        this.flushPendingMiss(throwId);
       },
     });
     this.ballsByThrowId.set(throwId, ball);
     this.balls.push(ball);
   }
 
+  // ── catch the ball (owner ask 2026-07-16): an OWN missed ball landing
+  //    within the player's footprint (+10%) comes back - once per ball ──
+
+  /** Per-frame: any of our missed balls landing at our feet? */
+  private updateCatch() {
+    for (const [throwId, o] of this.ownThrows) {
+      if (o.ball.done) {
+        this.ownThrows.delete(throwId); // bookkeeping follows the ball
+        continue;
+      }
+      if (!o.missed || o.caught || o.bornFromCatch) continue;
+      const p = o.ball.pos;
+      const c = T.catchFeel;
+      if (
+        p.h <= c.landHM &&
+        Math.abs(p.x - this.player.x) <= c.halfXM &&
+        Math.abs(p.d - this.player.d) <= c.halfDM
+      )
+        this.doCatch(throwId, o);
+    }
+  }
+
+  /** The ball is at our feet: take it back (optimistically - the
+   *  authority validates and refunds; see Backend.catchBall). */
+  private doCatch(throwId: string, o: OwnThrow) {
+    o.caught = true;
+    this.catchCredits++; // the returned ball can never be caught again
+    this.dropPendingMiss(throwId); // it never was a miss
+    this.backend.catchBall(throwId);
+    this.recording.stampCatch(o.rec); // the replay pops the ball here
+    o.ball.consume();
+    announceText(this, "CATCH! +🏀", "#6ac48a");
+  }
+
   /** The authoritative result came back - score display + juice + log. */
   private presentOutcome(e: ThrowOutcome) {
     this.setWorld(e.world);
-    // the share button's roll tracks OWN throws only: 🏀 hit, ✖ miss
-    if (e.playerId === this.selfId) this.share.noteResult(e.made, e.points);
-    // recordings exist only for OWN throws - never match a remote outcome
-    const rec =
-      e.playerId === this.selfId ? this.recsByThrowId.get(e.throwId) : undefined;
-    this.recsByThrowId.delete(e.throwId);
-    const onReplay = rec ? () => this.recording.play(rec) : undefined;
-    const who =
-      e.playerId === this.selfId
-        ? this.playerName
-        : (this.remotes.get(e.playerId)?.avatar.name ?? "Someone");
+    const own = e.playerId === this.selfId;
+    // caught locally before the outcome even landed - the caught event
+    // (right behind it) logs the catch; the miss never existed
+    if (own && this.ownThrows.get(e.throwId)?.caught) return;
+    const who = own
+      ? this.playerName
+      : (this.remotes.get(e.playerId)?.avatar.name ?? "Someone");
     const ctx = { scene: this, hud: this.hud, hoop: this.hoop, who };
     const o = { made: e.made, swish: e.swish, rims: e.rims, distM: e.distM };
-    // hidden tab → log-only: no stale juice bursting on return
-    if (e.made) presentScore(ctx, o, e.points, e.slam, onReplay, document.hidden);
-    else presentMiss(ctx, o, e.slam, onReplay);
+    if (e.made) {
+      // the share button's roll tracks OWN throws only: ✅ hit, 🟥 miss
+      if (own) this.share.noteResult(true, e.points);
+      // recordings exist only for OWN throws - never match a remote outcome
+      const rec = own ? this.recsByThrowId.get(e.throwId) : undefined;
+      this.recsByThrowId.delete(e.throwId);
+      const onReplay = rec ? () => this.recording.play(rec) : undefined;
+      // hidden tab → log-only: no stale juice bursting on return
+      presentScore(ctx, o, e.points, e.slam, onReplay, document.hidden);
+      return;
+    }
+    // A MISS - but while the ball still bounces the thrower may CATCH it
+    // (then it never was a miss, in the log or the share roll). Hold the
+    // line back until the ball is done (onDone flush), a catch arrives
+    // (drop), or a DOM timeout fires - Phaser pauses on hidden tabs and
+    // a held miss must not survive forever.
+    const present = () => {
+      if (own) this.share.noteResult(false, 0);
+      const rec = own ? this.recsByThrowId.get(e.throwId) : undefined;
+      this.recsByThrowId.delete(e.throwId);
+      presentMiss(ctx, o, e.slam, rec ? () => this.recording.play(rec) : undefined);
+    };
+    const ball = this.ballsByThrowId.get(e.throwId);
+    if (ball && !ball.done) {
+      const timeoutId = window.setTimeout(
+        () => this.flushPendingMiss(e.throwId),
+        (T.ground.maxLifeS + 2) * 1000,
+      );
+      this.pendingMisses.set(e.throwId, { present, timeoutId });
+    } else present(); // no live ball on this screen - nothing to wait for
+  }
+
+  /** The held miss stands (ball gone, nobody caught it) - log it now. */
+  private flushPendingMiss(throwId: string) {
+    const p = this.pendingMisses.get(throwId);
+    if (!p) return;
+    clearTimeout(p.timeoutId);
+    this.pendingMisses.delete(throwId);
+    p.present();
+  }
+
+  /** The held miss never happened (the ball was caught) - discard it. */
+  private dropPendingMiss(throwId: string) {
+    const p = this.pendingMisses.get(throwId);
+    if (!p) return;
+    clearTimeout(p.timeoutId);
+    this.pendingMisses.delete(throwId);
   }
 
   // ── movement: animate immediately, broadcast the intent ───────────

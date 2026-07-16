@@ -34,6 +34,9 @@ export interface ThrowRecording {
   ballSamples: BallSample[];
   outcomeT?: number; //  when the hit/miss happened (recording time)
   made?: boolean;
+  /** when the thrower CAUGHT the missed ball back (recording time) -
+   *  the replay pops the ball and celebrates there */
+  catchT?: number;
   // teleport slam context: the zapp moment and both ends of the jump
   teleportT?: number;
   teleportFrom?: { x: number; d: number; h: number };

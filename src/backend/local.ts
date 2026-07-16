@@ -53,7 +53,15 @@ export class LocalBackend implements Backend {
   private readonly emitter = new BackendEmitter();
   private readonly self: PlayerInfo;
   private world: WorldState = { sharedScore: 0, tierId: 1 };
-  private pendingThrows = new Map<string, ThrowLaunch>();
+  private pendingThrows = new Map<
+    string,
+    { launch: ThrowLaunch; bornFromCatch: boolean }
+  >();
+  /** resolved misses, still catchable (mirrors server/room.ts) */
+  private recentMisses = new Map<string, { catchable: boolean }>();
+  /** catches banked: the NEXT throw is born from a caught ball and can
+   *  never be caught again - the once-per-ball rule */
+  private catchCredits = 0;
   private orb: OrbState | null = null;
   private orbSeq = 0;
   private orbTimer: ReturnType<typeof setTimeout> | null = null;
@@ -129,6 +137,26 @@ export class LocalBackend implements Backend {
     this.scheduleOrbSpawn();
   }
 
+  /** My missed ball landed at my feet - authoritative in single player. */
+  catchBall(throwId: string): void {
+    const m = this.recentMisses.get(throwId);
+    if (!m?.catchable) return; // unknown, already caught, or born from a catch
+    this.recentMisses.delete(throwId); // once per ball - spent either way
+    this.catchCredits++;
+    // the refund no-ops across a UTC day change (shared/budget.ts) - the
+    // catch still logs; the budget simply recounts fresh
+    refundThrow(this.budget, new Date());
+    this.saveBudget();
+    this.emitter.emit("budget", {
+      throwsRemaining: remainingThrows(this.budget, new Date()),
+    });
+    this.emitter.emit("caught", {
+      id: this.self.id,
+      name: this.self.name,
+      throwId,
+    });
+  }
+
   moveTo(x: number, d: number): void {
     const c = clampToCourt(x, d);
     this.self.x = c.x;
@@ -150,7 +178,10 @@ export class LocalBackend implements Backend {
     this.emitter.emit("budget", {
       throwsRemaining: remainingThrows(this.budget, new Date()),
     });
-    this.pendingThrows.set(throwId, launch);
+    // a throw made with a caught ball can't be caught again
+    const bornFromCatch = this.catchCredits > 0;
+    if (bornFromCatch) this.catchCredits--;
+    this.pendingThrows.set(throwId, { launch, bornFromCatch });
     this.emitter.emit("throwStarted", { id: this.self.id, throwId, launch });
   }
 
@@ -164,7 +195,12 @@ export class LocalBackend implements Backend {
       distM: number;
     },
   ): void {
-    if (!this.pendingThrows.delete(throwId)) return; // unknown/duplicate
+    const pending = this.pendingThrows.get(throwId);
+    if (!pending) return; // unknown/duplicate
+    this.pendingThrows.delete(throwId);
+    // a miss opens the catch window (unless the ball was already caught once)
+    if (!o.made)
+      this.recentMisses.set(throwId, { catchable: !pending.bornFromCatch });
     // PLACEHOLDER (tune): double-shot points mirror shared/simulate.ts -
     // pointsForDistance × rims made
     const points = o.made

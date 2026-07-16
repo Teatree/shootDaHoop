@@ -39,3 +39,14 @@ export function screenToFloor(sx: number, sy: number) {
 export function sortDepth(d: number): number {
   return 100 + d * 10;
 }
+
+/** Per-channel multiply of two 0xRRGGBB tints (0xffffff = neutral) -
+ *  composes look layers, e.g. the tier's ball look x the own-ball marker. */
+export function multiplyTint(a: number, b: number): number {
+  const ch = (x: number, y: number) => Math.round((x * y) / 255);
+  return (
+    (ch((a >> 16) & 0xff, (b >> 16) & 0xff) << 16) |
+    (ch((a >> 8) & 0xff, (b >> 8) & 0xff) << 8) |
+    ch(a & 0xff, b & 0xff)
+  );
+}

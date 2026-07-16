@@ -101,11 +101,16 @@ export type HistoryEntry =
       rims?: number;
       distM: number;
       points: number;
+      /** this miss was CAUGHT moments later - it never counts as a miss,
+       *  so late joiners skip the line (the catch entry follows it) */
+      caught?: true;
     }
   | { kind: "chat"; name: string; text: string }
   | { kind: "presence"; name: string; joined: boolean }
   | { kind: "reset"; name: string }
-  | { kind: "upgrade"; name: string; tierId: number };
+  | { kind: "upgrade"; name: string; tierId: number }
+  /** the player caught their own missed ball back (throw refunded) */
+  | { kind: "catch"; name: string };
 
 // ── client → server ───────────────────────────────────────────────────
 
@@ -119,6 +124,9 @@ export type ClientMsg =
     }
   | { t: "move-to"; x: number; d: number }
   | { t: "throw"; throwId: string; launch: ThrowLaunch }
+  /** my missed ball landed at my feet - I catch it (authority validates
+   *  own throw, ruled a miss, not born from a catch, and refunds) */
+  | { t: "catch"; throwId: string }
   /** press the Upgrade button - the server validates threshold + proximity */
   | { t: "upgrade" }
   /** press the jukebox - re-rolls the song everyone hears (tier 3+) */
@@ -154,6 +162,9 @@ export type ServerMsg =
   | { t: "throw"; id: string; throwId: string; launch: ThrowLaunch }
   | { t: "outcome"; outcome: ThrowOutcome }
   | { t: "throw-rejected"; throwId: string; reason: "budget" | "invalid" }
+  /** a player caught their own missed ball - the earlier miss for this
+   *  throwId is retracted on every screen and a catch line logs instead */
+  | { t: "caught"; id: string; name: string; throwId: string }
   | { t: "chat"; id: string; name: string; text: string }
   /**
    * A player pressed the Upgrade button: the shared score reset, the
