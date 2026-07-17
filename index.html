@@ -39,6 +39,10 @@
           <div class="slot"><div class="ball"></div></div>
           <!-- covers the (grayed) row while out of balls: time to refill -->
           <div id="ball-timer" hidden></div>
+          <!-- out-of-balls hint: hover for when the balls come back -->
+          <button id="ball-hint" type="button" hidden aria-label="When do my balls come back?">
+            ?<span id="ball-hint-tip"></span>
+          </button>
         </div>
 
         <div id="chat-wrap">

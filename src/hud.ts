@@ -14,6 +14,8 @@
 // Hiding is pure CSS (a class on the feed), so it applies retroactively
 // and lines keep arriving underneath while filtered out.
 
+import { BALANCE } from "./shared/config";
+
 export type LogType = "throw" | "chat" | "presence" | "world";
 
 const FILTER_STORE = "shootDaHoop.logFilters";
@@ -70,6 +72,10 @@ export function initHUD(): HUD {
   //    but the timer only shows once ALL of them are. A DOM interval, not
   //    the Phaser clock - it must keep counting in a hidden tab. ────────
   const timerEl = el<HTMLDivElement>("ball-timer");
+  // the blue ? beside the row (owner ask 2026-07-17): exists ONLY while
+  // out of balls; hovering it explains when the balls come back
+  const hintEl = el<HTMLButtonElement>("ball-hint");
+  const hintTip = el<HTMLSpanElement>("ball-hint-tip");
   let timerId: number | null = null;
   let ballsResetCb: () => void = () => {};
 
@@ -77,6 +83,7 @@ export function initHUD(): HUD {
     if (timerId !== null) clearInterval(timerId);
     timerId = null;
     timerEl.hidden = true;
+    hintEl.hidden = true;
   };
 
   const startTimer = () => {
@@ -102,9 +109,16 @@ export function initHUD(): HUD {
       const m = Math.floor((leftS % 3600) / 60);
       const s = leftS % 60;
       timerEl.textContent = `${d > 0 ? `${d}d ` : ""}${h}h ${m}m ${s}s`;
+      // the hint tooltip tells the same story in words, minute-coarse
+      hintTip.textContent =
+        `You're out of balls for now! A fresh set of ` +
+        `${BALANCE.budget.throwsPerDay} arrives in ` +
+        `${d > 0 ? `${d}d ` : ""}${h}h ${m}m. Until then you can chat, ` +
+        `cheer your friends on, and watch the court wall.`;
     };
     tick();
     timerEl.hidden = false;
+    hintEl.hidden = false;
     timerId = window.setInterval(tick, 1000);
   };
 

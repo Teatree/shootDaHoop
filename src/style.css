@@ -104,6 +104,70 @@ body {
   display: none;
 }
 
+/* Out-of-balls hint: a small blue ? floating right of the row, breathing
+   slowly. Only exists while every ball is spent (hud.ts shows/hides it
+   with the refill timer). Absolutely positioned so the timer cover
+   (inset on the row) never sits over it. */
+#ball-hint {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%); /* the animation carries this too */
+  margin-left: 10px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: #2e6fd8;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: bold;
+  line-height: 1;
+  cursor: help;
+  pointer-events: auto; /* the row itself is pointer-events: none */
+  animation: hint-breathe 2.6s ease-in-out infinite;
+}
+
+/* the row's display rules must never resurrect it (the [hidden] trap) */
+#ball-hint[hidden] {
+  display: none;
+}
+
+@keyframes hint-breathe {
+  0%,
+  100% {
+    transform: translateY(-50%) scale(1);
+  }
+  50% {
+    transform: translateY(-50%) scale(1.1);
+  }
+}
+
+#ball-hint-tip {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  width: 240px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: normal;
+  line-height: 1.45;
+  text-align: left;
+  color: #fff3d6;
+  background: rgba(20, 14, 10, 0.92);
+  border: 2px solid #7a5a3a;
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+#ball-hint:hover #ball-hint-tip {
+  display: block;
+}
+
 /* Tier-2 Permanent Effect: balls become more red (world + UI + ghosts).
    The emoji glyph can't take a multiply tint, so this filter chain
    approximates the world ball's 0xff5f4a tint (tuning.ts ballLooks.red).

@@ -1116,7 +1116,14 @@ export class CourtScene extends Phaser.Scene {
       ? this.playerName
       : (this.remotes.get(e.playerId)?.avatar.name ?? "Someone");
     const ctx = { scene: this, hud: this.hud, hoop: this.hoop, who };
-    const o = { made: e.made, swish: e.swish, rims: e.rims, distM: e.distM };
+    // rimIds don't ride the wire outcome - display code never prices rims
+    const o = {
+      made: e.made,
+      swish: e.swish,
+      rims: e.rims,
+      rimIds: [],
+      distM: e.distM,
+    };
     if (e.made) {
       // the share button's roll tracks OWN throws only: ✅ hit, 🟥 miss
       if (own) this.share.noteResult(true, e.points);
