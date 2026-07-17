@@ -11,9 +11,8 @@ export interface Shot {
   power: number; // 0..1 fraction of max - drives the preview's meter look
 }
 
-// power-meter heat: cream (soft) → amber (medium) → red (full);
-// the boosted (tier 2+) stops live in T.aim.boosted
-const HEAT_STOPS = [0xfff3d6, 0xffb84d, 0xff5030];
+// power-meter heat stops live in T.aim.classic / T.aim.boosted -
+// per-look, together with the dots' size and alpha
 
 function heatColor(t: number, stops: readonly number[]): number {
   const seg = t < 0.5 ? 0 : 1;
@@ -199,12 +198,13 @@ export class AimController {
     const atMax = shot.power >= 1;
     // boosted balls (tier 2+ range effect) draw a longer trail in the
     // boosted hue family - the upgrade is visible in the aim itself
-    const boosted = this.trailLook() !== "classic";
-    const minLenM = boosted ? a.boosted.previewMinLenM : a.previewMinLenM;
-    const maxLenM = boosted ? a.boosted.previewMaxLenM : a.previewMaxLenM;
-    const stops = boosted ? a.boosted.heatStops : HEAT_STOPS;
-    const maxLen = Phaser.Math.Linear(minLenM, maxLenM, shot.power);
-    const color = heatColor(shot.power, stops);
+    const look = this.trailLook() !== "classic" ? a.boosted : a.classic;
+    const maxLen = Phaser.Math.Linear(
+      look.previewMinLenM,
+      look.previewMaxLenM,
+      shot.power,
+    );
+    const color = heatColor(shot.power, look.heatStops);
     const rp = this.player.releasePoint();
     let px: number = rp.x;
     let ph: number = rp.h;
@@ -235,9 +235,9 @@ export class AimController {
       if (sinceDot >= a.previewDotSpacingM) {
         sinceDot = 0;
         const f = Math.min(1, travelled / maxLen); // 0..1 along the preview
-        const size = Phaser.Math.Linear(a.previewDotStartPx, a.previewDotEndPx, f);
+        const size = Phaser.Math.Linear(look.dotStartPx, look.dotEndPx, f);
         // f² eases the fade so it dissipates late, not linearly
-        const alpha = Phaser.Math.Linear(a.previewAlphaStart, a.previewAlphaEnd, f * f);
+        const alpha = Phaser.Math.Linear(look.alphaStart, look.alphaEnd, f * f);
         this.preview.fillStyle(color, alpha);
         this.preview.fillCircle(sx, sy, size);
       }
@@ -246,7 +246,7 @@ export class AimController {
     if (atMax) {
       // pulsing cap ring - the visible power limit, in the family's hottest hue
       const pulse = 0.7 + 0.3 * Math.sin(this.scene.time.now / 90);
-      this.preview.lineStyle(2.5, stops[2], 0.9 * pulse);
+      this.preview.lineStyle(2.5, look.heatStops[2], 0.9 * pulse);
       this.preview.strokeCircle(endSX, endSY, a.previewCapRingPx * pulse);
     }
   }

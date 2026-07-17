@@ -35,14 +35,22 @@ export const T = {
     minPowerM: BALANCE.power.minPowerM,
     maxPowerM: BALANCE.power.maxPowerM,
     // The preview line IS the power meter: longer + hotter = harder throw.
-    previewMinLenM: 1.95, // arc length shown at the softest throw…
-    previewMaxLenM: 6.3, //  …growing to this at full power
+    // One block per trail look - the dots' size/alpha are per-look too
+    // (owner 2026-07-17: the classic tier-1 trail read too faint; the
+    // boosted pink one was fine and keeps its exact old values).
     previewDotSpacingM: 0.35,
-    previewDotStartPx: 6, // dot size at the release point…
-    previewDotEndPx: 1.5, //  …shrinking to this at the preview's end
-    previewAlphaStart: 0.78, // dot alpha at the release point…
-    previewAlphaEnd: 0.08, //  …dissipating to this (no hard cutoff)
     previewCapRingPx: 9, //  pulsing ring at the line's end when power = 100%
+    classic: {
+      previewMinLenM: 1.95, // arc length shown at the softest throw…
+      previewMaxLenM: 6.3, //  …growing to this at full power
+      // PLACEHOLDER (tune): bigger, more opaque than the boosted trail -
+      // cream/amber on the tan sky needs the extra weight
+      dotStartPx: 8, //     dot size at the release point…
+      dotEndPx: 2.75, //     …shrinking to this at the preview's end
+      alphaStart: 0.95, //  dot alpha at the release point…
+      alphaEnd: 0.2, //      …dissipating to this (no hard cutoff)
+      heatStops: [0xfff3d6, 0xffb84d, 0xff5030], // cream → amber → red
+    },
     // Boosted trail - active once a tier's ball-range permanent effect
     // recolors the ball (tier 2+): visibly longer at every power, and a
     // DISTINCT hue family so the upgrade reads at a glance.
@@ -50,6 +58,10 @@ export const T = {
     boosted: {
       previewMinLenM: 2.4,
       previewMaxLenM: 7.9,
+      dotStartPx: 6,
+      dotEndPx: 1.5,
+      alphaStart: 0.78,
+      alphaEnd: 0.08,
       heatStops: [0xffb356, 0xff5aa0, 0xe03df0], // orange → hot pink → magenta
     },
   },
