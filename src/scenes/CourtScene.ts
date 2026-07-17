@@ -35,7 +35,8 @@ import {
 } from "../placeholders";
 import { Player } from "../player";
 import { CameraRig } from "../cameraRig";
-import { AimController, type Shot } from "../aiming";
+import { AimController, playerRingHit, type Shot } from "../aiming";
+import { isMobileDevice } from "../mobile";
 import { Ball } from "../ball";
 import { type BallState, fastForwardBall } from "../shared/physics";
 import { playSfx } from "../sfx";
@@ -568,13 +569,16 @@ export class CourtScene extends Phaser.Scene {
       }
     });
 
-    // throw yielding: a right-click while cheering walks the character
-    // back out of the area (PLACEHOLDER: the player re-aims once out -
+    // throw yielding: a right-click (or, on mobile, a press on the
+    // character's touch ring) while cheering walks the character back
+    // out of the area (PLACEHOLDER: the player re-aims once out -
     // replaying the exact aim gesture after the walk isn't possible)
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
-      if (p.rightButtonDown() && this.cheer?.active) {
-        this.cheer.leaveThen(() => {});
-      }
+      if (!this.cheer?.active) return;
+      const wantsOut = isMobileDevice()
+        ? playerRingHit(this, this.player, p.x, p.y)
+        : p.rightButtonDown();
+      if (wantsOut) this.cheer.leaveThen(() => {});
     });
 
     this.hud.onChat((msg) => this.backend.chat(msg));

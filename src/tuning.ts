@@ -40,6 +40,19 @@ export const T = {
     // boosted pink one was fine and keeps its exact old values).
     previewDotSpacingM: 0.35,
     previewCapRingPx: 9, //  pulsing ring at the line's end when power = 100%
+    // The MOBILE touch ring (docs/mobile.md): press inside it to aim,
+    // drag out to charge, release to throw; release back inside =
+    // cancel. Geometry = the figure's box (54 x FIGURE_H px) + 10%
+    // (owner spec), with a minimum SCREEN radius so zooming out never
+    // shrinks the target under a fingertip.
+    ring: {
+      figureWPx: 54, //     the shadow width - the figure's visual footprint
+      scale: 1.1, //        "around 10% bigger than the character itself"
+      minScreenPx: 36, //   PLACEHOLDER (tune): fingertip-sized floor
+      strokePx: 2, //       the drawn ring (always matches the hit test)
+      alphaOut: 0.3, //     finger outside: armed to throw
+      alphaIn: 0.6, //      finger back inside: release here = cancel
+    },
     classic: {
       previewMinLenM: 1.95, // arc length shown at the softest throw…
       previewMaxLenM: 6.3, //  …growing to this at full power

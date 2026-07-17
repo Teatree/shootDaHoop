@@ -1,6 +1,8 @@
 import Phaser from "phaser";
 import { T } from "./tuning";
 import { RIM, screenToFloor, toScreen } from "./world";
+import { isMobileDevice } from "./mobile";
+import { FIGURE_H } from "./shared/pose";
 import type { Player } from "./player";
 import type { PowerCurve } from "./shared/tierRules";
 import type { BallLookId } from "./shared/tierChanges";
@@ -14,6 +16,41 @@ export interface Shot {
 // power-meter heat stops live in T.aim.classic / T.aim.boosted -
 // per-look, together with the dots' size and alpha
 
+/**
+ * The mobile touch ring around the local character (world px): the
+ * figure's box + 10% (T.aim.ring), floored to a fingertip-sized SCREEN
+ * radius so camera zoom-out never shrinks the target. The drawn ring
+ * and the hit test share this - what you see is what cancels.
+ */
+export function playerRing(
+  scene: Phaser.Scene,
+  player: Player,
+): { cx: number; cy: number; rx: number; ry: number } {
+  const r = T.aim.ring;
+  const feet = toScreen(player.x, player.d, player.airH);
+  const minWorld = r.minScreenPx / scene.cameras.main.zoom;
+  return {
+    cx: feet.sx,
+    cy: feet.sy - FIGURE_H / 2,
+    rx: Math.max((r.figureWPx / 2) * r.scale, minWorld),
+    ry: Math.max((FIGURE_H / 2) * r.scale, minWorld),
+  };
+}
+
+/** Is this SCREEN point (pointer coords) inside the touch ring? */
+export function playerRingHit(
+  scene: Phaser.Scene,
+  player: Player,
+  px: number,
+  py: number,
+): boolean {
+  const ring = playerRing(scene, player);
+  const wp = scene.cameras.main.getWorldPoint(px, py);
+  const nx = (wp.x - ring.cx) / ring.rx;
+  const ny = (wp.y - ring.cy) / ring.ry;
+  return nx * nx + ny * ny <= 1;
+}
+
 function heatColor(t: number, stops: readonly number[]): number {
   const seg = t < 0.5 ? 0 : 1;
   const f = (t - seg * 0.5) * 2;
@@ -23,10 +60,16 @@ function heatColor(t: number, stops: readonly number[]): number {
   return Phaser.Display.Color.GetColor(c.r, c.g, c.b);
 }
 
-// Right-click + hold → aim AT the cursor (direction = release point →
-// pointer), then DRAG OUT to charge: power grows with drag distance from
-// the press point, not with where the cursor sits. Release → throw.
-// Left-click → walk.
+// DESKTOP: right-click + hold → aim AT the cursor (direction = release
+// point → pointer), then DRAG OUT to charge: power grows with drag
+// distance from the press point, not with where the cursor sits.
+// Release → throw. Left-click → walk.
+//
+// MOBILE (docs/mobile.md): press INSIDE the ring around the character →
+// aim; drag out → charge (same power mapping); release → throw; drag
+// back inside the ring → cancel. A tap anywhere else → walk. The touch
+// layer only chooses WHEN begin/release/cancel/walk fire - the math and
+// the game hooks are the same code desktop uses.
 export class AimController {
   private aiming = false;
   /** out-of-balls right-click hold: the arm points, no trail */
@@ -35,6 +78,8 @@ export class AimController {
   private startY = 0;
   private curX = 0;
   private curY = 0;
+  /** the finger that owns the current aim - extra touches are ignored */
+  private aimPointerId = -1;
 
   private readonly preview: Phaser.GameObjects.Graphics;
 
@@ -57,6 +102,17 @@ export class AimController {
     scene.input.on(
       "pointerdown",
       (p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
+        if (isMobileDevice()) {
+          // an extra finger mid-aim never cancels or restarts the aim
+          if (this.aiming || this.pointing) return;
+          if (playerRingHit(scene, this.player, p.x, p.y)) {
+            this.aimPointerId = p.id;
+            this.begin(p);
+          } else {
+            this.handleWalkPress(p, over);
+          }
+          return;
+        }
         // branch on the button that CAUSED the event (p.button), not on
         // button state - a left press mid-aim also has rightButtonDown()
         // true and used to restart the aim from the new cursor spot
@@ -66,33 +122,61 @@ export class AimController {
           // left-click DURING an aim cancels the throw and walks away
           // (owner 2026-07-16: walking out of a held right-click aim)
           if (this.aiming || this.pointing) this.cancel();
-          if (over.length > 0) return;
-          // clicks on interactive world objects (upgrade button, jukebox…)
-          // are theirs - a bare floor click is a walk
-          const wp = scene.cameras.main.getWorldPoint(p.x, p.y);
-          const { x, d } = screenToFloor(wp.x, wp.y);
-          this.player.walkTo(x, d);
-          this.onWalkClick(wp.x, wp.y);
+          this.handleWalkPress(p, over);
         }
       },
     );
 
     scene.input.on("pointermove", (p: Phaser.Input.Pointer) => {
-      if (this.aiming || this.pointing) {
-        this.curX = p.x;
-        this.curY = p.y;
-      }
+      if (!(this.aiming || this.pointing)) return;
+      if (isMobileDevice() && p.id !== this.aimPointerId) return;
+      this.curX = p.x;
+      this.curY = p.y;
     });
 
-    scene.input.on("pointerup", (p: Phaser.Input.Pointer) => {
-      if (p.button !== 2) return;
-      if (this.aiming) this.release();
-      else if (this.pointing) {
-        // out of balls: letting go punches the air instead of throwing
+    scene.input.on("pointerup", (p: Phaser.Input.Pointer) => this.pointerUp(p));
+    // touch has no hover to recover with: a finger sliding off the
+    // canvas (onto the log panel) must still land the release
+    scene.input.on("pointerupoutside", (p: Phaser.Input.Pointer) => {
+      if (isMobileDevice()) this.pointerUp(p);
+    });
+  }
+
+  private pointerUp(p: Phaser.Input.Pointer) {
+    if (isMobileDevice()) {
+      if (p.id !== this.aimPointerId) return;
+      this.aimPointerId = -1;
+      if (this.aiming) {
+        // drag back into the ring = cancel; anywhere else = throw
+        if (playerRingHit(this.scene, this.player, p.x, p.y)) this.cancel();
+        else this.release();
+      } else if (this.pointing) {
         this.pointing = false;
         this.player.exitPointWithPunch();
       }
-    });
+      return;
+    }
+    if (p.button !== 2) return;
+    if (this.aiming) this.release();
+    else if (this.pointing) {
+      // out of balls: letting go punches the air instead of throwing
+      this.pointing = false;
+      this.player.exitPointWithPunch();
+    }
+  }
+
+  /** Clicks on interactive world objects (upgrade button, jukebox…) are
+   *  theirs - a bare floor press is a walk. Shared by desktop left-click
+   *  and the mobile outside-the-ring tap. */
+  private handleWalkPress(
+    p: Phaser.Input.Pointer,
+    over: Phaser.GameObjects.GameObject[],
+  ) {
+    if (over.length > 0) return;
+    const wp = this.scene.cameras.main.getWorldPoint(p.x, p.y);
+    const { x, d } = screenToFloor(wp.x, wp.y);
+    this.player.walkTo(x, d);
+    this.onWalkClick(wp.x, wp.y);
   }
 
   private begin(p: Phaser.Input.Pointer) {
@@ -181,6 +265,24 @@ export class AimController {
     }
     if (!this.aiming) return;
     this.preview.clear();
+    const a = T.aim;
+    // boosted balls (tier 2+ range effect) draw a longer trail in the
+    // boosted hue family - the upgrade is visible in the aim itself
+    const look = this.trailLook() !== "classic" ? a.boosted : a.classic;
+
+    // the mobile touch ring, always visible while aiming: it IS the
+    // cancel zone, brighter while the finger is back inside it
+    if (isMobileDevice()) {
+      const ring = playerRing(this.scene, this.player);
+      const inside = playerRingHit(this.scene, this.player, this.curX, this.curY);
+      this.preview.lineStyle(
+        a.ring.strokePx,
+        look.heatStops[0],
+        inside ? a.ring.alphaIn : a.ring.alphaOut,
+      );
+      this.preview.strokeEllipse(ring.cx, ring.cy, ring.rx * 2, ring.ry * 2);
+    }
+
     const shot = this.computeShot();
     // feed the live aim into the character pose (the hold leans with it
     // and pulls back with power) - deadzone = ball held, no lean yet
@@ -194,11 +296,7 @@ export class AimController {
     // Dots shrink and fade along the arc so the line dissipates
     // instead of hard-stopping - except at 100% power, where it ends
     // in a pulsing ring: you're at the limit.
-    const a = T.aim;
     const atMax = shot.power >= 1;
-    // boosted balls (tier 2+ range effect) draw a longer trail in the
-    // boosted hue family - the upgrade is visible in the aim itself
-    const look = this.trailLook() !== "classic" ? a.boosted : a.classic;
     const maxLen = Phaser.Math.Linear(
       look.previewMinLenM,
       look.previewMaxLenM,
