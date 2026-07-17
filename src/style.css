@@ -64,26 +64,21 @@ body {
   opacity: 0.35;
 }
 
-.slot.used .ball {
+/* #ball-slots prefix so this outranks the .red hue filter below -
+   a spent ball must gray out in tier 2 too */
+#ball-slots .slot.used .ball {
   filter: grayscale(0.9);
 }
 
+/* the 🏀 glyph - the same emoji the world ball's texture is cut from
+   (assets), so the row previews exactly what leaves the hand */
 .slot .ball {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #f0955a, #d2691e 60%, #a34e12);
-  box-shadow: inset -2px -3px 0 rgba(0, 0, 0, 0.25);
-  position: relative;
+  font-size: 27px;
+  line-height: 1;
 }
 
-.slot .ball::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border-left: 2px solid rgba(90, 40, 10, 0.55);
-  transform: rotate(20deg);
+.slot .ball::before {
+  content: "🏀";
 }
 
 /* Out of balls: the refill countdown covers the whole grayed row
@@ -109,9 +104,14 @@ body {
   display: none;
 }
 
-/* Tier-2 Permanent Effect: balls become more red (world + UI + ghosts) */
+/* Tier-2 Permanent Effect: balls become more red (world + UI + ghosts).
+   The emoji glyph can't take a multiply tint, so this filter chain
+   approximates the world ball's 0xff5f4a tint (tuning.ts ballLooks.red).
+   sepia first: a bare hue-rotate on the glyph's orange drifts to
+   magenta - normalizing through sepia then rotating lands on red
+   (browser-compared 2026-07-17) */
 #ball-slots.red .ball {
-  background: radial-gradient(circle at 35% 30%, #f0704a, #c8341e 60%, #8f1e08);
+  filter: sepia(1) saturate(10) hue-rotate(-40deg) brightness(0.75) contrast(1.2);
 }
 
 /* the "simple splash" on the ball UI when the upgrade lands */
