@@ -34,7 +34,6 @@ body {
 
 #game-container canvas {
   display: block;
-  image-rendering: pixelated;
 }
 
 /* Ball inventory - bottom-left of the viewport, 5 cosmetic slots */

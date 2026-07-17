@@ -137,9 +137,10 @@ async function boot() {
     type: Phaser.AUTO,
     parent: "game-container",
     backgroundColor: "#f9e3b8",
-    // pixel-perfect path: nearest-neighbour, no smoothing, no sub-pixel jitter
-    pixelArt: true,
-    roundPixels: true,
+    // smooth path (owner 2026-07-17: pixel-perfect read badly) - linear
+    // texture filtering, sub-pixel positions allowed
+    pixelArt: false,
+    roundPixels: false,
     disableContextMenu: true, // right-click is the aim button
     scale: {
       mode: Phaser.Scale.RESIZE,
