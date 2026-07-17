@@ -1,6 +1,7 @@
 import { createServer, type Server } from "http";
 import { createReadStream, promises as fs } from "fs";
 import path from "path";
+import { gzipSync } from "zlib";
 import { injectShareMeta } from "../src/shared/shareMeta";
 
 // The HTTP face of the game server (deploy ask 2026-07-17): ONE render.com
@@ -29,12 +30,19 @@ const MIME: Record<string, string> = {
   ".ico": "image/x-icon",
 };
 
+// text assets shrink ~4x under gzip; media formats are already compressed
+const COMPRESSIBLE = new Set([".html", ".js", ".css", ".json", ".svg"]);
+
 /**
  * A minimal static server over `distDir`. No client build present (dev)
  * -> every request gets a plain-text pointer instead of a broken page.
  */
 export function createWebServer(distDir: string): Server {
   const root = path.resolve(distDir);
+  // gzipped-once cache for the (hashed, immutable) build files - the JS
+  // bundle is ~1.6 MB raw vs ~380 KB gzipped, and re-deploys restart the
+  // process, so a plain path key never goes stale
+  const gzCache = new Map<string, Buffer>();
 
   return createServer((req, res) => {
     void (async () => {
@@ -50,13 +58,31 @@ export function createWebServer(distDir: string): Server {
         path.extname(file) !== "" &&
         (await fs.stat(file).catch(() => null))?.isFile();
 
+      const wantsGzip = /\bgzip\b/.test(
+        String(req.headers["accept-encoding"] ?? ""),
+      );
+
       if (isFile && !file.endsWith(".html")) {
-        res.writeHead(200, {
-          "content-type": MIME[path.extname(file)] ?? "application/octet-stream",
+        const ext = path.extname(file);
+        const headers: Record<string, string> = {
+          "content-type": MIME[ext] ?? "application/octet-stream",
           // vite hashes asset filenames - long cache is safe; media isn't
           // hashed but changes rarely
           "cache-control": "public, max-age=3600",
-        });
+        };
+        if (wantsGzip && COMPRESSIBLE.has(ext)) {
+          let gz = gzCache.get(file);
+          if (!gz) {
+            gz = gzipSync(await fs.readFile(file));
+            gzCache.set(file, gz);
+          }
+          headers["content-encoding"] = "gzip";
+          headers["vary"] = "accept-encoding";
+          res.writeHead(200, headers);
+          res.end(gz);
+          return;
+        }
+        res.writeHead(200, headers);
         createReadStream(file).pipe(res);
         return;
       }
@@ -74,11 +100,21 @@ export function createWebServer(distDir: string): Server {
         );
         return;
       }
-      res.writeHead(200, {
+      const page = injectShareMeta(html, url.search);
+      const pageHeaders: Record<string, string> = {
         "content-type": "text/html; charset=utf-8",
         "cache-control": "no-cache", // the entry must pick up new deploys
-      });
-      res.end(injectShareMeta(html, url.search));
+      };
+      if (wantsGzip) {
+        // NOT cached: the og:meta injection varies with the query string
+        pageHeaders["content-encoding"] = "gzip";
+        pageHeaders["vary"] = "accept-encoding";
+        res.writeHead(200, pageHeaders);
+        res.end(gzipSync(page));
+        return;
+      }
+      res.writeHead(200, pageHeaders);
+      res.end(page);
     })().catch((err) => {
       console.error("web request failed:", err);
       if (!res.headersSent) res.writeHead(500);
