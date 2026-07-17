@@ -56,7 +56,17 @@ export function installMobile(game: Phaser.Game): void {
     if (portrait) return;
     app.style.width = `${w}px`;
     app.style.height = `${h}px`;
-    game.scale.resize(wrap.clientWidth, wrap.clientHeight);
+    // let RESIZE mode re-measure the freshly pinned parent. An explicit
+    // scale.resize(w, h) here applies ONE EVENT LATE (verified: the
+    // keyboard-close pass landed the keyboard-open size, leaving the
+    // camera zoomed out until the next resize - the reported mobile
+    // keyboard bug). refresh() measures now - and AGAIN next frame,
+    // because a refresh in the same frame as the pin updates Phaser's
+    // parentSize without always propagating to the game size (verified
+    // empirically; the second pass is idempotent when the first stuck).
+    void wrap.clientWidth; // force the reflow before Phaser measures
+    game.scale.refresh();
+    requestAnimationFrame(() => game.scale.refresh());
   };
   const schedule = () => {
     if (queued) return;

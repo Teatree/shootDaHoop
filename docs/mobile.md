@@ -29,10 +29,16 @@ never could. The whole mobile CSS lives at the end of `style.css` under
   `visualViewport` resize + scroll (plus `window.resize` /
   `orientationchange` fallbacks): it reads `visualViewport.width/height`
   (the only honest visible size when the URL bar or keyboard move),
-  pins `#app` to those exact pixels, and calls `game.scale.resize` with
-  the resulting `#game-wrap` size. `100dvh` in the CSS is the no-JS
-  baseline. `scrollTo(0,0)` on the scroll pass undoes iOS's
-  focused-input pan.
+  pins `#app` to those exact pixels, forces a reflow, and calls
+  `game.scale.refresh()` - twice, the second on the next frame.
+  NEVER `scale.resize(w, h)` here: in RESIZE mode an explicit resize
+  applies ONE EVENT LATE, so closing the keyboard left the game at the
+  keyboard-open size with the camera zoomed way out (the 2026-07-18
+  keyboard bug); and a single same-frame refresh() updates Phaser's
+  parentSize without reliably propagating to the game size - the
+  next-frame refresh is the one that always sticks (idempotent when
+  the first already did). `100dvh` in the CSS is the no-JS baseline.
+  `scrollTo(0,0)` on the scroll pass undoes iOS's focused-input pan.
 - Portrait = `h > w`, derived in the same handler - one source of truth.
   While portrait, a DOM overlay (`#portrait-gate`, injected style,
   rotating phone outline, "Rotate your phone to play 🏀") covers
