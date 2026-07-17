@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { T } from "./tuning";
+import { isMobileDevice } from "./mobile";
 import { sortDepth, toScreen } from "./world";
 
 /** Anything a bubble can hang above - the local Player or a RemoteAvatar. */
@@ -30,29 +31,34 @@ export function buildBubble(
   text: string,
 ): Phaser.GameObjects.Container {
   const s = T.speech;
+  // phones read at arm's length: the whole bubble - font, padding, wrap,
+  // tail - builds at mobileScale (owner 2026-07-17). Built natively
+  // rather than container-scaled, so the pop-in tween's scale stays 1.
+  const k = isMobileDevice() ? s.mobileScale : 1;
+  const pad = s.padPx * k;
   const txt = scene.add
     .text(0, 0, text, {
       fontFamily: '"Courier New", Courier, monospace',
-      fontSize: "12px",
+      fontSize: `${12 * k}px`,
       fontStyle: "bold",
       color: "#2b1e16",
-      wordWrap: { width: s.wrapPx, useAdvancedWrap: true },
+      wordWrap: { width: s.wrapPx * k, useAdvancedWrap: true },
     })
     .setResolution(2);
-  const w = txt.width + s.padPx * 2;
-  const h = txt.height + s.padPx * 2;
+  const w = txt.width + pad * 2;
+  const h = txt.height + pad * 2;
 
   const g = scene.add.graphics();
-  g.fillStyle(0xfff6e0, 0.95).fillRoundedRect(-w / 2, -h - 8, w, h, 6);
-  g.lineStyle(2, 0x5a3d28, 1).strokeRoundedRect(-w / 2, -h - 8, w, h, 6);
-  g.fillStyle(0xfff6e0, 0.95).fillTriangle(-6, -9, 6, -9, 0, 0);
+  g.fillStyle(0xfff6e0, 0.95).fillRoundedRect(-w / 2, -h - 8 * k, w, h, 6 * k);
+  g.lineStyle(2, 0x5a3d28, 1).strokeRoundedRect(-w / 2, -h - 8 * k, w, h, 6 * k);
+  g.fillStyle(0xfff6e0, 0.95).fillTriangle(-6 * k, -9 * k, 6 * k, -9 * k, 0, 0);
   g.lineStyle(2, 0x5a3d28, 1);
   g.beginPath();
-  g.moveTo(-6, -8);
+  g.moveTo(-6 * k, -8 * k);
   g.lineTo(0, 0);
-  g.lineTo(6, -8);
+  g.lineTo(6 * k, -8 * k);
   g.strokePath();
-  txt.setPosition(-w / 2 + s.padPx, -h - 8 + s.padPx);
+  txt.setPosition(-w / 2 + pad, -h - 8 * k + pad);
 
   return scene.add.container(0, 0, [g, txt]);
 }
