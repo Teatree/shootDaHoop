@@ -55,13 +55,14 @@ The budget is ENERGY now: cap 5 balls, one regenerating every 10
 minutes, the clock starting on the throw from full (shared/budget.ts).
 A 15-minute session therefore yields ~6 throws (5 stock + 1 regen).
 
-The anchor trio: bad players, ~25% close-range hits - ~1.5 hits each
-at ~110 pts (Hoop 1 curve) / ~105 pts (Hoop 2 curve):
+The anchor trio: bad players landing ~3 close-range hits each per
+session (owner correction 2026-07-18, was 1.5) at ~110 pts (Hoop 1
+curve) / ~105 pts (Hoop 2 curve):
 
 | | income/day (trio) | threshold | lands |
 |---|---|---|---|
-| Hoop 2 | ~495 at Hoop 1 | **500** | end of day 1 |
-| Hoop 3 | ~470 at Hoop 2 | **1000** | day 3 |
+| Hoop 2 | ~990 at Hoop 1 | **1000** | end of day 1 |
+| Hoop 3 | ~945 at Hoop 2 | **2000** | day 3 |
 
 Players who stay longer than 15 minutes farm regen balls (6 per extra
 hour) and finish faster - that is the point of the energy model: time

@@ -276,14 +276,32 @@ export function esc(s: string): string {
 }
 
 /**
+ * A giphy link's gif id, or null. Page links (giphy.com/gifs/slug-ID),
+ * bare ids and media URLs (media.giphy.com/media/.../ID/giphy.gif) all
+ * resolve; ONLY the [a-zA-Z0-9] id ever reaches an img src, so the raw
+ * URL can't smuggle anything.
+ */
+function giphyId(url: string): string | null {
+  const m = url.match(
+    /^https?:\/\/(?:[\w-]+\.)?giphy\.com\/(?:gifs|media|embed|clips|stickers)\/(?:[^\s<]*?-)?([a-zA-Z0-9]{8,})(?:[/?#][^\s<]*)?$/,
+  );
+  return m ? m[1] : null;
+}
+
+/**
  * Turn bare URLs in ALREADY-ESCAPED text into clickable links that open
  * in a new tab (owner 2026-07-16: links shared in chat are interactable).
- * Run esc() first - this only trusts the URL match itself, and `<` was
- * escaped away so a URL can't smuggle markup.
+ * Giphy links render as the ANIMATED GIF itself (owner 2026-07-18),
+ * still wrapped in the anchor. Run esc() first - this only trusts the
+ * URL match itself, and `<` was escaped away so a URL can't smuggle
+ * markup.
  */
 export function linkify(escaped: string): string {
-  return escaped.replace(
-    /https?:\/\/[^\s<]+/g,
-    (url) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`,
-  );
+  return escaped.replace(/https?:\/\/[^\s<]+/g, (url) => {
+    const gif = giphyId(url);
+    const body = gif
+      ? `<img class="chat-gif" src="https://media.giphy.com/media/${gif}/giphy.gif" alt="GIF" loading="lazy">`
+      : url;
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer">${body}</a>`;
+  });
 }

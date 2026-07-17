@@ -73,7 +73,13 @@ export class SpeechBubbles {
   ) {}
 
   say(text: string) {
-    const msg = text.slice(0, T.speech.maxChars);
+    // links read as a SYMBOL in a bubble (owner 2026-07-18) - the wall
+    // renders the real thing (an anchor, or the gif itself); a raw URL
+    // over a character's head is just noise. Recordings sample the
+    // displayed text, so ghost bubbles carry the symbol too.
+    const msg = text
+      .replace(/https?:\/\/[^\s]+/g, "🔗")
+      .slice(0, T.speech.maxChars);
     if (!msg) return;
     this.queue.push(msg);
     if (!this.active) this.showNext();

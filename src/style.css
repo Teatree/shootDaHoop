@@ -841,6 +841,16 @@ body {
   }
 }
 
+/* giphy links render as the gif itself (hud.linkify embeds them) */
+.log-line .chat-gif {
+  display: block;
+  max-width: 100%;
+  max-height: 150px;
+  margin-top: 4px;
+  border-radius: 4px;
+  border: 1px solid #2b1e16;
+}
+
 /* Chat - styled MORE prominently than other lines */
 .log-line.chat {
   color: #fff3d6;
