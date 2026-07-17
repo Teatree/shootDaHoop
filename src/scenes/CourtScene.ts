@@ -605,7 +605,9 @@ export class CourtScene extends Phaser.Scene {
     // deferred behind the ✕ - until it's pressed the character exists
     // for NOBODY: not for others (connect() is what spawns it on every
     // screen) and not on the player's own court either (rig hidden).
-    if (this.firstEntry) {
+    // MOBILE skips it for now (owner 2026-07-17) - its mouse videos
+    // teach the wrong controls; a touch tutorial is a follow-up.
+    if (this.firstEntry && !isMobileDevice()) {
       this.player.setVisible(false);
       showControlsPopup(() => {
         this.player.setVisible(true);

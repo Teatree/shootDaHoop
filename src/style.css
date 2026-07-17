@@ -848,3 +848,110 @@ body {
   font-style: italic;
   font-size: 11px;
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   MOBILE (docs/mobile.md) - every rule below is gated on body.mobile,
+   which src/mobile.ts sets only when isMobileDevice() says so (the
+   ?mobile= override obeys it too, which media queries never could).
+   Desktop rendering is untouched by this whole section.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* gesture hygiene: no pull-to-refresh, no double-tap zoom, and the
+   game canvas owns every touch it receives */
+body.mobile {
+  overscroll-behavior: none;
+}
+body.mobile #game-wrap {
+  touch-action: none;
+}
+body.mobile button {
+  touch-action: manipulation;
+}
+
+/* ── the ball row shrinks and hugs the corner ─────────────────────── */
+body.mobile #ball-slots {
+  left: 8px;
+  bottom: 8px;
+  gap: 5px;
+}
+body.mobile .slot {
+  width: 30px;
+  height: 30px;
+  border-width: 2px;
+}
+body.mobile .slot .ball {
+  font-size: 17px;
+}
+body.mobile #ball-timer {
+  font-size: 10px;
+  letter-spacing: 0;
+}
+body.mobile #ball-hint {
+  width: 22px;
+  height: 22px;
+  font-size: 12px;
+  margin-left: 6px;
+}
+/* tap-to-open replaces hover (hud.ts toggles .open); the tip anchors
+   to its left edge so it can't clip off the screen's left side */
+body.mobile #ball-hint:hover #ball-hint-tip {
+  display: none;
+}
+body.mobile #ball-hint.open #ball-hint-tip {
+  display: block;
+}
+body.mobile #ball-hint-tip {
+  width: 200px;
+  font-size: 11px;
+  left: 0;
+  transform: none;
+}
+
+/* ── chat lives at the bottom of the wall (hud.ts re-parents it) ──── */
+body.mobile #chat-wrap {
+  position: static;
+  transform: none;
+  width: auto;
+  padding: 8px;
+  gap: 6px;
+  border-top: 2px solid #2b1e16;
+  background: rgba(0, 0, 0, 0.25);
+}
+body.mobile #chat-input {
+  padding: 8px 12px;
+  font-size: 13px;
+  background: rgba(20, 14, 10, 0.9);
+  border-color: #2b1e16;
+}
+body.mobile #chat-input::placeholder {
+  color: #b09a78; /* brighter than desktop's - it sits on dark brick */
+}
+body.mobile #chat-send {
+  padding: 8px 10px;
+  font-size: 13px;
+}
+/* native mobile keyboards carry an emoji plane - the picker is dead
+   weight at phone size */
+body.mobile #emoji-btn,
+body.mobile #emoji-pop {
+  display: none;
+}
+
+/* ── wall trims: the panel is ~220 px wide on a phone ─────────────── */
+body.mobile #log-header {
+  font-size: 11px;
+  padding: 6px 8px;
+}
+body.mobile .log-line {
+  font-size: 11px;
+}
+body.mobile .log-line.chat {
+  font-size: 11px;
+}
+
+/* the SHARE button at desktop size covers half a phone screen */
+body.mobile #share-btn {
+  padding: 8px 14px;
+  font-size: 16px;
+  border-width: 2px;
+}

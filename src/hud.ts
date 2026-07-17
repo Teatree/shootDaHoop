@@ -15,6 +15,7 @@
 // and lines keep arriving underneath while filtered out.
 
 import { BALANCE } from "./shared/config";
+import { isMobileDevice } from "./mobile";
 
 export type LogType = "throw" | "chat" | "presence" | "world";
 
@@ -67,6 +68,17 @@ export function initHUD(): HUD {
 
   let chatCb: (msg: string) => void = () => {};
 
+  // ── the mobile reflow (docs/mobile.md, owner asks 2026-07-17) ──────
+  if (isMobileDevice()) {
+    // chat lives at the BOTTOM OF THE WALL on mobile - the game
+    // viewport stays clear for the touch controls. Moving the nodes
+    // keeps every listener; body.mobile CSS restyles them in place.
+    const chatWrap = document.getElementById("chat-wrap");
+    const logPanel = document.getElementById("log-panel");
+    if (chatWrap && logPanel) logPanel.appendChild(chatWrap);
+    chatEl.placeholder = "Tap to chat";
+  }
+
   // ── out-of-balls countdown (owner ask 2026-07-16): the balls refill at
   //    UTC MIDNIGHT (shared/budget.ts) whether or not they were spent,
   //    but the timer only shows once ALL of them are. A DOM interval, not
@@ -84,7 +96,20 @@ export function initHUD(): HUD {
     timerId = null;
     timerEl.hidden = true;
     hintEl.hidden = true;
+    hintEl.classList.remove("open");
   };
+
+  // no hover on a touchscreen: the hint opens on TAP and closes on the
+  // next tap (or any tap elsewhere) - desktop keeps the CSS hover
+  if (isMobileDevice()) {
+    hintEl.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      hintEl.classList.toggle("open");
+    });
+    window.addEventListener("pointerdown", (ev) => {
+      if (!hintEl.contains(ev.target as Node)) hintEl.classList.remove("open");
+    });
+  }
 
   const startTimer = () => {
     if (timerId !== null) return; // already counting
