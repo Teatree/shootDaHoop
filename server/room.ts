@@ -98,6 +98,9 @@ export class Room {
   private readonly orb: OrbAuthority;
   /** resolves once the world bundle is hydrated - join() waits on this */
   readonly ready: Promise<void>;
+  /** who threw what - a recording upload must match its thrower
+   *  (bounded; old entries roll off) */
+  private throwOwners = new Map<string, string>();
 
   constructor(
     readonly lobby: string,
@@ -467,6 +470,12 @@ export class Room {
           occ.firstThrowPending = false;
           track("growth", this.lobby, playerId, "first_throw");
         }
+        // remember whose throw this is - the recording upload checks it
+        this.throwOwners.set(msg.throwId, playerId);
+        if (this.throwOwners.size > 300) {
+          const oldest = this.throwOwners.keys().next().value;
+          if (oldest !== undefined) this.throwOwners.delete(oldest);
+        }
         // never trust the client: a slam only counts if WE teleported
         // this player moments ago (the orb is server-side now)
         const slam = msg.launch.slam && Date.now() < occ.levitatingUntil;
@@ -665,6 +674,28 @@ export class Room {
         track("features", this.lobby, playerId, "chat", "msg", text.length);
         break;
       }
+      case "recording": {
+        // the finished ghost recording of an own throw, stored so any
+        // player can replay the wall line - forever (owner 2026-07-17).
+        // Never trust the client: the throw must be THEIRS, and the
+        // payload capped (a full recording runs ~50 KB of samples)
+        if (this.throwOwners.get(msg.throwId) !== playerId) break;
+        if (JSON.stringify(msg.rec).length > 262144) break;
+        void this.storage
+          .saveRecording(this.lobby, msg.throwId, msg.rec)
+          .catch(logSaveError);
+        break;
+      }
+      case "get-recording": {
+        // a wall line was clicked - answer the requester only
+        void this.storage
+          .loadRecording(this.lobby, msg.throwId)
+          .then((rec) => send(sock, { t: "recording", throwId: msg.throwId, rec }))
+          .catch(() =>
+            send(sock, { t: "recording", throwId: msg.throwId, rec: null }),
+          );
+        break;
+      }
       case "join":
         break; // already joined; ignore
     }
@@ -779,6 +810,7 @@ export class Room {
       rims: res.rims,
       distM: res.distM,
       points: res.points,
+      throwId, // late joiners fetch this throw's stored ghost by it
     };
     this.record(entry);
     const thrower = this.occupants.get(playerId); // may have left mid-flight

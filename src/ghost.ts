@@ -67,7 +67,8 @@ export class GhostPlayback {
     this.stop(true);
 
     const a = T.ghost.alpha;
-    const player = new CharacterRig(this.scene, this.look);
+    // fetched replays carry the THROWER's look; old/local ones fall back
+    const player = new CharacterRig(this.scene, rec.look ?? this.look);
     player.setAlpha(0); // pop in below (a scale tween would fight the mirror)
     this.scene.tweens.add({
       targets: player.container,

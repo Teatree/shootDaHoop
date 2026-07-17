@@ -21,6 +21,7 @@ import type {
   WorldState,
 } from "../shared/messages";
 import { BackendEmitter, type Backend, type BackendEvents } from "./types";
+import type { ThrowRecording } from "../ghostData";
 
 // Single-player: the whole "server" runs in-process and echoes
 // synchronously, so the game plays EXACTLY as the prototype did. The
@@ -275,6 +276,21 @@ export class LocalBackend implements Backend {
       id: this.self.id,
       name: this.self.name,
       text,
+    });
+  }
+
+  // Offline ghost persistence is session-scoped: an in-memory shelf,
+  // same surface as the server's (single player = single authority)
+  private readonly recordings = new Map<string, ThrowRecording>();
+
+  saveRecording(throwId: string, rec: ThrowRecording): void {
+    this.recordings.set(throwId, rec);
+  }
+
+  requestRecording(throwId: string): void {
+    this.emitter.emit("recording", {
+      throwId,
+      rec: this.recordings.get(throwId) ?? null,
     });
   }
 

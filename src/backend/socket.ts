@@ -5,6 +5,7 @@ import type {
   ServerMsg,
   ThrowLaunch,
 } from "../shared/messages";
+import type { ThrowRecording } from "../ghostData";
 import { BackendEmitter, type Backend, type BackendEvents } from "./types";
 
 // Live multiplayer: the same Backend surface as LocalBackend, spoken over
@@ -160,6 +161,12 @@ export class SocketBackend implements Backend {
           orb: m.orb,
         });
         break;
+      case "recording":
+        this.emitter.emit("recording", {
+          throwId: m.throwId,
+          rec: m.rec as ThrowRecording | null,
+        });
+        break;
     }
   }
 
@@ -214,6 +221,14 @@ export class SocketBackend implements Backend {
 
   chat(text: string): void {
     this.send({ t: "chat", text });
+  }
+
+  saveRecording(throwId: string, rec: ThrowRecording): void {
+    this.send({ t: "recording", throwId, rec });
+  }
+
+  requestRecording(throwId: string): void {
+    this.send({ t: "get-recording", throwId });
   }
 
   private send(msg: ClientMsg) {

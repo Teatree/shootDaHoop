@@ -26,6 +26,11 @@ deployed site.
    - `DATA_DIR` = `/var/data` (only if you add a disk, step 5)
    - `ANALYTICS_URL` + `ANALYTICS_SECRET` = the Google Sheets analytics
      sink (optional - see docs/analytics.md; unset = analytics off)
+   - `DATABASE_URL` = the Neon Postgres connection string (2026-07-17):
+     worlds, profiles, the wall archive and ghost recordings all live
+     there and SURVIVE free-tier spin-downs and deploys. Unset = JSON
+     files on the ephemeral disk (dev behaviour; data dies with the
+     container - the original lobby-wipe bug).
    - (`PORT` is set by render automatically; the server reads it)
 5. **Persistence** (recommended once real players exist): profiles,
    world scores and the wall live as JSON files (server/storage.ts).

@@ -8,6 +8,7 @@ import type {
   ThrowOutcome,
   WorldState,
 } from "../shared/messages";
+import type { ThrowRecording } from "../ghostData";
 
 // The Backend seam: rendering/input (CourtScene) sit ABOVE this interface
 // and never touch a transport directly. LocalBackend (backend/local.ts) is
@@ -87,6 +88,8 @@ export interface BackendEvents {
     world: WorldState;
     orb: OrbState | null;
   }) => void;
+  /** a requested ghost recording arrived (null = none survives) */
+  recording: (e: { throwId: string; rec: ThrowRecording | null }) => void;
 }
 
 export interface Backend {
@@ -112,6 +115,12 @@ export interface Backend {
   /** the OFF toggle - the authority stops the song for everyone */
   jukeboxOffPress(): void;
   chat(text: string): void;
+
+  /** Ship a finished ghost recording of an OWN throw for safekeeping -
+   *  the wall line replays on every screen, and survives restarts. */
+  saveRecording(throwId: string, rec: ThrowRecording): void;
+  /** Fetch a stored recording; answers via the `recording` event. */
+  requestRecording(throwId: string): void;
 
   /**
    * The client's live ball resolved (its feel-simulation finished).

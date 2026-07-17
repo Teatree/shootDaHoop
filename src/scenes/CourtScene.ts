@@ -328,6 +328,12 @@ export class CourtScene extends Phaser.Scene {
       { player: this.player, orb: this.teleport.orb, speech: this.speech },
       this.identity,
       () => replayMadeEffect(this, this.hoop),
+      // a finished recording ships to the authority: the wall line then
+      // replays on EVERY screen, and survives restarts (owner 2026-07-17)
+      (rec) => {
+        if (rec.throwId && !rec.evicted)
+          this.backend.saveRecording(rec.throwId, rec);
+      },
     );
     this.rig = new CameraRig(this, this.player, () => this.geom());
 
@@ -590,6 +596,15 @@ export class CourtScene extends Phaser.Scene {
         ? playerRingHit(this, this.player, p.x, p.y)
         : p.rightButtonDown();
       if (wantsOut) this.cheer.leaveThen(() => {});
+    });
+
+    // a fetched ghost recording - play it, or admit nothing survives
+    this.backend.on("recording", (e) => {
+      if (e.rec && Array.isArray(e.rec.playerSamples) && e.rec.playerSamples.length) {
+        this.recording.play(e.rec);
+      } else {
+        this.hud.log("presence", "No replay survives for that throw.");
+      }
     });
 
     this.hud.onChat((msg) => this.backend.chat(msg));
@@ -888,6 +903,8 @@ export class CourtScene extends Phaser.Scene {
         if (!h.made && h.caught) continue;
         const d = h.distM.toFixed(1);
         const who = esc(h.name);
+        // entries that recorded a throwId replay from the stored ghost
+        const throwId = h.throwId;
         this.hud.log(
           "throw",
           h.made
@@ -896,6 +913,7 @@ export class CourtScene extends Phaser.Scene {
               ? `${who} - teleport slam failed!`
               : `${who} - ${d}m miss`,
           h.made ? undefined : "miss",
+          throwId ? () => this.backend.requestRecording(throwId) : undefined,
         );
       }
     }
@@ -1061,6 +1079,7 @@ export class CourtScene extends Phaser.Scene {
       launch.slam,
       this.playerName,
       this.director.ballLook, // the recolour rule stamps record time
+      throwId,
     );
     this.recsByThrowId.set(throwId, rec);
     this.ballsByThrowId.set(throwId, ball);
@@ -1221,10 +1240,13 @@ export class CourtScene extends Phaser.Scene {
         this.share.noteResult(true, e.points);
         this.settleRollFate(e.throwId);
       }
-      // recordings exist only for OWN throws - never match a remote outcome
+      // own throws replay from the local recording (instant); remote
+      // ones fetch the thrower's stored ghost from the authority
       const rec = own ? this.recsByThrowId.get(e.throwId) : undefined;
       this.recsByThrowId.delete(e.throwId);
-      const onReplay = rec ? () => this.recording.play(rec) : undefined;
+      const onReplay = rec
+        ? () => this.recording.play(rec)
+        : () => this.backend.requestRecording(e.throwId);
       // hidden tab → log-only: no stale juice bursting on return
       presentScore(ctx, o, e.points, e.slam, onReplay, document.hidden);
       return;
@@ -1241,7 +1263,14 @@ export class CourtScene extends Phaser.Scene {
       }
       const rec = own ? this.recsByThrowId.get(e.throwId) : undefined;
       this.recsByThrowId.delete(e.throwId);
-      presentMiss(ctx, o, e.slam, rec ? () => this.recording.play(rec) : undefined);
+      presentMiss(
+        ctx,
+        o,
+        e.slam,
+        rec
+          ? () => this.recording.play(rec)
+          : () => this.backend.requestRecording(e.throwId),
+      );
     };
     const ball = this.ballsByThrowId.get(e.throwId);
     if (ball && !ball.done) {

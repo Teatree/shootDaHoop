@@ -738,11 +738,18 @@ body {
   color: #cdbb9b;
 }
 
-/* Ghost records: clickable throw lines replay the event on the court */
+/* Ghost records: clickable throw lines replay the event on the court -
+   the 👀 marks them at rest (owner 2026-07-17), ▶ takes over on hover */
 .log-line.clickable {
   cursor: pointer;
   border-radius: 2px;
   transition: background 0.1s ease;
+}
+
+.log-line.clickable::after {
+  content: " 👀";
+  font-size: 10px;
+  opacity: 0.75;
 }
 
 .log-line.clickable:hover {

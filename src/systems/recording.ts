@@ -45,8 +45,11 @@ export class RecordingSystem {
   constructor(
     scene: Phaser.Scene,
     private readonly providers: RecordingProviders,
-    look: RigLook,
+    private readonly look: RigLook,
     onMade: () => void,
+    /** a recording just finalized - the scene ships it to the backend
+     *  so the wall line replays on every screen, forever */
+    private readonly onFinished?: (rec: ThrowRecording) => void,
   ) {
     this.playback = new GhostPlayback(scene, look, onMade);
   }
@@ -66,11 +69,21 @@ export class RecordingSystem {
     isSlam: boolean,
     name: string,
     ballLook: BallLookId = "classic",
+    throwId?: string,
   ): ThrowRecording {
     const tp = isSlam ? this.lastTeleport : undefined;
     const t0 = tp ? tp.at - T.ghost.slamPreRollS : this.timeS - T.ghost.preRollS;
     const rec: ThrowRecording = {
       name,
+      throwId, // the persistence key (server-stored replays)
+      // the thrower's look rides along so a replay fetched by ANOTHER
+      // player dresses the ghost right
+      look: {
+        shirtColor: this.look.shirtColor,
+        skinTint: this.look.skinTint,
+        lowerTint: this.look.lowerTint,
+        headVariant: this.look.headVariant,
+      },
       ballLook, // stamped NOW - the replay recolour rule reads this
       playerSamples: this.history
         .filter((s) => s.t >= t0)
@@ -148,6 +161,7 @@ export class RecordingSystem {
         // misses can outlive the post-roll; hold a beat past the pop
         ar.rec.duration = Math.max(ar.rec.outcomeT + T.ghost.postRollS, rt + 0.5);
         this.active.splice(i, 1);
+        this.onFinished?.(ar.rec); // complete (incl. any catch) - ship it
       } else if (ar.ball.done && ar.rec.outcomeT === undefined) {
         // ball was consumed (power-up) - no log line, nothing to replay
         this.active.splice(i, 1);

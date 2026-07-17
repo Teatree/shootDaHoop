@@ -23,6 +23,18 @@ export interface BallSample {
 
 export interface ThrowRecording {
   name: string;
+  /** the throw this recording belongs to - the persistence key
+   *  (server-stored replays, owner 2026-07-17) */
+  throwId?: string;
+  /** the thrower's rig look, stamped at record time - a replay fetched
+   *  by ANOTHER player dresses the ghost correctly (absent on old
+   *  recordings: the local look stands in) */
+  look?: {
+    shirtColor: number;
+    skinTint: number;
+    lowerTint: number;
+    headVariant: number;
+  };
   /**
    * The ball look AT RECORD TIME - the upgrade recolour rule: a replay
    * from before an upgrade keeps the old look, so the world stays

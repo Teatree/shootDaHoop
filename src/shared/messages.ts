@@ -101,6 +101,9 @@ export type HistoryEntry =
       rims?: number;
       distM: number;
       points: number;
+      /** the throw behind this line - late joiners fetch its stored
+       *  ghost recording to replay it (absent on older entries) */
+      throwId?: string;
       /** this miss was CAUGHT moments later - it never counts as a miss,
        *  so late joiners skip the line (the catch entry follows it) */
       caught?: true;
@@ -136,6 +139,12 @@ export type ClientMsg =
   | { t: "chat"; text: string }
   /** pose telemetry, ~12 Hz while animating - cosmetic, relayed as-is */
   | { t: "pose"; s: AvatarState }
+  /** upload the finished ghost recording of an OWN throw - the server
+   *  stores it so any player can replay the wall line later. The
+   *  payload is the client's ThrowRecording, opaque to the server. */
+  | { t: "recording"; throwId: string; rec: unknown }
+  /** fetch a stored recording (a wall line was clicked) */
+  | { t: "get-recording"; throwId: string }
   /** admin CLI (scripts/admin.ts): kick a lobby before its files move */
   | { t: "admin"; token: string; cmd: "remove"; lobby: string };
 
@@ -194,6 +203,8 @@ export type ServerMsg =
   | { t: "world-reset"; name: string; world: WorldState }
   /** the admin removed this lobby - show a notice, expect the close */
   | { t: "lobby-removed" }
+  /** a stored ghost recording (or null: none survives for that throw) */
+  | { t: "recording"; throwId: string; rec: unknown | null }
   /** ack for an admin command (sent to the CLI socket only) */
   | { t: "admin-result"; ok: boolean; detail: string }
   // ── server-authoritative world objects (the orb) ──────────────────
