@@ -12,7 +12,7 @@ import {
   type RigPose,
   type V2,
 } from "./shared/pose";
-import { partTexture } from "./placeholders";
+import { HEAD_VARIANTS, partTexture } from "./placeholders";
 
 // The parts character: five images in one container (draw order matches
 // the art's layer plan - left hand BEHIND the body, right hand in front)
@@ -63,8 +63,17 @@ export class CharacterRig {
   constructor(scene: Phaser.Scene, look: RigLook) {
     const img = (key: string) => scene.add.image(0, 0, partTexture(scene, key));
 
+    // wire identities can arrive without cosmetics (raw-WS bots, stale
+    // servers) - an out-of-range variant would resolve to a texture that
+    // exists nowhere and render Phaser's __MISSING square as the face
+    const v =
+      Number.isInteger(look.headVariant) &&
+      look.headVariant >= 1 &&
+      look.headVariant <= HEAD_VARIANTS
+        ? look.headVariant
+        : 1;
     this.parts = {
-      head: img(`head_v${look.headVariant}`),
+      head: img(`head_v${v}`),
       lower: img("body_lower"),
       upper: img("body_upper"),
       handL: img("left_hand"),
