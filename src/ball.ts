@@ -16,6 +16,8 @@ export interface ShotOutcome {
   made: boolean;
   swish: boolean; // made without touching the rim
   rims: number; //  rims made (2 = tier-3 double shot)
+  /** which rims, in order - "upper" pays x1.25 (shared/scoring.ts) */
+  rimIds: string[];
   distM: number; //  floor distance the shot was taken from
 }
 
@@ -205,6 +207,7 @@ export class Ball {
       made,
       swish: made && !this.s.rimTouched,
       rims: this.s.rimsMade.length,
+      rimIds: [...this.s.rimsMade],
       distM: this.opts.shotDistM,
     };
   }

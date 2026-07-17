@@ -82,14 +82,24 @@ export const BALANCE = {
     maxLifeS: 15, //         hard despawn safety net
   },
 
-  // ── Scoring ───────────────────────────────────────────────────────
+  // ── Scoring (owner spec 2026-07-17: the logistic distance curve) ──
+  // Every make banks basePts; distance adds a logistic bonus anchored
+  // at the keep-out edge (move.hoopStandoffM = the closest legal shot,
+  // add exactly 0) and flat well before the far baseline. Gains ramp
+  // fast just past the zone, then diminish beyond the curve's midpoint.
   score: {
-    insidePts: 100, //       inside the 3pt line
-    threePts: 250, //        at the line
-    perMeterPts: 10, //      per meter beyond the line
-    capPts: 500, //          hard limit
+    basePts: 100, //         the "normal score point", at the keep-out edge
+    curves: {
+      // midM: where gains start diminishing (the logistic midpoint,
+      //       measured from the rim); k: steepness; maxAddPts: the
+      //       flat-tail ceiling of the distance bonus
+      tier1: { midM: 10, k: 0.6, maxAddPts: 200 }, //     max 300, flat ~16 m
+      tier2plus: { midM: 12.5, k: 0.5, maxAddPts: 250 }, // max 350, flat ~20 m
+    },
+    upperRimMult: 1.25, //   the double hoop's smaller upper rim pays more
     bigScorePts: 300, //     per-shot points above this = rainbow log + big juice
-    slamPts: 500, //         a made basket while teleport-levitating
+    slamPts: 100, //         the purple orb throw pays flat base - a toy,
+    //                       not a strategy (was 500, dwarfed the curve)
   },
 
   // ── Teleport orb (server-authoritative world object) ─────────────

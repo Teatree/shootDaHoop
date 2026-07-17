@@ -18,7 +18,7 @@ import {
   puff,
   tierTitle,
 } from "../juice";
-import { pointsForDistance } from "../shared/scoring";
+import { rimPoints } from "../shared/scoring";
 import { SunSystem, shadowShift } from "../sky";
 import { SpeechBubbles } from "../speech";
 import type { HUD } from "../hud";
@@ -978,6 +978,7 @@ export class CourtScene extends Phaser.Scene {
           swish: o.swish,
           slam: launch.slam,
           rims: o.rims,
+          rimIds: o.rimIds,
           distM: o.distM,
         });
       },
@@ -990,6 +991,7 @@ export class CourtScene extends Phaser.Scene {
           swish: false,
           slam: launch.slam,
           rims: 0,
+          rimIds: [],
           distM: o.distM,
         });
       },
@@ -1062,7 +1064,7 @@ export class CourtScene extends Phaser.Scene {
       this,
       rim.rimSX,
       rim.rimSY - 26,
-      `${rimId === "upper" ? "UPPER HOOP!" : "SCORE!"} +${pointsForDistance(shotDistM)}`,
+      `${rimId === "upper" ? "UPPER HOOP!" : "SCORE!"} +${rimPoints(shotDistM, this.director.tierId, rimId)}`,
       "#ffb84d",
       20,
     );

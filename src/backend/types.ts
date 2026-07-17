@@ -126,6 +126,8 @@ export interface Backend {
       swish: boolean;
       slam: boolean;
       rims: number;
+      /** rim ids in order - LocalBackend scores "upper" at x1.25 */
+      rimIds: string[];
       distM: number;
     },
   ): void;

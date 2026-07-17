@@ -5,7 +5,7 @@ import {
   remainingThrows,
   type BudgetFields,
 } from "../shared/budget";
-import { pointsForDistance } from "../shared/scoring";
+import { pointsForRims } from "../shared/scoring";
 import { clampToCourt, rollSpawn, rollUpgradeClearSpot } from "../shared/court";
 import {
   canUpgrade,
@@ -192,6 +192,7 @@ export class LocalBackend implements Backend {
       swish: boolean;
       slam: boolean;
       rims: number;
+      rimIds: string[];
       distM: number;
     },
   ): void {
@@ -201,12 +202,12 @@ export class LocalBackend implements Backend {
     // a miss opens the catch window (unless the ball was already caught once)
     if (!o.made)
       this.recentMisses.set(throwId, { catchable: !pending.bornFromCatch });
-    // PLACEHOLDER (tune): double-shot points mirror shared/simulate.ts -
-    // pointsForDistance × rims made
+    // double-shot points mirror shared/simulate.ts: sum the rims made,
+    // the smaller upper at x1.25; a slam pays flat base
     const points = o.made
       ? o.slam
         ? BALANCE.score.slamPts
-        : pointsForDistance(o.distM) * Math.max(1, o.rims)
+        : pointsForRims(o.distM, this.world.tierId, o.rimIds)
       : 0;
     // score accumulates; the tier only advances via a triggered upgrade
     // (mirrors server/room.ts)

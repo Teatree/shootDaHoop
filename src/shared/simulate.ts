@@ -1,6 +1,6 @@
 import { BALANCE } from "./config";
 import { createBallState, PHYSICS_DT, stepBall } from "./physics";
-import { pointsForDistance } from "./scoring";
+import { pointsForRims } from "./scoring";
 import { floorDistToRim } from "./court";
 import { orbHitTest, type OrbState } from "./orb";
 import { hoopGeometryForTier } from "./tierRules";
@@ -69,12 +69,12 @@ export function resolveThrow(
     swish: made && !s.rimTouched,
     rims,
     distM,
-    // PLACEHOLDER (tune): a double shot scores each rim's full points -
-    // pointsForDistance × rims. The doc names the mechanic, not the math.
+    // the double shot SUMS its rims - lower pays the curve, the smaller
+    // upper pays x1.25 (shared/scoring.ts); a slam is flat basePts
     points: made
       ? launch.slam
         ? BALANCE.score.slamPts
-        : pointsForDistance(distM) * Math.max(1, rims)
+        : pointsForRims(distM, tierId, s.rimsMade)
       : 0,
     resolvedAtS: t,
   };

@@ -49,8 +49,10 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
   {
     id: 2,
     name: "Taller Rim, Cheering & Mahogany",
-    // ── PLACEHOLDER (tune): ≈ 4–10 made shots at 100–500 pts each ──
-    threshold: 100,
+    // ── Balanced 2026-07-17 (docs/scoring-curve.md): one day of a
+    // low-skilled trio (3 players x 1-2 close-range hits x 5 balls)
+    // earns ~525/day at Hoop 1 - the first upgrade lands that evening ──
+    threshold: 500,
     changes: [
       // 1. Hoop Change - taller hoop, wider rim.
       {
@@ -149,8 +151,10 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
   {
     id: 3,
     name: "Double Hoop, Jukebox, Glass & Orbs",
-    // ── PLACEHOLDER (tune): a longer communal grind than tier 2 ──
-    threshold: 250,
+    // ── Balanced 2026-07-17 (docs/scoring-curve.md): two more days of
+    // the same low-skilled trio at Hoop 2's curve (~490/day) - the
+    // whole ladder closes in three days, faster groups in under two ──
+    threshold: 1000,
     changes: [
       // 1. Hoop Change - Double Hoop: one post carrying two stacked
       //    rims, each hittable independently.

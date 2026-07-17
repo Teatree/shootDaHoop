@@ -26,7 +26,7 @@ describe("rollLine", () => {
   });
 
   it("awards the hot-hand fire at 1.5x the closest-place score", () => {
-    const inside = BALANCE.score.insidePts;
+    const inside = BALANCE.score.basePts;
     // 2 hits from distance: 300 >= 1.5 * 2 * 100
     expect(rollLine([hit(inside * 1.5), hit(inside * 1.5)])).toContain("🔥");
     // same points on ONE hit - not a hot hand
