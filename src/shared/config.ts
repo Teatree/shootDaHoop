@@ -136,8 +136,16 @@ export const BALANCE = {
   // ── Presence (offline characters wait around) ─────────────────────
   presence: {
     // PLACEHOLDER (tune): a disconnected player's character waits this
-    // long, then walks to its waiting spot (cheer deck / far sideline)
+    // long, then walks to its lineup slot on the far sideline
     offlineWalkDelayS: 20,
+    // The offline LINEUP (owner ask 2026-07-17): waiting characters
+    // stand grayed in a row along the far sideline, as close to the
+    // hoop as the court furniture allows - the jukebox (x 16.2-17.4)
+    // and the cheer deck (x 18.0-21.6) sit just behind that sideline
+    // and must stay visible behind them.
+    waitLineStartXM: 15.2, // slot 0 center - clears the jukebox's left edge
+    waitLineGapM: 1.2, //    center-to-center: close, but no overlap
+    waitLineDM: 0.4, //      on court, hugging the far sideline
   },
 
   // ── Jukebox (Hoop 3 interactive - synced to everyone) ─────────────

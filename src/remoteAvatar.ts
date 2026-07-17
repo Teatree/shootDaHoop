@@ -114,12 +114,14 @@ export class RemoteAvatar {
     this.render(null);
   }
 
-  /** Offline players' characters wait around: gray, slightly faded tag.
-   *  PLACEHOLDER (tune): gray #9aa4ac, 20% more transparent. */
+  /** Offline players' characters wait around GRAY - the whole figure,
+   *  not just the tag (owner ask 2026-07-17), so an abandoned character
+   *  reads as a statue at a glance. PLACEHOLDER (tune): tag #9aa4ac. */
   setOffline(off: boolean) {
     this.offline = off;
     this.label.setColor(off ? "#9aa4ac" : "#ffffff");
     this.label.setAlpha(off ? 0.8 : 1);
+    this.rig.setGrayed(off);
   }
 
   /** A ~12 Hz telemetry sample - the primary animation source. */

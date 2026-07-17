@@ -163,6 +163,39 @@ describe("offline characters wait around", () => {
     }
   });
 
+  // slot 0 nearest the hoop, one gap apart, left of the jukebox footprint
+  it("waiting characters line up along the far sideline", async () => {
+    vi.useFakeTimers();
+    try {
+      const { room } = await makeRoom(0);
+      const a = new FakeWS();
+      const b = new FakeWS();
+      const c = new FakeWS();
+      await room.join(ws(a), identity("alice"));
+      await room.join(ws(b), identity("bob"));
+      await room.join(ws(c), identity("carol"));
+      room.leave("bob", ws(b));
+      room.leave("carol", ws(c));
+      vi.advanceTimersByTime(BALANCE.presence.offlineWalkDelayS * 1000 + 50);
+
+      const p = BALANCE.presence;
+      const mv = (id: string) =>
+        a.of("move-to").find((m) => m.t === "move-to" && m.id === id);
+      const bob = mv("bob");
+      const carol = mv("carol");
+      if (bob?.t !== "move-to" || carol?.t !== "move-to")
+        throw new Error("lineup walks not broadcast");
+      expect(bob.x).toBeCloseTo(p.waitLineStartXM);
+      expect(carol.x).toBeCloseTo(p.waitLineStartXM - p.waitLineGapM);
+      expect(bob.d).toBeCloseTo(p.waitLineDM);
+      // the whole line stays left of the jukebox (x 16.2) so the court
+      // furniture behind the sideline is never blocked
+      expect(bob.x).toBeLessThan(16.2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("a reclaim before the delay cancels the waiting walk", async () => {
     vi.useFakeTimers();
     try {

@@ -60,7 +60,10 @@ export class CharacterRig {
   private idleT = Math.random() * 10;
   private nextItchAt = this.idleT + rollItchDelayS();
 
-  constructor(scene: Phaser.Scene, look: RigLook) {
+  constructor(
+    scene: Phaser.Scene,
+    private readonly look: RigLook,
+  ) {
     const img = (key: string) => scene.add.image(0, 0, partTexture(scene, key));
 
     // wire identities can arrive without cosmetics (raw-WS bots, stale
@@ -163,6 +166,25 @@ export class CharacterRig {
 
   setAlpha(alpha: number) {
     this.container.setAlpha(alpha);
+  }
+
+  /** Offline characters wait around GRAY (owner ask 2026-07-17): one
+   *  flat gray over every part plus a light fade - a statue, clearly
+   *  not a player. `false` restores the rolled look. */
+  setGrayed(on: boolean) {
+    // PLACEHOLDER (tune): the waiting-statue gray + fade
+    if (on) {
+      const GRAY = 0x969ca4;
+      for (const part of Object.values(this.parts)) part.setTint(GRAY);
+      this.container.setAlpha(0.8);
+      return;
+    }
+    this.parts.head.setTint(this.look.skinTint);
+    this.parts.handL.setTint(this.look.skinTint);
+    this.parts.handR.setTint(this.look.skinTint);
+    this.parts.upper.setTint(this.look.shirtColor);
+    this.parts.lower.setTint(this.look.lowerTint);
+    this.container.setAlpha(1);
   }
 
   destroy() {

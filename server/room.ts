@@ -60,6 +60,8 @@ interface Occupant {
   /** catches banked: the NEXT throw is born from a caught ball and can
    *  never be caught again - the once-per-ball rule */
   catchCredits: number;
+  /** the offline lineup slot this character parked in (null = not parked) */
+  waitSlot: number | null;
   // ── analytics bookkeeping (docs/analytics.md) - never gameplay ─────
   /** when this connection began - the sessions tab's leave row */
   joinedAtMs: number;
@@ -216,6 +218,7 @@ export class Room {
         // a reclaim starts a fresh session; a zombie-socket swap doesn't
         existing.joinedAtMs = Date.now();
         existing.throwsThisSession = 0;
+        existing.waitSlot = null; // the lineup spot frees up
         // the character comes back to life: un-gray the tag everywhere
         delete existing.info.offline;
         this.broadcast({ t: "player-joined", player: { ...existing.info } }, ws);
@@ -240,6 +243,7 @@ export class Room {
         levitatingUntil: 0,
         offlineWalkTimer: null,
         catchCredits: 0,
+        waitSlot: null,
         joinedAtMs: Date.now(),
         throwsThisSession: 0,
         firstThrowPending: isNew,
@@ -309,39 +313,38 @@ export class Room {
   }
 
   /**
-   * PLACEHOLDER (behaviour, 2026-07-14): after offlineWalkDelayS the
-   * abandoned character walks to a waiting spot - the cheer deck when the
-   * tier has one, else the upper side of the field - via a normal move
-   * intent, so every client animates the walk. It stays there until its
-   * player rejoins.
+   * After offlineWalkDelayS the abandoned character walks to the offline
+   * LINEUP (owner ask 2026-07-17): a row of slots along the far
+   * sideline, slot 0 as close to the hoop as the furniture allows, one
+   * gap apart - grayed statues waiting side by side, with the jukebox
+   * and the cheer deck visible behind them. A normal move intent, so
+   * every client animates the walk; the slot frees when they rejoin.
    */
   private scheduleOfflineWalk(playerId: string, occ: Occupant) {
     if (occ.offlineWalkTimer) clearTimeout(occ.offlineWalkTimer);
     occ.offlineWalkTimer = setTimeout(() => {
       occ.offlineWalkTimer = null;
       if (occ.ws !== null) return; // reclaimed in the meantime
-      const spot = this.waitingSpot();
+      const p = BALANCE.presence;
+      occ.waitSlot = this.freeWaitSlot();
+      const spot = clampToCourt(
+        p.waitLineStartXM - occ.waitSlot * p.waitLineGapM,
+        p.waitLineDM,
+      );
       occ.info.x = spot.x;
       occ.info.d = spot.d;
       this.broadcast({ t: "move-to", id: playerId, x: spot.x, d: spot.d });
     }, BALANCE.presence.offlineWalkDelayS * 1000);
   }
 
-  /** Where abandoned characters wait: a spot on the cheer deck (tier 2+),
-   *  else along the far (upper) sideline, out of the shooting lane. */
-  private waitingSpot(): { x: number; d: number } {
-    const deck = interactivesForTier(this.world.tierId).find(
-      (el) => el.element === "cheer-area" && el.occupiesSpot,
-    );
-    if (deck) {
-      const span = deck.widthM * 0.6;
-      return {
-        x: deck.placement.xM - span / 2 + Math.random() * span,
-        d: deck.placement.dM,
-      };
-    }
-    // PLACEHOLDER (tune): the upper side of the field, spread out a bit
-    return { x: 4 + Math.random() * 6, d: 0.4 };
+  /** The lowest lineup slot no other parked offline character holds. */
+  private freeWaitSlot(): number {
+    const used = new Set<number>();
+    for (const o of this.occupants.values())
+      if (o.ws === null && o.waitSlot !== null) used.add(o.waitSlot);
+    let slot = 0;
+    while (used.has(slot)) slot++;
+    return slot;
   }
 
   /**
