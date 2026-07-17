@@ -25,7 +25,7 @@ import type {
   ThrowLaunch,
   WorldState,
 } from "../src/shared/messages";
-import type { PlayerProfile, Storage } from "./storage";
+import type { OfflineCharacter, PlayerProfile, Storage } from "./storage";
 import {
   consumeThrow,
   msToNextBall,
@@ -42,10 +42,11 @@ import { track } from "./analytics";
 // (ws = null, tag grayed on every client) and the character waits around -
 // after a short delay it walks to a waiting spot (the cheer deck if it
 // exists, else the far sideline) and stays until its player rejoins.
-// Presence is still ephemeral at the ROOM level: when the last CONNECTED
-// player leaves, the room tears down and offline characters evaporate
-// with it (the world bundle persists; avatars don't). World state and
-// profiles persist via storage.
+// The lineup SURVIVES the room (owner ask 2026-07-18): offline
+// characters ride the world bundle, so a server restart or a
+// last-player-leaves teardown re-seats them on the next hydrate and a
+// returning player reclaims their own statue. World state and profiles
+// persist via storage.
 //
 // "The loop must never stop": every inbound message is handled inside a
 // try/catch upstream (index.ts); a bad event degrades to a skip.
@@ -64,6 +65,9 @@ interface Occupant {
   catchCredits: number;
   /** the offline lineup slot this character parked in (null = not parked) */
   waitSlot: number | null;
+  /** epoch ms of the disconnect (0 = never went offline) - persisted
+   *  with the bundle so hydrate can prune long-abandoned characters */
+  offlineSinceMs: number;
   // ── analytics bookkeeping (docs/analytics.md) - never gameplay ─────
   /** when this connection began - the sessions tab's leave row */
   joinedAtMs: number;
@@ -135,7 +139,60 @@ export class Room {
     if (bundle) {
       this.world = bundle.world;
       this.history = bundle.history ?? [];
+      this.seedOfflineLineup(bundle.offline ?? []);
     }
+  }
+
+  /**
+   * Re-seat the persisted AFK lineup (owner ask 2026-07-18). Runs
+   * before the first join resolves (join awaits `ready`), so the
+   * statues are already in the welcome list. They park STRAIGHT at
+   * their lineup slots - nobody is connected during hydration, so
+   * there is no walk to animate. A later join() with a matching id is
+   * the reclaim, the exact same path as a live-room rejoin.
+   */
+  private seedOfflineLineup(chars: OfflineCharacter[]) {
+    const p = BALANCE.presence;
+    const now = Date.now();
+    const kept = chars
+      .filter((c) => now - c.offlineSinceMs < p.offlineKeepH * 3_600_000)
+      .sort((a, b) => b.offlineSinceMs - a.offlineSinceMs)
+      .slice(0, p.offlineKeptMax);
+    kept.forEach((c, slot) => {
+      const spot = clampToCourt(
+        p.waitLineStartXM - slot * p.waitLineGapM,
+        p.waitLineDM,
+      );
+      // stored data, but it crossed a disk/database - clamp the visuals
+      // like a join; the id stays VERBATIM (it is the reclaim match key,
+      // and it is exactly what persistWorld wrote)
+      const info: PlayerInfo = {
+        id: String(c.id),
+        name: String(c.name).slice(0, 40),
+        shirtColor: safeTint(c.shirtColor),
+        skinTint: safeTint(c.skinTint),
+        lowerTint: safeTint(c.lowerTint),
+        headVariant: clampHead(c.headVariant),
+        x: spot.x,
+        d: spot.d,
+        offline: true,
+      };
+      this.occupants.set(info.id, {
+        info,
+        ws: null,
+        // a stub - join() loads the real profile at reclaim, and an
+        // offline occupant can't act (handle() gates on the socket)
+        profile: { id: info.id, name: info.name, shirtColor: info.shirtColor },
+        levitatingUntil: 0,
+        offlineWalkTimer: null,
+        catchCredits: 0,
+        waitSlot: slot,
+        offlineSinceMs: c.offlineSinceMs,
+        joinedAtMs: c.offlineSinceMs,
+        throwsThisSession: 0,
+        firstThrowPending: false,
+      });
+    });
   }
 
   /** Connected players - offline characters don't count. */
@@ -224,6 +281,7 @@ export class Room {
         existing.joinedAtMs = Date.now();
         existing.throwsThisSession = 0;
         existing.waitSlot = null; // the lineup spot frees up
+        existing.offlineSinceMs = 0;
         // the character comes back to life: un-gray the tag everywhere
         delete existing.info.offline;
         this.broadcast({ t: "player-joined", player: { ...existing.info } }, ws);
@@ -249,6 +307,7 @@ export class Room {
         offlineWalkTimer: null,
         catchCredits: 0,
         waitSlot: null,
+        offlineSinceMs: 0,
         joinedAtMs: Date.now(),
         throwsThisSession: 0,
         firstThrowPending: isNew,
@@ -289,6 +348,7 @@ export class Room {
     // waits around - its player reclaims it on rejoin
     occ.ws = null;
     occ.info.offline = true;
+    occ.offlineSinceMs = Date.now();
     this.broadcast({ t: "player-offline", id: playerId, name: occ.info.name });
     this.record({ kind: "presence", name: occ.info.name, joined: false });
     track(
@@ -305,7 +365,8 @@ export class Room {
     if (this.connectedCount() === 0) {
       // last CONNECTED player gone: flush in-flight outcomes so the
       // world state stays consistent, then tear down - the offline
-      // characters evaporate with the room (world persists, they don't)
+      // characters ride the just-persisted bundle and re-seat on the
+      // next hydrate (this leave's record() saved them, leaver included)
       for (const p of this.pending) {
         clearTimeout(p.timer);
         p.fire();
@@ -430,8 +491,18 @@ export class Room {
         lobby: this.lobby,
         world: { ...this.world },
         history: this.history,
+        offline: this.offlineRoster(),
       })
       .catch(logSaveError);
+  }
+
+  /** Every waiting character, as hydrate will re-seat them. Computed at
+   *  save time, so any persisting event keeps the lineup current - the
+   *  leave() that put a character offline records presence and saves. */
+  private offlineRoster(): OfflineCharacter[] {
+    return [...this.occupants.values()]
+      .filter((o) => o.ws === null)
+      .map((o) => ({ ...o.info, offlineSinceMs: o.offlineSinceMs }));
   }
 
   handle(playerId: string, msg: ClientMsg) {

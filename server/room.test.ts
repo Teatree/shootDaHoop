@@ -260,6 +260,117 @@ describe("offline characters wait around", () => {
   });
 });
 
+// The AFK lineup SURVIVES the room (owner ask 2026-07-18): render's
+// free tier restarts the server all the time, and before this the
+// waiting statues evaporated with the process. Now they ride the world
+// bundle: leave() persists them, a fresh Room's hydrate re-seats them
+// parked in the lineup, and the same join() reclaim path revives them.
+describe("the AFK lineup survives restarts", () => {
+  const ws = (f: FakeWS) => f as unknown as WebSocket;
+
+  /** Populate a lobby, then abandon it - returns the storage that now
+   *  holds the bundle a restarted server would hydrate from. Joins and
+   *  leaves cycle behind a connected anchor (names[0], leaves last), so
+   *  any count works: maxPlayers is never hit, no teardown mid-way. */
+  async function abandonLobby(names: string[]) {
+    const storage = new MemStorage();
+    const first = new Room("test", storage, () => {});
+    const anchor = new FakeWS();
+    await first.join(ws(anchor), identity(names[0]));
+    for (const n of names.slice(1)) {
+      const f = new FakeWS();
+      await first.join(ws(f), identity(n));
+      first.leave(n, ws(f));
+    }
+    first.leave(names[0], ws(anchor)); // tears the first room down
+    await vi.waitFor(() => {
+      // saveWorld is fire-and-forget - wait for the roster to land
+      expect(storage.worlds.get("test")?.offline?.length).toBe(names.length);
+    });
+    return storage;
+  }
+
+  it("a new room re-seats the lineup and a welcome carries it", async () => {
+    const storage = await abandonLobby(["alice", "bob"]);
+
+    // "the restart": a brand-new Room over the same storage
+    room = new Room("test", storage, () => {});
+    const c = new FakeWS();
+    await room.join(ws(c), identity("cara"));
+    const [w] = c.of("welcome");
+    if (w?.t !== "welcome") throw new Error("unreachable");
+    const statues = w.players.filter((p) => p.offline);
+    expect(statues.map((p) => p.id).sort()).toEqual(["alice", "bob"]);
+    // parked straight in the lineup - no walk to animate after a boot
+    const p = BALANCE.presence;
+    for (const s of statues) expect(s.d).toBeCloseTo(p.waitLineDM);
+    expect(statues.map((s) => s.x).sort((x, y) => y - x)).toEqual([
+      p.waitLineStartXM,
+      p.waitLineStartXM - p.waitLineGapM,
+    ]);
+  });
+
+  it("the returning player reclaims their statue, un-grayed", async () => {
+    const storage = await abandonLobby(["alice", "bob"]);
+
+    room = new Room("test", storage, () => {});
+    const c = new FakeWS();
+    await room.join(ws(c), identity("cara"));
+    const b2 = new FakeWS();
+    expect(await room.join(ws(b2), identity("bob"))).toBe(true);
+
+    // cara sees bob's statue come back to life (a join, not a spawn)
+    const joins = c.of("player-joined");
+    const last = joins[joins.length - 1];
+    if (last?.t !== "player-joined") throw new Error("unreachable");
+    expect(last.player.id).toBe("bob");
+    expect(last.player.offline).toBeUndefined();
+    expect(room.size).toBe(2); // statues still don't count as connected
+  });
+
+  it("long-abandoned characters are pruned at hydrate", async () => {
+    const storage = await abandonLobby(["alice", "bob"]);
+    const bundle = storage.worlds.get("test")!;
+    // age alice past the keep window; bob stays fresh
+    for (const c of bundle.offline!)
+      if (c.id === "alice")
+        c.offlineSinceMs -= (BALANCE.presence.offlineKeepH + 1) * 3_600_000;
+
+    room = new Room("test", storage, () => {});
+    const c = new FakeWS();
+    await room.join(ws(c), identity("cara"));
+    const [w] = c.of("welcome");
+    if (w?.t !== "welcome") throw new Error("unreachable");
+    expect(w.players.filter((p) => p.offline).map((p) => p.id)).toEqual([
+      "bob",
+    ]);
+  });
+
+  it("the lineup is capped, newest leavers win the slots", async () => {
+    const names = Array.from(
+      { length: BALANCE.presence.offlineKeptMax + 2 },
+      (_, i) => `p${i}`,
+    );
+    const storage = await abandonLobby(names);
+    const bundle = storage.worlds.get("test")!;
+    // leave() stamps within the same ms in tests - spread the stamps so
+    // "newest" is well-defined: higher index = later leaver
+    bundle.offline!.forEach((c, i) => (c.offlineSinceMs += i * 1000));
+
+    room = new Room("test", storage, () => {});
+    const c = new FakeWS();
+    await room.join(ws(c), identity("cara"));
+    const [w] = c.of("welcome");
+    if (w?.t !== "welcome") throw new Error("unreachable");
+    const statues = w.players.filter((p) => p.offline);
+    expect(statues).toHaveLength(BALANCE.presence.offlineKeptMax);
+    // the two OLDEST leavers (p0, p1) lost their spots
+    const ids = statues.map((s) => s.id);
+    expect(ids).not.toContain("p0");
+    expect(ids).not.toContain("p1");
+  });
+});
+
 describe("throw budgets are PER LOBBY", () => {
   it("balls spent in one lobby don't follow the player to a fresh one", async () => {
     const storage = new MemStorage();

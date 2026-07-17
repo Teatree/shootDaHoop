@@ -148,6 +148,13 @@ export const BALANCE = {
     waitLineStartXM: 15.2, // slot 0 center - clears the jukebox's left edge
     waitLineGapM: 1.2, //    center-to-center: close, but no overlap
     waitLineDM: 0.4, //      on court, hugging the far sideline
+    // The lineup SURVIVES restarts (owner ask 2026-07-18): the world
+    // bundle carries every offline character, hydrate re-seats them.
+    // PLACEHOLDER (tune): how long an abandoned character keeps its
+    // spot before the world forgets it, and how many the lineup holds
+    // at most (newest leavers win; the row must not run off the court)
+    offlineKeepH: 72,
+    offlineKeptMax: 8,
   },
 
   // ── Jukebox (Hoop 3 interactive - synced to everyone) ─────────────

@@ -30,7 +30,7 @@ the JSON files we used before:
 
 | Table        | Key                | Holds                                                        |
 | ------------ | ------------------ | ------------------------------------------------------------ |
-| `worlds`     | lobby id           | the world bundle: shared score, hoop tier, wall history      |
+| `worlds`     | lobby id           | the world bundle: shared score, hoop tier, wall history, the AFK lineup (offline characters waiting to be reclaimed) |
 | `profiles`   | player identity id | name, shirt color, rig cosmetics, per-lobby throw budgets    |
 | `logs`       | (lobby, timestamp) | the forever archive: EVERY wall line ever, append-only       |
 | `recordings` | (lobby, throw id)  | ghost replays (👀), so replays survive restarts too          |

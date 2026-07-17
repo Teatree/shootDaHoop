@@ -1,6 +1,10 @@
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { HistoryEntry, WorldState } from "../src/shared/messages";
+import type {
+  HistoryEntry,
+  PlayerInfo,
+  WorldState,
+} from "../src/shared/messages";
 import type { BudgetFields } from "../src/shared/budget";
 
 // Persistence - three things persist, SEPARATELY:
@@ -19,7 +23,18 @@ export interface WorldBundle {
   lobby: string;
   world: WorldState;
   history: HistoryEntry[];
+  /** the AFK lineup (owner ask 2026-07-18): disconnected characters
+   *  ride the bundle so a server restart or room teardown re-seats
+   *  them instead of an empty court - their players reclaim them on
+   *  rejoin. Optional so pre-lineup bundles hydrate cleanly. */
+  offline?: OfflineCharacter[];
 }
+
+/** One waiting character as persisted with the world. */
+export type OfflineCharacter = PlayerInfo & {
+  /** epoch ms of the disconnect - hydrate prunes the too-old */
+  offlineSinceMs: number;
+};
 
 export interface PlayerProfile {
   id: string;
