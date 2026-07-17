@@ -195,7 +195,7 @@ export const T = {
     fadeMs: 350, //          fade-out tween
     wrapPx: 220, //          text wraps at this width; bubble sizes to fit
     padPx: 8, //             bubble padding around the text
-    mobileScale: 2, //       bubbles (font too) x2 on phones (owner 2026-07-17)
+    mobileScale: 2.5, //     bubbles (font too) x2.5 on phones (owner 2026-07-17)
     gapAbovePx: 88, //       bubble tail height above the player's feet
     bobPx: 2.5, //           idle hang: gentle vertical bob…
     bobHz: 0.7, //           …at this frequency

@@ -68,16 +68,20 @@ export function initHUD(): HUD {
 
   let chatCb: (msg: string) => void = () => {};
 
-  // ── the mobile reflow (docs/mobile.md, owner asks 2026-07-17) ──────
-  if (isMobileDevice()) {
-    // chat lives at the BOTTOM OF THE WALL on mobile - the game
-    // viewport stays clear for the touch controls. Moving the nodes
-    // keeps every listener; body.mobile CSS restyles them in place.
-    const chatWrap = document.getElementById("chat-wrap");
-    const logPanel = document.getElementById("log-panel");
-    if (chatWrap && logPanel) logPanel.appendChild(chatWrap);
-    chatEl.placeholder = "Tap to chat";
+  // the ball row is minted from the daily budget - ONE source of truth
+  // (owner 2026-07-17: the budget doubled to 10; hardcoded slots drift)
+  const slotsBox = el<HTMLDivElement>("ball-slots");
+  for (let i = 0; i < BALANCE.budget.throwsPerDay; i++) {
+    const slot = document.createElement("div");
+    slot.className = "slot";
+    slot.innerHTML = '<div class="ball"></div>';
+    // the timer cover and the hint stay LAST in the container
+    slotsBox.insertBefore(slot, el("ball-timer"));
   }
+
+  // mobile wording (docs/mobile.md) - the chat itself lives at the
+  // bottom of the wall on every platform now (index.html)
+  if (isMobileDevice()) chatEl.placeholder = "Tap to chat";
 
   // ── out-of-balls countdown (owner ask 2026-07-16): the balls refill at
   //    UTC MIDNIGHT (shared/budget.ts) whether or not they were spent,

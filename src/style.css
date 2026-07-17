@@ -485,14 +485,15 @@ body {
 }
 
 /* Chat - MMORPG-style input, bottom-center */
+/* Sits at the BOTTOM OF THE WALL on every platform (owner 2026-07-17,
+   was floating bottom-center of the game viewport) - the flex column
+   above (#log-feed flex: 1) pins it there. */
 #chat-wrap {
-  position: absolute;
-  bottom: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(420px, 50%);
   display: flex;
   gap: 6px;
+  padding: 8px;
+  border-top: 2px solid #2b1e16;
+  background: rgba(0, 0, 0, 0.25);
 }
 
 #chat-field {
@@ -543,8 +544,9 @@ body {
   font-family: inherit;
   font-size: 14px;
   color: #fff3d6;
-  background: rgba(30, 22, 16, 0.8);
-  border: 2px solid #7a5a3a;
+  /* darker field + brighter placeholder: it sits on the brick wall now */
+  background: rgba(20, 14, 10, 0.9);
+  border: 2px solid #2b1e16;
   border-radius: 4px;
   outline: none;
 }
@@ -555,7 +557,7 @@ body {
 }
 
 #chat-input::placeholder {
-  color: #9c8465;
+  color: #b09a78; /* readable on the dark brick behind it */
 }
 
 /* Emoji button + picker (Discord-style, minimal) */
@@ -907,24 +909,11 @@ body.mobile #ball-hint-tip {
   transform: none;
 }
 
-/* ── chat lives at the bottom of the wall (hud.ts re-parents it) ──── */
-body.mobile #chat-wrap {
-  position: static;
-  transform: none;
-  width: auto;
-  padding: 8px;
-  gap: 6px;
-  border-top: 2px solid #2b1e16;
-  background: rgba(0, 0, 0, 0.25);
-}
+/* ── chat trims (it lives at the wall's bottom on EVERY platform now -
+   the base rules carry the layout; mobile only shrinks it) ─────────── */
 body.mobile #chat-input {
   padding: 8px 12px;
   font-size: 13px;
-  background: rgba(20, 14, 10, 0.9);
-  border-color: #2b1e16;
-}
-body.mobile #chat-input::placeholder {
-  color: #b09a78; /* brighter than desktop's - it sits on dark brick */
 }
 body.mobile #chat-send {
   padding: 8px 10px;

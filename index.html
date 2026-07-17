@@ -36,12 +36,9 @@
         <!-- HUD overlays (inside the game viewport) -->
         <button id="share-btn" type="button" hidden>🏀 SHARE</button>
 
+        <!-- the .slot divs are minted by hud.ts from the daily budget
+             (BALANCE.budget.throwsPerDay) - one source of truth -->
         <div id="ball-slots">
-          <div class="slot"><div class="ball"></div></div>
-          <div class="slot"><div class="ball"></div></div>
-          <div class="slot"><div class="ball"></div></div>
-          <div class="slot"><div class="ball"></div></div>
-          <div class="slot"><div class="ball"></div></div>
           <!-- covers the (grayed) row while out of balls: time to refill -->
           <div id="ball-timer" hidden></div>
           <!-- out-of-balls hint: hover for when the balls come back -->
@@ -50,6 +47,21 @@
           </button>
         </div>
 
+        <button id="settings-btn" type="button" title="Settings">⚙️</button>
+      </div>
+
+      <!-- The court "wall": right 30%, full height; the chat lives at
+           its bottom on EVERY platform (owner 2026-07-17) -->
+      <div id="log-panel">
+        <div id="log-header">
+          <span>- COURT WALL -</span>
+          <button id="log-filter-btn" type="button" title="Filter wall entries">▾</button>
+          <div id="log-filter-pop" hidden>
+            <label><input type="checkbox" id="filter-miss" /> Ball misses</label>
+            <label><input type="checkbox" id="filter-presence" /> Connection events</label>
+          </div>
+        </div>
+        <div id="log-feed"></div>
         <div id="chat-wrap">
           <div id="chat-field">
             <input
@@ -64,21 +76,6 @@
           </div>
           <button id="chat-send" type="button">Send</button>
         </div>
-
-        <button id="settings-btn" type="button" title="Settings">⚙️</button>
-      </div>
-
-      <!-- The court "wall": right 30%, full height -->
-      <div id="log-panel">
-        <div id="log-header">
-          <span>- COURT WALL -</span>
-          <button id="log-filter-btn" type="button" title="Filter wall entries">▾</button>
-          <div id="log-filter-pop" hidden>
-            <label><input type="checkbox" id="filter-miss" /> Ball misses</label>
-            <label><input type="checkbox" id="filter-presence" /> Connection events</label>
-          </div>
-        </div>
-        <div id="log-feed"></div>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
