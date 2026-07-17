@@ -112,6 +112,11 @@ export const T = {
     leadMs: 600, //      breath between the VFX burst/teleport and beat 1
     hoopBeatMs: 450, //  each hoop-change beat (pop/splash) holds this long
     changeBeatMs: 700, //each non-hoop change in the ordered list
+    // PLACEHOLDER (tune): the "Hoop N" title card that closes the show
+    // (owner ask 2026-07-17): pop in at the last beat, hold, fade away
+    titleSizePx: 64,
+    titleHoldMs: 1800,
+    titleFadeMs: 700,
     // PLACEHOLDER (tune): seconds without input before a player counts
     // as AFK - an upgrade firing then is held and replayed on return
     afkTimeoutS: 60,

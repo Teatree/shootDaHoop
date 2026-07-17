@@ -60,6 +60,10 @@ export interface TierDirectorHooks {
    *  fx null = instant. fadeMs overrides the default transition length -
    *  a `gradual` atmosphere hands in the whole show's remaining time. */
   setAtmosphere(a: Atmosphere, fx: FxKind | null, fadeMs?: number): void;
+  /** the choreography's last beat landed - the title-card moment
+   *  ("Hoop N", owner ask 2026-07-17). Played shows only, never
+   *  applyInstant snaps. */
+  showFinished(tierId: number): void;
 }
 
 export class TierDirector {
@@ -219,6 +223,7 @@ export class TierDirector {
     // the show's final beat marks the visuals complete at this tier
     this.at(totalMs, () => {
       this.visualTier = tierId;
+      this.hooks.showFinished(tierId);
     });
   }
 

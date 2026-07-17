@@ -124,6 +124,44 @@ export function announceText(scene: Phaser.Scene, str: string, color: string) {
   });
 }
 
+/** The upgrade show's closing title card - "Hoop 2" / "Hoop 3", pinned
+ *  center-screen (owner ask 2026-07-17): pops in on the choreography's
+ *  last beat, holds, then fades away IN PLACE (no float - a title, not
+ *  a score popup). Purely local presentation. */
+export function tierTitle(scene: Phaser.Scene, tierId: number) {
+  const cam = scene.cameras.main;
+  const t = scene.add
+    .text(cam.width / 2, cam.height / 2, `Hoop ${tierId}`, {
+      fontFamily: '"Courier New", Courier, monospace',
+      fontSize: `${T.progressionFx.titleSizePx}px`,
+      fontStyle: "bold",
+      color: "#fff3d6",
+      stroke: "#5a3d28",
+      strokeThickness: 10,
+    })
+    .setOrigin(0.5)
+    .setScrollFactor(0)
+    .setDepth(2500)
+    .setScale(0.3)
+    .setAlpha(0);
+
+  scene.tweens.add({
+    targets: t,
+    scale: 1,
+    alpha: 1,
+    duration: 260,
+    ease: "Back.easeOut",
+  });
+  scene.tweens.add({
+    targets: t,
+    alpha: 0,
+    delay: T.progressionFx.titleHoldMs,
+    duration: T.progressionFx.titleFadeMs,
+    ease: "Cubic.easeOut",
+    onComplete: () => t.destroy(),
+  });
+}
+
 export function flash(
   scene: Phaser.Scene,
   x: number,

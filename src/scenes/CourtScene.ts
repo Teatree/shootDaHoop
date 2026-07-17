@@ -9,7 +9,15 @@ import {
   screenToFloor,
   toScreen,
 } from "../world";
-import { announceText, burst, flash, floatText, netSnap, puff } from "../juice";
+import {
+  announceText,
+  burst,
+  flash,
+  floatText,
+  netSnap,
+  puff,
+  tierTitle,
+} from "../juice";
 import { pointsForDistance } from "../shared/scoring";
 import { SunSystem, shadowShift } from "../sky";
 import { SpeechBubbles } from "../speech";
@@ -266,6 +274,7 @@ export class CourtScene extends Phaser.Scene {
         this.jukebox?.destroy();
         this.jukebox = undefined;
       },
+      showFinished: (tierId) => tierTitle(this, tierId),
       setAtmosphere: (a, fx, fadeMs) =>
         this.applyAtmosphere(a, fx !== null && fx !== "none", fadeMs),
     });
