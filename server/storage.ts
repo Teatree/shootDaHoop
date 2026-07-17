@@ -48,6 +48,11 @@ export interface Storage {
   saveProfile(profile: PlayerProfile): Promise<void>;
   /** Append to the lobby's permanent log - every entry, kept forever. */
   appendLog(lobby: string, entry: ArchivedEntry): Promise<void>;
+  /** Ghost recordings, keyed per lobby + throwId (owner 2026-07-17:
+   *  replays survive restarts too). The payload is the client's
+   *  ThrowRecording - the server stores it opaquely. */
+  saveRecording(lobby: string, throwId: string, rec: unknown): Promise<void>;
+  loadRecording(lobby: string, throwId: string): Promise<unknown | null>;
 }
 
 /** ids come from the outside world - never let them escape the data dir */
@@ -86,6 +91,19 @@ export class JsonFileStorage implements Storage {
     const path = join(this.dir, "logs", `${safe(lobby)}.jsonl`);
     await mkdir(join(path, ".."), { recursive: true });
     await appendFile(path, JSON.stringify(entry) + "\n", "utf8");
+  }
+
+  async saveRecording(lobby: string, throwId: string, rec: unknown) {
+    await this.write(
+      join(this.dir, "recordings", safe(lobby), `${safe(throwId)}.json`),
+      rec,
+    );
+  }
+
+  async loadRecording(lobby: string, throwId: string): Promise<unknown | null> {
+    return this.read(
+      join(this.dir, "recordings", safe(lobby), `${safe(throwId)}.json`),
+    );
   }
 
   private async read<T>(path: string): Promise<T | null> {

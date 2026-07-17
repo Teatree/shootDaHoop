@@ -1,6 +1,7 @@
 import { WebSocketServer, type WebSocket } from "ws";
 import { Room } from "./room";
-import { JsonFileStorage } from "./storage";
+import { JsonFileStorage, type Storage } from "./storage";
+import { PgStorage } from "./pgStorage";
 import { createWebServer } from "./web";
 import { initAnalytics, track } from "./analytics";
 import type { ClientMsg } from "../src/shared/messages";
@@ -22,8 +23,17 @@ const PORT = Number(process.env.PORT ?? 9999);
 initAnalytics();
 track("ops", "", "", "server_boot", `port=${PORT}`);
 
-// Storage is the swap point: JSON files for local dev, Postgres on Render.
-const storage = new JsonFileStorage(process.env.DATA_DIR ?? "data");
+// Storage is the swap point: DATABASE_URL (Neon Postgres) makes every
+// world/profile/log/recording survive render's ephemeral disk and
+// spin-downs; without it, JSON files - dev stays exactly as before.
+const storage: Storage = process.env.DATABASE_URL
+  ? new PgStorage(process.env.DATABASE_URL)
+  : new JsonFileStorage(process.env.DATA_DIR ?? "data");
+console.log(
+  process.env.DATABASE_URL
+    ? "storage: Postgres (DATABASE_URL set)"
+    : "storage: JSON files (no DATABASE_URL)",
+);
 
 const rooms = new Map<string, Room>();
 

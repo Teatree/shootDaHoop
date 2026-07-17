@@ -50,6 +50,13 @@ class MemStorage implements Storage {
   async appendLog(_lobby: string, entry: ArchivedEntry) {
     this.logs.push(entry);
   }
+  recordings = new Map<string, unknown>();
+  async saveRecording(lobby: string, throwId: string, rec: unknown) {
+    this.recordings.set(`${lobby}/${throwId}`, rec);
+  }
+  async loadRecording(lobby: string, throwId: string) {
+    return this.recordings.get(`${lobby}/${throwId}`) ?? null;
+  }
 }
 
 const identity = (id: string) => ({
