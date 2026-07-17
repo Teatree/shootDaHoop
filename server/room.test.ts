@@ -285,21 +285,21 @@ describe("throw budgets are PER LOBBY", () => {
       roomA.handle("bob", { t: "throw", throwId: "t2", launch });
       const budgets = wsA.of("budget");
       if (budgets[1]?.t !== "budget") throw new Error("no budget updates");
-      expect(budgets[1].throwsRemaining).toBe(BALANCE.budget.throwsPerDay - 2);
+      expect(budgets[1].throwsRemaining).toBe(BALANCE.budget.ballCap - 2);
 
       // …then walks into court B: a fresh set of balls
       const wsB = new FakeWS();
       await roomB.join(wsB as unknown as WebSocket, identity("bob"));
       const [welcome] = wsB.of("welcome");
       if (welcome?.t !== "welcome") throw new Error("no welcome");
-      expect(welcome.throwsRemaining).toBe(BALANCE.budget.throwsPerDay);
+      expect(welcome.throwsRemaining).toBe(BALANCE.budget.ballCap);
 
       // …and court A still remembers what he spent there
       const wsA2 = new FakeWS();
       await roomA.join(wsA2 as unknown as WebSocket, identity("bob"));
       const [welcomeA] = wsA2.of("welcome");
       if (welcomeA?.t !== "welcome") throw new Error("no welcome A");
-      expect(welcomeA.throwsRemaining).toBe(BALANCE.budget.throwsPerDay - 2);
+      expect(welcomeA.throwsRemaining).toBe(BALANCE.budget.ballCap - 2);
     } finally {
       roomA.destroy();
       roomB.destroy();
@@ -347,7 +347,7 @@ describe("catch the ball", () => {
       const budgets = b.of("budget");
       const last = budgets[budgets.length - 1];
       if (last?.t !== "budget") throw new Error("no budget update");
-      expect(last.throwsRemaining).toBe(BALANCE.budget.throwsPerDay);
+      expect(last.throwsRemaining).toBe(BALANCE.budget.ballCap);
       // the wall: the miss is retro-marked caught, a catch entry follows
       expect(storage.logs.some((e) => e.kind === "catch")).toBe(true);
       const late = new FakeWS();
@@ -379,7 +379,7 @@ describe("catch the ball", () => {
       const budgets = b.of("budget");
       const last = budgets[budgets.length - 1];
       if (last?.t !== "budget") throw new Error("no budget update");
-      expect(last.throwsRemaining).toBe(BALANCE.budget.throwsPerDay);
+      expect(last.throwsRemaining).toBe(BALANCE.budget.ballCap);
     } finally {
       vi.useRealTimers();
     }

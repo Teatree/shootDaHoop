@@ -63,6 +63,7 @@ export class SocketBackend implements Backend {
           world: m.world,
           orb: m.orb,
           throwsRemaining: m.throwsRemaining,
+          nextBallInS: m.nextBallInS ?? null,
           history: m.history,
         });
         break;
@@ -130,7 +131,10 @@ export class SocketBackend implements Backend {
         this.emitter.emit("jukebox", { state: m.state, byName: m.byName });
         break;
       case "budget":
-        this.emitter.emit("budget", { throwsRemaining: m.throwsRemaining });
+        this.emitter.emit("budget", {
+          throwsRemaining: m.throwsRemaining,
+          nextBallInS: m.nextBallInS ?? null,
+        });
         break;
       case "world-reset":
         this.emitter.emit("worldReset", { name: m.name, world: m.world });

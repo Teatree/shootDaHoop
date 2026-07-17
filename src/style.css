@@ -51,6 +51,7 @@ body {
 }
 
 .slot {
+  position: relative; /* anchors the recharging countdown */
   width: 46px;
   height: 46px;
   border: 3px solid #7a5a3a;
@@ -61,9 +62,55 @@ body {
   justify-content: center;
 }
 
-/* a spent daily throw (server-authoritative budget) */
+/* a spent ball (server-authoritative budget) */
 .slot.used {
   opacity: 0.35;
+}
+
+/* ── the recharging slot (energy regen, owner redesign 2026-07-17):
+   an hourglass over the next ball's slot + an m:ss countdown ──────── */
+.slot.used.recharging {
+  opacity: 0.8; /* clearly alive, unlike plain spent slots */
+}
+
+.slot.recharging .ball::before {
+  content: "⏳";
+}
+
+.slot-timer {
+  display: none;
+  position: absolute;
+  bottom: 1px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 9px;
+  font-weight: bold;
+  color: #fff3d6;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+}
+
+.slot.recharging .slot-timer {
+  display: block;
+}
+
+/* a regenerated ball lands: the little pop (also replayed in a stagger
+   for AFK earnings - hud.ts drives the class) */
+.slot.pop {
+  animation: ball-land-pop 0.45s ease-out;
+}
+
+@keyframes ball-land-pop {
+  0% {
+    transform: scale(0.55);
+  }
+  55% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 /* #ball-slots prefix so this outranks the .red hue filter below -
@@ -83,33 +130,9 @@ body {
   content: "🏀";
 }
 
-/* Out of balls: the refill countdown covers the whole grayed row
-   (visible ONLY once every ball is spent - hud.ts drives it) */
-#ball-timer {
-  position: absolute;
-  inset: -3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: bold;
-  letter-spacing: 1px;
-  color: #fff3d6;
-  background: rgba(20, 14, 10, 0.78);
-  border-radius: 6px;
-}
-
-/* the display:flex above outranks the browser's [hidden] rule (author
-   styles beat UA styles) - without this the dark cover sat over the
-   balls from the first frame (owner bug 2026-07-17) */
-#ball-timer[hidden] {
-  display: none;
-}
-
 /* Out-of-balls hint: a small blue ? floating right of the row, breathing
    slowly. Only exists while every ball is spent (hud.ts shows/hides it
-   with the refill timer). Absolutely positioned so the timer cover
-   (inset on the row) never sits over it. */
+   with the budget). */
 #ball-hint {
   position: absolute;
   left: 100%;
@@ -891,9 +914,8 @@ body.mobile .slot {
 body.mobile .slot .ball {
   font-size: 17px;
 }
-body.mobile #ball-timer {
-  font-size: 10px;
-  letter-spacing: 0;
+body.mobile .slot-timer {
+  font-size: 7px;
 }
 body.mobile #ball-hint {
   width: 22px;

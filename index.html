@@ -36,12 +36,11 @@
         <!-- HUD overlays (inside the game viewport) -->
         <button id="share-btn" type="button" hidden>🏀 SHARE</button>
 
-        <!-- the .slot divs are minted by hud.ts from the daily budget
-             (BALANCE.budget.throwsPerDay) - one source of truth -->
+        <!-- the .slot divs are minted by hud.ts from the ball cap
+             (BALANCE.budget.ballCap) - one source of truth. The
+             recharging slot wears an hourglass + countdown. -->
         <div id="ball-slots">
-          <!-- covers the (grayed) row while out of balls: time to refill -->
-          <div id="ball-timer" hidden></div>
-          <!-- out-of-balls hint: hover for when the balls come back -->
+          <!-- out-of-balls hint: hover/tap for how regen works -->
           <button id="ball-hint" type="button" hidden aria-label="When do my balls come back?">
             ?<span id="ball-hint-tip"></span>
           </button>

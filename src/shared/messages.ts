@@ -158,6 +158,9 @@ export type ServerMsg =
       world: WorldState;
       orb: OrbState | null;
       throwsRemaining: number;
+      /** seconds until the next ball regenerates; null at the cap.
+       *  A DURATION on purpose - client clocks can't bend it. */
+      nextBallInS: number | null;
       history: HistoryEntry[];
     }
   | { t: "join-rejected"; reason: "full" }
@@ -198,7 +201,7 @@ export type ServerMsg =
   /** someone pressed the jukebox - the new song (or null = turned OFF),
    *  synced to everyone */
   | { t: "jukebox"; state: JukeboxState | null; byName: string }
-  | { t: "budget"; throwsRemaining: number }
+  | { t: "budget"; throwsRemaining: number; nextBallInS: number | null }
   /** someone joined with a ?reset link - the shared score was wiped */
   | { t: "world-reset"; name: string; world: WorldState }
   /** the admin removed this lobby - show a notice, expect the close */

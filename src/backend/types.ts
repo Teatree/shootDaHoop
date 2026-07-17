@@ -23,6 +23,8 @@ export interface BackendEvents {
     world: WorldState;
     orb: OrbState | null;
     throwsRemaining: number;
+    /** seconds until the next ball regenerates; null at the cap */
+    nextBallInS: number | null;
     history: HistoryEntry[];
   }) => void;
   joinRejected: (e: { reason: "full" }) => void;
@@ -68,7 +70,7 @@ export interface BackendEvents {
   upgradeRejected: (e: { reason: "threshold" | "proximity" }) => void;
   /** someone pressed the jukebox - the new song, or null = turned OFF */
   jukebox: (e: { state: JukeboxState | null; byName: string }) => void;
-  budget: (e: { throwsRemaining: number }) => void;
+  budget: (e: { throwsRemaining: number; nextBallInS: number | null }) => void;
   /** someone joined with a ?reset link - the shared score was wiped */
   worldReset: (e: { name: string; world: WorldState }) => void;
   // ── server-authoritative world objects (the orb) ──────────────────

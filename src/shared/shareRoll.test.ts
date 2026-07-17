@@ -1,50 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { rollLine } from "./shareRoll";
-import { BALANCE } from "./config";
+import { MAX_SHOWN, rollLine } from "./shareRoll";
 
-// The share blurb's middle line: the emoji roll, the banked points and
-// the two (max) fire conditions - all pinned so a config tweak that
-// silently changes the flair rules trips a test.
-
-const hit = (points: number) => ({ made: true, points });
-const miss = () => ({ made: false, points: 0 });
+// Share v5 (owner redesign 2026-07-17): hits only - a 🏀 per make,
+// capped at MAX_SHOWN then "...", misses invisible, points in bold.
 
 describe("rollLine", () => {
-  it("renders spaced checks and red squares, with the sum", () => {
-    expect(rollLine([hit(100), miss(), hit(100)])).toBe(
-      "🏀: ✅ 🟥 ✅ **+200pts**",
-    );
+  it("renders one ball per hit with the points", () => {
+    expect(rollLine(3, 345)).toBe("🏀🏀🏀 **+345pts**");
   });
 
-  it("awards the perfect-day fire only at the full daily count", () => {
-    const day = BALANCE.budget.throwsPerDay;
-    const oneShort = Array.from({ length: day - 1 }, () => hit(100));
-    expect(rollLine(oneShort)).not.toContain("🔥");
-    const full = Array.from({ length: day }, () => hit(100));
-    expect(rollLine(full)).toContain("🔥");
-    // one miss in the run kills it
-    expect(rollLine([...oneShort, miss()])).not.toContain("🔥");
+  it("caps the balls at MAX_SHOWN and appends ... beyond it", () => {
+    expect(rollLine(MAX_SHOWN, 500)).toBe("🏀".repeat(MAX_SHOWN) + " **+500pts**");
+    expect(rollLine(7, 900)).toBe("🏀".repeat(MAX_SHOWN) + "... **+900pts**");
   });
 
-  it("awards the hot-hand fire at 1.5x the closest-place score", () => {
-    const inside = BALANCE.score.basePts;
-    // 2 hits from distance: 300 >= 1.5 * 2 * 100
-    expect(rollLine([hit(inside * 1.5), hit(inside * 1.5)])).toContain("🔥");
-    // same points on ONE hit - not a hot hand
-    expect(rollLine([hit(inside * 3)])).not.toContain("🔥");
-    // 2 close-range hits fall short
-    expect(rollLine([hit(inside), hit(inside)])).not.toContain("🔥");
-  });
-
-  it("stacks both fires on a perfect long-range day", () => {
-    // 200 = the deep tier-1 maximum - attainable and comfortably hot-hand
-    const full = Array.from({ length: BALANCE.budget.throwsPerDay }, () =>
-      hit(200),
-    );
-    expect(rollLine(full)).toContain("🔥🔥");
-  });
-
-  it("caught balls simply never arrive - an empty roll still reads", () => {
-    expect(rollLine([])).toBe("🏀:  **+0pts**");
+  it("zero hits still reads (the button never shows for it anyway)", () => {
+    expect(rollLine(0, 0)).toBe(" **+0pts**");
   });
 });

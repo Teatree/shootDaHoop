@@ -28,11 +28,15 @@ const FILTERS = [
 ] as const;
 
 export interface HUD {
-  /** dim ball slots beyond the server's remaining daily throw budget;
-   *  at zero the refill countdown covers the row (UTC-midnight reset) */
-  setThrowsRemaining(n: number): void;
-  /** the countdown hit zero with the tab open - the budget is fresh */
-  onBallsReset(cb: () => void): void;
+  /**
+   * The authoritative rack (energy regen, owner redesign 2026-07-17):
+   * n balls, plus the epoch-ms deadline of the next regen (null at the
+   * cap). Renders the TARGET state immediately - the recharging slot
+   * wears an hourglass + countdown - then pops gained balls in,
+   * staggered. `popFrom` overrides the pop baseline (the AFK-return
+   * case, where the last SEEN count comes from localStorage).
+   */
+  setBudget(n: number, nextBallAtMs: number | null, popFrom?: number): void;
   /** the tier's ball look on the UI icons; splash = play the upgrade pop */
   setBallLook(red: boolean, splash: boolean): void;
   /** text may contain the placeholders handled below; kept plain-text safe. */
@@ -68,40 +72,51 @@ export function initHUD(): HUD {
 
   let chatCb: (msg: string) => void = () => {};
 
-  // the ball row is minted from the daily budget - ONE source of truth
-  // (owner 2026-07-17: the budget doubled to 10; hardcoded slots drift)
+  // the ball row is minted from the cap - ONE source of truth
   const slotsBox = el<HTMLDivElement>("ball-slots");
-  for (let i = 0; i < BALANCE.budget.throwsPerDay; i++) {
+  const hintEl = el<HTMLButtonElement>("ball-hint");
+  const hintTip = el<HTMLSpanElement>("ball-hint-tip");
+  const slots: HTMLDivElement[] = [];
+  for (let i = 0; i < BALANCE.budget.ballCap; i++) {
     const slot = document.createElement("div");
     slot.className = "slot";
-    slot.innerHTML = '<div class="ball"></div>';
-    // the timer cover and the hint stay LAST in the container
-    slotsBox.insertBefore(slot, el("ball-timer"));
+    // the .slot-timer carries the recharging slot's m:ss countdown
+    slot.innerHTML = '<div class="ball"></div><div class="slot-timer"></div>';
+    slotsBox.insertBefore(slot, hintEl); // the hint stays LAST
+    slots.push(slot);
   }
 
   // mobile wording (docs/mobile.md) - the chat itself lives at the
   // bottom of the wall on every platform now (index.html)
   if (isMobileDevice()) chatEl.placeholder = "Tap to chat";
 
-  // ── out-of-balls countdown (owner ask 2026-07-16): the balls refill at
-  //    UTC MIDNIGHT (shared/budget.ts) whether or not they were spent,
-  //    but the timer only shows once ALL of them are. A DOM interval, not
-  //    the Phaser clock - it must keep counting in a hidden tab. ────────
-  const timerEl = el<HTMLDivElement>("ball-timer");
-  // the blue ? beside the row (owner ask 2026-07-17): exists ONLY while
-  // out of balls; hovering it explains when the balls come back
-  const hintEl = el<HTMLButtonElement>("ball-hint");
-  const hintTip = el<HTMLSpanElement>("ball-hint-tip");
-  let timerId: number | null = null;
-  let ballsResetCb: () => void = () => {};
+  // ── the regen display (owner redesign 2026-07-17): slots show the
+  //    TARGET count instantly; the first empty slot wears an hourglass
+  //    with a countdown recomputed from a DEADLINE each tick (hidden
+  //    tabs throttle intervals - a decrementing counter would lag);
+  //    gained balls pop in as pure cosmetics. The blue ? hint appears
+  //    only at zero balls. ───────────────────────────────────────────
+  let displayed = 0; //               balls currently shown filled
+  let deadlineMs: number | null = null;
+  let popTimers: number[] = [];
 
-  const stopTimer = () => {
-    if (timerId !== null) clearInterval(timerId);
-    timerId = null;
-    timerEl.hidden = true;
-    hintEl.hidden = true;
-    hintEl.classList.remove("open");
+  const fmtLeft = (ms: number) => {
+    const s = Math.max(0, Math.ceil(ms / 1000));
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   };
+
+  const tickCountdown = () => {
+    if (deadlineMs === null) return;
+    const left = deadlineMs - Date.now();
+    const timer = slots[displayed]?.querySelector(".slot-timer");
+    if (timer) timer.textContent = fmtLeft(left);
+    hintTip.textContent =
+      `Out of balls! Your next one lands in ${fmtLeft(left)}. ` +
+      `One ball regrows every ${BALANCE.budget.regenMinutes} minutes, ` +
+      `up to ${BALANCE.budget.ballCap} - and they keep growing while ` +
+      `you're away.`;
+  };
+  window.setInterval(tickCountdown, 1000);
 
   // no hover on a touchscreen: the hint opens on TAP and closes on the
   // next tap (or any tap elsewhere) - desktop keeps the CSS hover
@@ -114,42 +129,6 @@ export function initHUD(): HUD {
       if (!hintEl.contains(ev.target as Node)) hintEl.classList.remove("open");
     });
   }
-
-  const startTimer = () => {
-    if (timerId !== null) return; // already counting
-    const now = new Date();
-    const target = Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate() + 1,
-    );
-    const tick = () => {
-      const leftS = Math.ceil((target - Date.now()) / 1000);
-      if (leftS <= 0) {
-        // midnight passed with the tab open - fresh balls, no reload
-        stopTimer();
-        ballsResetCb();
-        return;
-      }
-      // "1d 12h 22m 3s" (owner format 2026-07-17); the day only appears
-      // when it's nonzero - the UTC-midnight reset is always under 24h
-      const d = Math.floor(leftS / 86400);
-      const h = Math.floor((leftS % 86400) / 3600);
-      const m = Math.floor((leftS % 3600) / 60);
-      const s = leftS % 60;
-      timerEl.textContent = `${d > 0 ? `${d}d ` : ""}${h}h ${m}m ${s}s`;
-      // the hint tooltip tells the same story in words, minute-coarse
-      hintTip.textContent =
-        `You're out of balls for now! A fresh set of ` +
-        `${BALANCE.budget.throwsPerDay} arrives in ` +
-        `${d > 0 ? `${d}d ` : ""}${h}h ${m}m. Until then you can chat, ` +
-        `cheer your friends on, and watch the court wall.`;
-    };
-    tick();
-    timerEl.hidden = false;
-    hintEl.hidden = false;
-    timerId = window.setInterval(tick, 1000);
-  };
 
   const sendMsg = () => {
     const msg = chatEl.value.trim();
@@ -230,15 +209,37 @@ export function initHUD(): HUD {
   });
 
   return {
-    setThrowsRemaining(n: number) {
-      const slots = document.querySelectorAll("#ball-slots .slot");
-      slots.forEach((slot, i) => slot.classList.toggle("used", i >= n));
-      if (n <= 0) startTimer();
-      else stopTimer();
-    },
-
-    onBallsReset(cb) {
-      ballsResetCb = cb;
+    setBudget(n: number, nextBallAtMs: number | null, popFrom?: number) {
+      const from = Math.max(0, Math.min(popFrom ?? displayed, n));
+      deadlineMs = nextBallAtMs;
+      slots.forEach((slot, i) => {
+        slot.classList.toggle("used", i >= n);
+        slot.classList.toggle(
+          "recharging",
+          nextBallAtMs !== null && i === n,
+        );
+      });
+      // pops are pure cosmetics catching the display up to the target -
+      // an authoritative update mid-stagger cancels and re-targets
+      for (const t of popTimers) clearTimeout(t);
+      popTimers = [];
+      for (let i = from; i < n; i++) {
+        const idx = i;
+        popTimers.push(
+          window.setTimeout(() => {
+            const s = slots[idx];
+            if (!s) return;
+            s.classList.remove("pop");
+            void s.offsetWidth; // retrigger
+            s.classList.add("pop");
+          }, (i - from) * 140),
+        );
+      }
+      displayed = n;
+      // the blue ? only while out of balls
+      hintEl.hidden = n > 0;
+      if (n > 0) hintEl.classList.remove("open");
+      tickCountdown();
     },
 
     setBallLook(red: boolean, splash: boolean) {

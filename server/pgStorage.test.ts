@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { PgStorage } from "./pgStorage";
+import type { PlayerProfile } from "./storage";
 
 // The Postgres contract, run against a REAL database - set
 // TEST_DATABASE_URL to enable (CI and plain `npm test` skip it):
@@ -36,7 +37,12 @@ describe.skipIf(!url)("PgStorage (live database)", () => {
       id: `vitest-p-${stamp}`,
       name: "Vitest",
       shirtColor: 0x123456,
-      budgets: { [lobby]: { throwsUsedToday: 3, lastThrowDayUTC: "2026-07-17" } },
+      // deliberately the OLD daily-era shape: storage must pass legacy
+      // records through untouched - shared/budget.sanitizeBudget owns
+      // the migration at hydration, not the storage layer
+      budgets: {
+        [lobby]: { throwsUsedToday: 3, lastThrowDayUTC: "2026-07-17" },
+      } as unknown as PlayerProfile["budgets"],
     };
     await store.saveProfile(profile);
     expect(await store.loadProfile(profile.id)).toEqual(profile);

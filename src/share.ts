@@ -1,38 +1,55 @@
 import { reportEvent } from "./analytics";
 import { copyText } from "./settings";
 import { buildLobbyUrl, ctaLink, shortLobbyTag } from "./shared/lobbyLink";
-import { rollLine, type RollResult } from "./shared/shareRoll";
+import { rollLine } from "./shared/shareRoll";
 
-// The SHARE button (owner ask 2026-07-16): sits top-center of the game
-// section, where the score display used to live. It collects the local
-// player's throw results this session and pressing it copies a
-// structured blurb to the clipboard (share v4, owner ask 2026-07-17):
+// The SHARE button (share v5, owner redesign 2026-07-17): appears after
+// the FIRST HIT of the share-day and stays up. Pressing it copies:
 //
 //   # shootDaHoop #123
-//   🏀: ✅ ✅ 🟥 🟥 ✅ **+200pts** 🔥🔥
+//   🏀🏀🏀 **+345pts**
 //   [Come Shoot Some Hoop!](https://…/?lobby=mossy-fox-3f2a&need=450&hoop=3)
 //
-// The `# ` title, the `**bold**` points and the `[named](link)` are
-// LITERAL Discord-flavored markdown, exactly as the owner spec'd them -
-// chats that render markdown show a heading, bold text and a named
-// link, the rest show the raw marks (the URL still autolinks).
-// #123 is shortLobbyTag(lobby); the middle line is shared/shareRoll.ts;
-// the need/hoop params carry the court's progress AT SHARE TIME into
-// the link preview (shared/shareMeta.ts).
-//
-// It appears ONLY when the player is all out of balls: green, popping
-// in and then pulsating on an interval - a gentle "your run is over,
-// brag about it" reminder. Getting balls back hides it again.
+// Hits only - misses stay off the brag sheet (shared/shareRoll.ts).
+// The share-day flips at 8:00AM PLAYER-LOCAL (a fresh morning = a
+// fresh roll); the day's roll persists per lobby in localStorage so a
+// reload inside the day keeps its hits. The `# ` title, `**bold**`
+// and `[named](link)` are literal Discord-flavored markdown.
 
 const LABEL = "🏀 SHARE";
 
+interface DayRoll {
+  day: string;
+  hits: number;
+  pts: number;
+}
+
+/** The share-day key: the local date, shifted back 8 hours - so the
+ *  day flips at 8:00am wherever the player is. */
+export function shareDay(now = new Date()): string {
+  const d = new Date(now.getTime() - 8 * 3_600_000);
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+
+function loadRoll(key: string): DayRoll {
+  try {
+    const r = JSON.parse(localStorage.getItem(key) ?? "") as DayRoll;
+    if (
+      r.day === shareDay() &&
+      Number.isFinite(r.hits) &&
+      Number.isFinite(r.pts)
+    )
+      return r;
+  } catch {
+    /* absent/corrupt/yesterday -> fresh day */
+  }
+  return { day: shareDay(), hits: 0, pts: 0 };
+}
+
 export interface ShareTracker {
-  /** One of the local player's throws resolved: hit or miss, and the
-   *  points it banked (0 on a miss). Caught balls are never noted -
-   *  CourtScene holds a miss back while it is still catchable. */
+  /** One of the local player's throws resolved. Only hits roll; caught
+   *  balls never arrive here as misses (they never were misses). */
   noteResult(made: boolean, points: number): void;
-  /** The throw budget hit zero (show the button) or refilled (hide it). */
-  setOutOfBalls(out: boolean): void;
   /** Court progress for the link preview: score still needed and the
    *  hoop it unlocks (null at the top tier / offline). */
   setWorldProgress(needed: number | null, nextHoop: number | null): void;
@@ -41,13 +58,39 @@ export interface ShareTracker {
 /** Wire the button. Call once at boot; works offline too. */
 export function initShare(lobby: string | null): ShareTracker {
   const btn = document.querySelector<HTMLButtonElement>("#share-btn");
-  if (!btn) return { noteResult() {}, setOutOfBalls() {}, setWorldProgress() {} };
-  const results: RollResult[] = [];
-  let shown = false;
+  if (!btn) return { noteResult() {}, setWorldProgress() {} };
+  const store = `shootDaHoop.share.${lobby ?? "offline"}`;
+  let roll = loadRoll(store);
   let progress: { needed: number; nextHoop: number } | null = null;
+
+  const save = () => localStorage.setItem(store, JSON.stringify(roll));
+
+  const reveal = () => {
+    if (!btn.hidden) return;
+    btn.hidden = false;
+    // re-trigger the pop (and the pulse that follows it) on reveal
+    btn.classList.remove("appear");
+    void btn.offsetWidth;
+    btn.classList.add("appear");
+  };
+
+  /** 8:00am passed (possibly with the tab open): fresh roll, hidden
+   *  button - deadline-recomputed, so throttled tabs still flip. */
+  const syncDay = () => {
+    if (roll.day === shareDay()) return;
+    roll = { day: shareDay(), hits: 0, pts: 0 };
+    save();
+    btn.hidden = true;
+    btn.classList.remove("appear");
+  };
+  window.setInterval(syncDay, 30_000);
+
+  // a reload inside the share-day: the persisted hits re-reveal it
+  if (roll.hits > 0) reveal();
 
   btn.addEventListener("click", () => {
     btn.blur(); // Space/Enter must go back to the game, not re-share
+    syncDay();
     reportEvent("share_clicked", lobby);
     const title = lobby
       ? `# shootDaHoop #${shortLobbyTag(lobby)}`
@@ -64,7 +107,8 @@ export function initShare(lobby: string | null): ShareTracker {
             : undefined,
         )
       : location.origin + location.pathname;
-    void copyText(`${title}\n${rollLine(results)}\n${ctaLink(url)}`).then((ok) => {
+    const blurb = `${title}\n${rollLine(roll.hits, roll.pts)}\n${ctaLink(url)}`;
+    void copyText(blurb).then((ok) => {
       btn.textContent = ok ? "Copied!" : "Copy failed";
       setTimeout(() => (btn.textContent = LABEL), 1500);
     });
@@ -72,18 +116,12 @@ export function initShare(lobby: string | null): ShareTracker {
 
   return {
     noteResult(made: boolean, points: number) {
-      results.push({ made, points });
-    },
-    setOutOfBalls(out: boolean) {
-      if (out === shown) return;
-      shown = out;
-      btn.hidden = !out;
-      if (out) {
-        // re-trigger the pop (and the pulse that follows it) on reveal
-        btn.classList.remove("appear");
-        void btn.offsetWidth;
-        btn.classList.add("appear");
-      }
+      syncDay();
+      if (!made) return; // hits only - the wall keeps the honest record
+      roll.hits += 1;
+      roll.pts += points;
+      save();
+      reveal(); // the first hit of the day is the button's cue
     },
     setWorldProgress(needed: number | null, nextHoop: number | null) {
       progress =

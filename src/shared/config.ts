@@ -159,10 +159,13 @@ export const BALANCE = {
     pressProximityM: 3,
   },
 
-  // ── Throw budget (server-authoritative online; LocalBackend enforces
-  //    the same rule offline against a localStorage counter) ───────────
+  // ── Ball budget, energy-style (owner redesign 2026-07-17): a cap of
+  //    balls, one regenerating per interval; the clock starts on the
+  //    throw from full. Server-authoritative online; LocalBackend
+  //    enforces the same rules offline (shared/budget.ts). ────────────
   budget: {
-    throwsPerDay: 10, // was 5 (owner 2026-07-17: more room to learn)
+    ballCap: 5,
+    regenMinutes: 10,
   },
 
   // ── Catch the ball (own missed ball landing at your feet comes back;

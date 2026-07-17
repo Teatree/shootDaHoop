@@ -1,8 +1,10 @@
 import { BALANCE } from "../shared/config";
 import {
   consumeThrow,
+  msToNextBall,
   refundThrow,
   remainingThrows,
+  sanitizeBudget,
   type BudgetFields,
 } from "../shared/budget";
 import { pointsForRims } from "../shared/scoring";
@@ -33,21 +35,20 @@ import type { ThrowRecording } from "../ghostData";
 
 export type LocalIdentity = Cosmetics;
 
-/** Offline daily budget - persisted per browser, same UTC reset as the server. */
+/** Offline ball budget - persisted per browser, same regen rules as the
+ *  server (shared/budget.ts). Old daily-era records sanitize to a
+ *  fresh full rack. */
 const BUDGET_KEY = "shootDaHoop.budget";
 
 function loadBudget(): BudgetFields {
   try {
-    const b = JSON.parse(localStorage.getItem(BUDGET_KEY) ?? "") as BudgetFields;
-    if (
-      typeof b.throwsUsedToday === "number" &&
-      typeof b.lastThrowDayUTC === "string"
-    )
-      return b;
+    return sanitizeBudget(
+      JSON.parse(localStorage.getItem(BUDGET_KEY) ?? ""),
+      new Date(),
+    );
   } catch {
-    /* absent/corrupt store → fresh allowance */
+    return sanitizeBudget(null, new Date());
   }
-  return { throwsUsedToday: 0, lastThrowDayUTC: "" };
 }
 
 export class LocalBackend implements Backend {
@@ -77,13 +78,23 @@ export class LocalBackend implements Backend {
     localStorage.setItem(BUDGET_KEY, JSON.stringify(this.budget));
   }
 
+  /** Count + regen countdown, exactly the server's budget payload. */
+  private budgetPayload() {
+    const now = new Date();
+    const ms = msToNextBall(this.budget, now);
+    return {
+      throwsRemaining: remainingThrows(this.budget, now),
+      nextBallInS: ms === null ? null : Math.ceil(ms / 1000),
+    };
+  }
+
   connect(): void {
     this.emitter.emit("welcome", {
       selfId: this.self.id,
       players: [this.self],
       world: { ...this.world },
       orb: null,
-      throwsRemaining: remainingThrows(this.budget, new Date()),
+      ...this.budgetPayload(),
       history: [],
     });
     this.scheduleOrbSpawn();
@@ -130,9 +141,7 @@ export class LocalBackend implements Backend {
     // hitting the orb keeps the ball - same free-slam rule as the server
     refundThrow(this.budget, new Date());
     this.saveBudget();
-    this.emitter.emit("budget", {
-      throwsRemaining: remainingThrows(this.budget, new Date()),
-    });
+    this.emitter.emit("budget", this.budgetPayload());
     this.emitter.emit("orbRemoved", { seq: o.seq, byId: this.self.id });
     this.emitter.emit("teleported", { id: this.self.id, x: o.x, d: o.d, h: o.h });
     this.scheduleOrbSpawn();
@@ -144,13 +153,11 @@ export class LocalBackend implements Backend {
     if (!m?.catchable) return; // unknown, already caught, or born from a catch
     this.recentMisses.delete(throwId); // once per ball - spent either way
     this.catchCredits++;
-    // the refund no-ops across a UTC day change (shared/budget.ts) - the
-    // catch still logs; the budget simply recounts fresh
+    // the refund silently drops at the cap (shared/budget.ts) - the
+    // catch still logs; regen already replaced the ball
     refundThrow(this.budget, new Date());
     this.saveBudget();
-    this.emitter.emit("budget", {
-      throwsRemaining: remainingThrows(this.budget, new Date()),
-    });
+    this.emitter.emit("budget", this.budgetPayload());
     this.emitter.emit("caught", {
       id: this.self.id,
       name: this.self.name,
@@ -170,15 +177,16 @@ export class LocalBackend implements Backend {
   }
 
   requestThrow(throwId: string, launch: ThrowLaunch): void {
-    // the same daily budget as the server, against the localStorage counter
+    // the same regen budget as the server, against the localStorage record
     if (!consumeThrow(this.budget, new Date())) {
+      // resync-then-reject, exactly like the server (a drifted local
+      // sim must never retry-reject forever)
+      this.emitter.emit("budget", this.budgetPayload());
       this.emitter.emit("throwRejected", { throwId, reason: "budget" });
       return;
     }
     this.saveBudget();
-    this.emitter.emit("budget", {
-      throwsRemaining: remainingThrows(this.budget, new Date()),
-    });
+    this.emitter.emit("budget", this.budgetPayload());
     // a throw made with a caught ball can't be caught again
     const bornFromCatch = this.catchCredits > 0;
     if (bornFromCatch) this.catchCredits--;

@@ -28,8 +28,10 @@ import type {
 import type { PlayerProfile, Storage } from "./storage";
 import {
   consumeThrow,
+  msToNextBall,
   refundThrow,
   remainingThrows,
+  sanitizeBudget,
   type BudgetFields,
 } from "../src/shared/budget";
 import { OrbAuthority } from "./orb";
@@ -272,7 +274,9 @@ export class Room {
       players: [...this.occupants.values()].map((o) => o.info),
       world: { ...this.world },
       orb: this.orb.current,
-      throwsRemaining: remainingThrows(this.budgetFor(profile), new Date()),
+      // AFK earnings land right here: budgetFor sanitizes + refreshes,
+      // so the count already includes every ball the clock owed
+      ...this.budgetPayload(profile),
       history: this.history.slice(0, -1), // minus our own join, logged live
     });
     return true;
@@ -387,10 +391,24 @@ export class Room {
    */
   private budgetFor(profile: PlayerProfile): BudgetFields {
     profile.budgets ??= {};
-    return (profile.budgets[this.lobby] ??= {
-      throwsUsedToday: 0,
-      lastThrowDayUTC: "",
-    });
+    // sanitize on EVERY read, not ??= - stored records from the daily
+    // era (or corrupt ones) hydrate to a fresh full rack (budget.ts)
+    return (profile.budgets[this.lobby] = sanitizeBudget(
+      profile.budgets[this.lobby],
+      new Date(),
+    ));
+  }
+
+  /** The budget message payload - the count plus the regen countdown
+   *  (a DURATION, so client clock skew can't bend it). */
+  private budgetPayload(profile: PlayerProfile) {
+    const b = this.budgetFor(profile);
+    const now = new Date();
+    const ms = msToNextBall(b, now);
+    return {
+      throwsRemaining: remainingThrows(b, now),
+      nextBallInS: ms === null ? null : Math.ceil(ms / 1000),
+    };
   }
 
   /** Append to the wall history and persist the bundle - save on event. */
@@ -453,6 +471,11 @@ export class Room {
         }
         // the budget is the server's, not the client's
         if (!consumeThrow(this.budgetFor(occ.profile), new Date())) {
+          // RESYNC BEFORE REJECTING: the client's local regen sim may
+          // have minted a phantom ball (clock drift) - without a fresh
+          // count its gate would let it retry-reject forever (no
+          // midnight self-heal exists anymore)
+          send(sock, { t: "budget", ...this.budgetPayload(occ.profile) });
           send(sock, {
             t: "throw-rejected",
             throwId: msg.throwId,
@@ -461,10 +484,7 @@ export class Room {
           break;
         }
         void this.storage.saveProfile(occ.profile).catch(logSaveError);
-        send(sock, {
-          t: "budget",
-          throwsRemaining: remainingThrows(this.budgetFor(occ.profile), new Date()),
-        });
+        send(sock, { t: "budget", ...this.budgetPayload(occ.profile) });
         occ.throwsThisSession++;
         if (occ.firstThrowPending) {
           occ.firstThrowPending = false;
@@ -742,10 +762,7 @@ export class Room {
         refundThrow(this.budgetFor(occ.profile), new Date());
         void this.storage.saveProfile(occ.profile).catch(logSaveError);
         if (occ.ws)
-          send(occ.ws, {
-            t: "budget",
-            throwsRemaining: remainingThrows(this.budgetFor(occ.profile), new Date()),
-          });
+          send(occ.ws, { t: "budget", ...this.budgetPayload(occ.profile) });
       }
       this.broadcast({ t: "orb-removed", seq: orbSeq, byId: playerId });
       track("features", this.lobby, playerId, "orb", "teleport", "");
@@ -878,10 +895,7 @@ export class Room {
     refundThrow(this.budgetFor(occ.profile), new Date());
     void this.storage.saveProfile(occ.profile).catch(logSaveError);
     if (occ.ws)
-      send(occ.ws, {
-        t: "budget",
-        throwsRemaining: remainingThrows(this.budgetFor(occ.profile), new Date()),
-      });
+      send(occ.ws, { t: "budget", ...this.budgetPayload(occ.profile) });
     this.record({ kind: "catch", name: occ.info.name }); // also persists
     track("features", this.lobby, playerId, "catch", "done", "");
     this.broadcast({
