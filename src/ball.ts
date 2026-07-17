@@ -44,6 +44,14 @@ interface BallOpts {
    * Fires the instant the crossing happens, so the hit visibly counts.
    */
   onRimScore?: (rimId: string, shotDistM: number) => void;
+  /**
+   * The hidden-tab catch-up (owner 2026-07-17): adopt a pre-simulated
+   * state (shared/physics.fastForwardBall) instead of starting at the
+   * launch - the ball appears MID-FLIGHT where every live screen has
+   * it. Skips the release pop and the throw sfx: a launch presented
+   * seconds late would read as a bug, not a catch-up.
+   */
+  resume?: { state: BallState; lifeS: number };
 }
 
 // A thrown ball: the Phaser face (sprite, shadow, trail, sfx, callbacks)
@@ -66,7 +74,10 @@ export class Ball {
     private readonly scene: Phaser.Scene,
     private readonly opts: BallOpts,
   ) {
-    this.s = createBallState(opts.x, opts.d, opts.h, opts.vx, opts.vh);
+    this.s =
+      opts.resume?.state ??
+      createBallState(opts.x, opts.d, opts.h, opts.vx, opts.vh);
+    this.life = opts.resume?.lifeS ?? 0;
 
     // physics size == visual size, whatever texture is loaded
     const diaPx = T.throw.ballRadiusM * 2 * M;
@@ -83,14 +94,16 @@ export class Ball {
     if (opts.tint !== 0xffffff) this.sprite.setTint(opts.tint);
     const baseScale = this.sprite.scaleX;
 
-    // release "pop" - tween back to baseScale, NOT 1, or it undoes the sizing
-    this.sprite.setScale(baseScale * T.throwFx.releasePopScale);
-    scene.tweens.add({
-      targets: this.sprite,
-      scale: baseScale,
-      duration: T.throwFx.releasePopMs,
-      ease: "Cubic.easeOut",
-    });
+    if (!opts.resume) {
+      // release "pop" - tween back to baseScale, NOT 1, or it undoes the sizing
+      this.sprite.setScale(baseScale * T.throwFx.releasePopScale);
+      scene.tweens.add({
+        targets: this.sprite,
+        scale: baseScale,
+        duration: T.throwFx.releasePopMs,
+        ease: "Cubic.easeOut",
+      });
+    }
 
     // subtle motion trail
     this.trail = scene.add.particles(0, 0, "px", {
@@ -104,7 +117,7 @@ export class Ball {
     });
     this.trail.setDepth(sortDepth(this.s.d) - 2);
 
-    playSfx(scene, "sfx_throw", 0.8);
+    if (!opts.resume) playSfx(scene, "sfx_throw", 0.8);
     this.render();
   }
 

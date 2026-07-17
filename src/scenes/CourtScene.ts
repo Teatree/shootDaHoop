@@ -37,6 +37,7 @@ import { Player } from "../player";
 import { CameraRig } from "../cameraRig";
 import { AimController, type Shot } from "../aiming";
 import { Ball } from "../ball";
+import { type BallState, fastForwardBall } from "../shared/physics";
 import { playSfx } from "../sfx";
 import type { AvailableAssets } from "../assets";
 import type { ThrowRecording } from "../ghostData";
@@ -137,6 +138,13 @@ export class CourtScene extends Phaser.Scene {
   private recsByThrowId = new Map<string, ThrowRecording>();
   /** live balls by throwId (own + remote) - popped on rejection/orb hit */
   private ballsByThrowId = new Map<string, Ball>();
+  /** remote throws that started while this tab was HIDDEN - flushed as
+   *  fast-forwarded balls on return (owner 2026-07-17); an entry dies
+   *  the moment its outcome/caught/teleported event arrives */
+  private hiddenRemoteThrows = new Map<
+    string,
+    { launch: ThrowLaunch; atMs: number }
+  >();
   /** OUR live throws - the catch-the-ball bookkeeping */
   private ownThrows = new Map<string, OwnThrow>();
   /** miss lines held back while the ball can still be caught */
@@ -429,9 +437,16 @@ export class CourtScene extends Phaser.Scene {
         this.spawnBall(e.throwId, e.launch);
       } else {
         // a hidden tab's game loop is paused: a ball spawned now would
-        // fly when the player comes back - the outcome event carries
-        // everything that matters, so skip the cosmetic flight
+        // fly when the player comes back - queue it instead, and the
+        // visibilitychange flush spawns it FAST-FORWARDED to where every
+        // live screen has it (owner 2026-07-17: "I can't view other
+        // players' throws - my browser wasn't focused")
         if (!document.hidden) this.spawnRemoteBall(e.throwId, e.launch);
+        else
+          this.hiddenRemoteThrows.set(e.throwId, {
+            launch: e.launch,
+            atMs: performance.now(),
+          });
         // if they were levitating, this throw is their last act up there
         this.remotes.get(e.id)?.avatar.onThrowReleased();
       }
@@ -440,6 +455,7 @@ export class CourtScene extends Phaser.Scene {
     this.backend.on("caught", (e) => {
       // the authority confirmed a catch: it never was a miss - the held
       // line dies on every screen and the catch line logs instead
+      this.hiddenRemoteThrows.delete(e.throwId); // resolved - never flush
       this.dropPendingMiss(e.throwId);
       // remote screens may still show the cosmetic ball bouncing - pop it
       // (the catcher's own ball already popped in doCatch)
@@ -478,7 +494,10 @@ export class CourtScene extends Phaser.Scene {
     });
     this.backend.on("teleported", (e) => {
       // the ball that hit the orb is spent, on every screen
-      if (e.throwId) this.ballsByThrowId.get(e.throwId)?.consume();
+      if (e.throwId) {
+        this.hiddenRemoteThrows.delete(e.throwId); // consumed - never flush
+        this.ballsByThrowId.get(e.throwId)?.consume();
+      }
       if (e.id === this.selfId) {
         // usually we predicted this locally - then it's a no-op
         this.teleport.confirmTeleport({ x: e.x, d: e.d, h: e.h });
@@ -559,6 +578,23 @@ export class CourtScene extends Phaser.Scene {
     });
 
     this.hud.onChat((msg) => this.backend.chat(msg));
+
+    // hidden-tab remote throws catch up on return: spawn each queued,
+    // still-unresolved throw fast-forwarded by the time this tab was
+    // away - determinism puts it exactly where live screens have it
+    const flushHiddenThrows = () => {
+      if (document.hidden) return;
+      for (const [throwId, q] of this.hiddenRemoteThrows) {
+        const elapsedS = (performance.now() - q.atMs) / 1000;
+        if (elapsedS < T.ground.maxLifeS)
+          this.spawnRemoteBall(throwId, q.launch, elapsedS);
+      }
+      this.hiddenRemoteThrows.clear();
+    };
+    document.addEventListener("visibilitychange", flushHiddenThrows);
+    this.events.once("shutdown", () =>
+      document.removeEventListener("visibilitychange", flushHiddenThrows),
+    );
 
     // first entry (the player JUST chose a name - owner 2026-07-16: the
     // pop-up follows the name modal): the controls pop-up. The join is
@@ -1021,7 +1057,23 @@ export class CourtScene extends Phaser.Scene {
   }
 
   /** A remote player's throw - animate it from the launch params. */
-  private spawnRemoteBall(throwId: string, launch: ThrowLaunch) {
+  /** fastForwardS > 0 = the hidden-tab catch-up: pre-simulate that many
+   *  seconds and spawn the ball mid-flight (silently - no pop, no sfx). */
+  private spawnRemoteBall(throwId: string, launch: ThrowLaunch, fastForwardS = 0) {
+    let resume: { state: BallState; lifeS: number } | undefined;
+    if (fastForwardS > 0) {
+      const ff = fastForwardBall(
+        launch.x,
+        launch.d,
+        launch.h,
+        launch.vx,
+        launch.vh,
+        fastForwardS,
+        this.geom(),
+      );
+      if (ff.rested) return; // already came to rest - nothing left to show
+      resume = { state: ff.s, lifeS: fastForwardS };
+    }
     const ball = new Ball(this, {
       x: launch.x,
       d: launch.d,
@@ -1042,6 +1094,7 @@ export class CourtScene extends Phaser.Scene {
       },
       // spectators see the upper-rim hit the moment it happens too
       onRimScore: (rimId, distM) => this.rimScoreJuice(rimId, distM),
+      resume,
     });
     this.ballsByThrowId.set(throwId, ball);
     this.balls.push(ball);
@@ -1107,6 +1160,9 @@ export class CourtScene extends Phaser.Scene {
 
   /** The authoritative result came back - score display + juice + log. */
   private presentOutcome(e: ThrowOutcome) {
+    // resolved before the viewer came back: log-only, never flush a
+    // catch-up ball for it (structurally prevents double-presentation)
+    this.hiddenRemoteThrows.delete(e.throwId);
     this.setWorld(e.world);
     const own = e.playerId === this.selfId;
     // caught locally before the outcome even landed - the caught event

@@ -148,6 +148,30 @@ export function stepBall(
 }
 
 /**
+ * Pre-simulate a ball `seconds` into its flight - the hidden-tab
+ * catch-up (owner 2026-07-17): a viewer returning mid-flight spawns the
+ * ball exactly where every live screen has it, because everyone steps
+ * the same PHYSICS_DT quanta. Returns the advanced state and whether
+ * the ball already came to rest (nothing left worth showing).
+ */
+export function fastForwardBall(
+  x: number,
+  d: number,
+  h: number,
+  vx: number,
+  vh: number,
+  seconds: number,
+  geom: HoopGeometry = hoopGeometryForTier(1),
+): { s: BallState; rested: boolean } {
+  const s = createBallState(x, d, h, vx, vh);
+  let rested = false;
+  for (let t = 0; t < seconds && !rested; t += PHYSICS_DT) {
+    if (stepBall(s, PHYSICS_DT, geom).includes("restDone")) rested = true;
+  }
+  return { s, rested };
+}
+
+/**
  * Is this ball, descending from above the rim's plane, on a path whose
  * center crosses INSIDE the opening (full ball radius margin)? Then it's
  * a clean bucket in the making and the rim tips must not swat it. The
