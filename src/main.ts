@@ -5,6 +5,7 @@ import { initSettings } from "./settings";
 import { AUDIO_MANIFEST, IMAGE_MANIFEST, MUSIC_MANIFEST } from "./assets";
 import { askPlayerName, getStoredName } from "./playerName";
 import { initShare } from "./share";
+import { installMobile } from "./mobile";
 import { LocalBackend } from "./backend/local";
 import { SocketBackend } from "./backend/socket";
 import type { Backend } from "./backend/types";
@@ -133,7 +134,7 @@ async function boot() {
     }),
   ]);
 
-  new Phaser.Game({
+  const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: "game-container",
     backgroundColor: "#f9e3b8",
@@ -158,6 +159,10 @@ async function boot() {
       ),
     ],
   });
+
+  // the whole mobile layer (viewport pinning, portrait gate) - a strict
+  // no-op on desktop; see docs/mobile.md
+  installMobile(game);
 }
 
 void boot();

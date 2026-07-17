@@ -2,7 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- interactive-widget: Android Chrome shrinks the layout when the
+     keyboard opens (so our viewport handler re-pins); inert elsewhere -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content"
+    />
     <title>shootDaHoop</title>
     <!-- Link previews (chat apps fetch these). The description is the
          STATIC fallback; a shared link carries ?need=&hoop= and the

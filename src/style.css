@@ -17,6 +17,9 @@ body {
   display: flex;
   width: 100vw;
   height: 100vh;
+  /* the no-JS mobile baseline: dvh tracks the URL bar; the mobile
+     viewport handler (src/mobile.ts) pins exact pixels over this */
+  height: 100dvh;
 }
 
 /* ── Game viewport: left 70% ─────────────────────────────── */
