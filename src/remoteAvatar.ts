@@ -5,6 +5,7 @@ import { burst, flash } from "./juice";
 import { playSfx } from "./sfx";
 import { shadowShift, type LightDir } from "./sky";
 import { CharacterRig } from "./characterRig";
+import { nameTagPx } from "./mobile";
 import {
   FIGURE_H,
   lerpPoseState,
@@ -103,7 +104,7 @@ export class RemoteAvatar {
     this.label = scene.add
       .text(0, 0, info.name, {
         fontFamily: '"Courier New", Courier, monospace',
-        fontSize: "13px",
+        fontSize: `${nameTagPx(13)}px`, // x1.8 on phones
         fontStyle: "bold",
         color: "#ffffff",
         stroke: "#20303a",

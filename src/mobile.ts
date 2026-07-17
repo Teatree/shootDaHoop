@@ -32,6 +32,12 @@ export function __setMobileForTest(v: boolean | null) {
   cached = v;
 }
 
+/** Character name tags read x1.8 on phones (owner 2026-07-18) - the
+ *  figures are small at arm's length and the names carried the load. */
+export function nameTagPx(basePx: number): number {
+  return isMobileDevice() ? Math.round(basePx * 1.8) : basePx;
+}
+
 /** Install the whole mobile layer. Call once, right after the Phaser
  *  game is constructed. No-op on desktop. */
 export function installMobile(game: Phaser.Game): void {

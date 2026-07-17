@@ -132,6 +132,11 @@ export const T = {
     weakThrowVh: 4.5, //     auto-throw (straight up) if time runs out mid-aim
   },
 
+  // ── Chat slash-commands (src/commands.ts) ──────────────────────────
+  commands: {
+    danceDurationS: 6, // PLACEHOLDER (tune): how long a /dance runs
+  },
+
   // ── Hoop progression: upgrade choreography feel ────────────────────
   progressionFx: {
     leadMs: 600, //      breath between the VFX burst/teleport and beat 1

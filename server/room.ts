@@ -942,6 +942,7 @@ const POSE_KINDS = new Set([
   "cheer",
   "point", //    out-of-balls aim hold
   "airpunch", // …and its release jab
+  "dance", //    the /dance chat command
 ]);
 
 /**

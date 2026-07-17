@@ -773,6 +773,22 @@ body {
   content: " 👀";
   font-size: 10px;
   opacity: 0.75;
+  /* the eyes glance at you every 5 seconds (owner 2026-07-18) - a
+     nudge that the line replays; lines pop out of sync since each
+     animation starts when its line lands */
+  display: inline-block; /* transforms need a box */
+  animation: eyes-pop 5s ease-in-out infinite;
+}
+
+@keyframes eyes-pop {
+  0%,
+  91%,
+  100% {
+    transform: scale(1);
+  }
+  95% {
+    transform: scale(1.5);
+  }
 }
 
 .log-line.clickable:hover {

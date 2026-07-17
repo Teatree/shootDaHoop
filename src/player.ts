@@ -3,6 +3,7 @@ import { T } from "./tuning";
 import { FREE_THROW_X, RIM, clampToCourt, floorY, sortDepth, toScreen } from "./world";
 import { shadowShift, type LightDir } from "./sky";
 import { CharacterRig, type RigLook } from "./characterRig";
+import { nameTagPx } from "./mobile";
 import { bodyAim, FIGURE_H, type PoseState } from "./shared/pose";
 import type { AvatarState } from "./shared/messages";
 
@@ -26,8 +27,11 @@ export class Player {
   aimInfo: { angle: number; power: number } | null = null;
   /** the teleport system's override while airborne/floored */
   tpKind: "fall" | "lie" | null = null;
-  /** a scripted activity's pose (the cheer area) - beats normal kinds */
-  poseOverride: "cheer" | null = null;
+  /** a scripted activity's pose (cheer area / the /dance command) -
+   *  beats normal kinds */
+  poseOverride: "cheer" | "dance" | null = null;
+  /** when the /dance runs out (epoch ms) - any action ends it early */
+  private danceUntil = 0;
 
   /** the visible body - teleport tweens target rig.angle */
   readonly rig: CharacterRig;
@@ -59,7 +63,7 @@ export class Player {
     this.label = scene.add
       .text(0, 0, name, {
         fontFamily: '"Courier New", Courier, monospace',
-        fontSize: "13px",
+        fontSize: `${nameTagPx(13)}px`, // x1.8 on phones
         fontStyle: "bold",
         color: "#ffffff",
         stroke: "#20303a",
@@ -74,6 +78,7 @@ export class Player {
   /** Left-click: set an (x, d) floor destination. Ignored while aiming. */
   walkTo(x: number, d: number) {
     if (this.aiming || this.control !== "full") return;
+    this.stopDancing(); // any real action ends the show
     const c = clampToCourt(x, d);
     this.targetX = c.x;
     this.targetD = c.d;
@@ -115,8 +120,25 @@ export class Player {
   /** Right-click pressed: plant into the shooting stance immediately. */
   enterStance() {
     this.stop();
+    this.stopDancing();
     this.aiming = true;
     this.facingRight = true; // square up to the hoop until the aim says otherwise
+  }
+
+  // ── the /dance chat command (owner ask 2026-07-18) ─────────────────
+
+  /** Bust out the "67" dance for durationS - it streams like any pose,
+   *  so the whole court watches. Walking/aiming ends it early; the
+   *  cheer deck keeps its own pose. */
+  dance(durationS: number) {
+    if (this.poseOverride === "cheer" || this.control === "none") return;
+    this.stop();
+    this.poseOverride = "dance";
+    this.danceUntil = Date.now() + durationS * 1000;
+  }
+
+  private stopDancing() {
+    if (this.poseOverride === "dance") this.poseOverride = null;
   }
 
   exitStance() {
@@ -129,6 +151,7 @@ export class Player {
   /** Right-click held with an empty budget: raise the front arm. */
   enterPoint() {
     this.stop();
+    this.stopDancing();
     this.pointing = true;
   }
 
@@ -193,7 +216,8 @@ export class Player {
         return { kind, t: this.punchT / PUNCH_ANIM_S, aimAngle: this.punchAim };
       case "fall":
       case "cheer":
-        return { kind, t: this.stateT }; // drives the waggle / pump rhythm
+      case "dance":
+        return { kind, t: this.stateT }; // drives the waggle/pump/sway rhythm
       default:
         // idle/lie/getup are static - a constant clock keeps the
         // telemetry dirty-check quiet while standing around
@@ -233,6 +257,9 @@ export class Player {
       this.facingRight = bodyAim(this.aimInfo.angle).facing === 1;
     if (this.pointing)
       this.facingRight = bodyAim(this.pointAim).facing === 1;
+    // the /dance runs out on its own clock
+    if (this.poseOverride === "dance" && Date.now() > this.danceUntil)
+      this.poseOverride = null;
     if (this.walking && !this.aiming) {
       const dx = this.targetX - this.x;
       const dd = this.targetD - this.d;

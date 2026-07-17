@@ -18,7 +18,8 @@ export type PoseKind =
   | "getup"
   | "cheer" // unlocked with Hoop 2 (shared/tiers.ts New Animation)
   | "point" //    out of balls: the front arm tracks the aim, no trail
-  | "airpunch"; // …and releasing punches the air (t = 0..1 progress)
+  | "airpunch" // …and releasing punches the air (t = 0..1 progress)
+  | "dance"; //   the /dance chat command (the "67" scales dance)
 
 export interface PoseState {
   kind: PoseKind;
@@ -124,6 +125,18 @@ export const WEARY_CHEER_RATE = 0.6;
 // PLACEHOLDER (tune): how far the weary head droops, px
 const WEARY_HEAD_DROP_PX = 5;
 
+// the "67" dance (owner ask 2026-07-18, /dance): arms out to the sides
+// like a pair of scales, alternating up and down ("six… seven…"), the
+// body swaying side to side at half tempo with a little bounce.
+// PLACEHOLDER (tune) - all of it, by eye.
+const DANCE_HZ = 1.9; //       scale-swaps per second
+const DANCE_ARM_X = 26; //     how far the arms extend sideways
+const DANCE_ARM_Y = 34; //     the scales' midpoint height, feet-relative
+const DANCE_ARM_SWING = 10; // each pan's up/down travel
+const DANCE_SWAY_PX = 4; //    hip sway amplitude
+const DANCE_BOB_PX = 2.5; //   the bounce riding the swaps
+const DANCE_TILT = 4; //       lean with the sway, degrees
+
 const smoothOut = (t: number) => 1 - (1 - t) * (1 - t);
 
 /** The single source of truth: a pose state → where every part sits. */
@@ -221,6 +234,28 @@ export function computePose(s: PoseState): RigPose {
         }),
         handR: ZERO,
         tilt: PUNCH_TILT * jab,
+        ball: null,
+      };
+    }
+
+    case "dance": {
+      const ph = s.t * Math.PI * 2 * DANCE_HZ;
+      const scale = Math.sin(ph); //    +1 = left pan up, right pan down
+      const sway = Math.sin(ph / 2); // half-tempo side-to-side
+      const bob = Math.abs(Math.cos(ph)) * DANCE_BOB_PX;
+      return {
+        lower: { x: sway * DANCE_SWAY_PX * 0.6, y: bob * 0.5 },
+        upper: { x: sway * DANCE_SWAY_PX, y: bob * 0.7 },
+        head: { x: sway * DANCE_SWAY_PX, y: bob },
+        handL: off("handL", {
+          x: -DANCE_ARM_X + sway * DANCE_SWAY_PX,
+          y: DANCE_ARM_Y + scale * DANCE_ARM_SWING + bob * 0.5,
+        }),
+        handR: off("handR", {
+          x: DANCE_ARM_X + sway * DANCE_SWAY_PX,
+          y: DANCE_ARM_Y - scale * DANCE_ARM_SWING + bob * 0.5,
+        }),
+        tilt: sway * DANCE_TILT,
         ball: null,
       };
     }

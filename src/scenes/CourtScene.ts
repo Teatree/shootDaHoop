@@ -37,6 +37,7 @@ import { Player } from "../player";
 import { CameraRig } from "../cameraRig";
 import { AimController, playerRingHit, type Shot } from "../aiming";
 import { isMobileDevice } from "../mobile";
+import { runChatCommand } from "../commands";
 import { Ball } from "../ball";
 import { type BallState, fastForwardBall } from "../shared/physics";
 import { playSfx } from "../sfx";
@@ -634,7 +635,11 @@ export class CourtScene extends Phaser.Scene {
       }
     });
 
-    this.hud.onChat((msg) => this.backend.chat(msg));
+    this.hud.onChat((msg) => {
+      // "/..." runs a command (src/commands.ts) - never sent as chat
+      if (runChatCommand(msg, { player: this.player, hud: this.hud })) return;
+      this.backend.chat(msg);
+    });
 
     // hidden-tab remote throws catch up on return: spawn each queued,
     // still-unresolved throw fast-forwarded by the time this tab was

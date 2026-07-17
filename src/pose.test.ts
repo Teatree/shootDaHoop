@@ -52,6 +52,25 @@ describe("computePose", () => {
     );
   });
 
+  it("dance: the 67 scales - hands alternate opposite, arms stay out", () => {
+    // sample a full swap period: the hands must trade heights
+    let sawLeftHigh = false;
+    let sawRightHigh = false;
+    for (let t = 0; t < 1.2; t += 0.05) {
+      const p = computePose(at({ kind: "dance", t }));
+      const l = PART_ANCHORS.handL.y + p.handL.y;
+      const r = PART_ANCHORS.handR.y + p.handR.y;
+      if (l > r + 4) sawLeftHigh = true;
+      if (r > l + 4) sawRightHigh = true;
+      // arms extended out to the sides the whole time, no held ball
+      expect(PART_ANCHORS.handL.x + p.handL.x).toBeLessThan(-15);
+      expect(PART_ANCHORS.handR.x + p.handR.x).toBeGreaterThan(15);
+      expect(p.ball).toBeNull();
+    }
+    expect(sawLeftHigh).toBe(true);
+    expect(sawRightHigh).toBe(true);
+  });
+
   it("cheer: hands pump above the head in a quick rhythm, body hops", () => {
     // sample one full second - hands must reach clear above the crown at
     // the pump's top and drop back toward shoulders at the bottom

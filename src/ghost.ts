@@ -4,6 +4,7 @@ import { M, floorY, multiplyTint, sortDepth, toScreen } from "./world";
 import { floatText } from "./juice";
 import { buildBubble } from "./speech";
 import { CharacterRig, type RigLook } from "./characterRig";
+import { nameTagPx } from "./mobile";
 import { FIGURE_H } from "./shared/pose";
 
 // Ghost Records: every throw is recorded as raw per-frame samples - the
@@ -79,7 +80,7 @@ export class GhostPlayback {
     const label = this.scene.add
       .text(0, 0, rec.name, {
         fontFamily: '"Courier New", Courier, monospace',
-        fontSize: "11px",
+        fontSize: `${nameTagPx(11)}px`, // x1.8 on phones, like live tags
         fontStyle: "bold",
         color: "#6ac48a",
       })
