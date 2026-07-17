@@ -148,6 +148,12 @@ export class CourtScene extends Phaser.Scene {
   >();
   /** OUR live throws - the catch-the-ball bookkeeping */
   private ownThrows = new Map<string, OwnThrow>();
+  /** own throws whose share-roll fate isn't decided yet (in flight, or
+   *  a miss still held for the catch window). The SHARE button only
+   *  reveals once this drains - a roll copied mid-flight was the "I
+   *  only got 4 balls" bug (owner 2026-07-17): the budget hits 0 the
+   *  moment throw 5 is ACCEPTED, seconds before its result can roll. */
+  private unrolledThrows = new Set<string>();
   /** miss lines held back while the ball can still be caught */
   private pendingMisses = new Map<
     string,
@@ -353,7 +359,7 @@ export class CourtScene extends Phaser.Scene {
       this.hud.setThrowsRemaining(e.throwsRemaining);
       // gates immediately if we rejoin with 0 left
       this.throwsRemaining = e.throwsRemaining;
-      this.share.setOutOfBalls(e.throwsRemaining <= 0);
+      this.updateShareGate();
       if (e.orb) this.teleport.orb.show(e.orb);
       for (const p of e.players) {
         if (p.id !== e.selfId) {
@@ -373,7 +379,7 @@ export class CourtScene extends Phaser.Scene {
       this.throwsRemaining = e.throwsRemaining;
       this.hud.setThrowsRemaining(e.throwsRemaining);
       // the SHARE button lives exactly where the balls end
-      this.share.setOutOfBalls(e.throwsRemaining <= 0);
+      this.updateShareGate();
     });
     this.hud.onBallsReset(() => {
       // the countdown hit UTC midnight with the tab open: the authority
@@ -381,7 +387,7 @@ export class CourtScene extends Phaser.Scene {
       // date) - un-stick the local gate so that throw can even be sent
       this.throwsRemaining = T.budget.throwsPerDay;
       this.hud.setThrowsRemaining(this.throwsRemaining);
-      this.share.setOutOfBalls(false);
+      this.updateShareGate();
     });
     this.backend.on("joinRejected", () => {
       this.hud.log("presence", "This court is full - try again later.");
@@ -457,6 +463,8 @@ export class CourtScene extends Phaser.Scene {
       // the authority confirmed a catch: it never was a miss - the held
       // line dies on every screen and the catch line logs instead
       this.hiddenRemoteThrows.delete(e.throwId); // resolved - never flush
+      // a caught throw deliberately never rolls - its fate is settled
+      if (e.id === this.selfId) this.settleRollFate(e.throwId);
       this.dropPendingMiss(e.throwId);
       // remote screens may still show the cosmetic ball bouncing - pop it
       // (the catcher's own ball already popped in doCatch)
@@ -472,6 +480,7 @@ export class CourtScene extends Phaser.Scene {
     });
     this.backend.on("throwRejected", (e) => {
       // the optimistic ball was cosmetic - pop it, nothing can come of it
+      this.settleRollFate(e.throwId); // it will never roll
       this.ballsByThrowId.get(e.throwId)?.consume();
       this.hud.log(
         "presence",
@@ -497,6 +506,8 @@ export class CourtScene extends Phaser.Scene {
       // the ball that hit the orb is spent, on every screen
       if (e.throwId) {
         this.hiddenRemoteThrows.delete(e.throwId); // consumed - never flush
+        // an orb-consumed throw never gets an outcome - it never rolls
+        if (e.id === this.selfId) this.settleRollFate(e.throwId);
         this.ballsByThrowId.get(e.throwId)?.consume();
       }
       if (e.id === this.selfId) {
@@ -985,6 +996,7 @@ export class CourtScene extends Phaser.Scene {
     // random suffix: throwIds must not collide ACROSS clients - everyone
     // sees everyone's ids (outcomes, orb-consumed balls)
     const throwId = `t${++this.throwSeq}-${Math.random().toString(36).slice(2, 8)}`;
+    this.unrolledThrows.add(throwId); // the roll owes this throw a fate
     this.backend.requestThrow(throwId, launch);
     // follow-through sweep along the real launch direction
     this.player.startThrow(Math.atan2(shot.vh, shot.vx), shot.power);
@@ -1164,6 +1176,23 @@ export class CourtScene extends Phaser.Scene {
     announceText(this, "CATCH! +🏀", "#6ac48a");
   }
 
+  /** An own throw's share-roll fate is decided (noted, caught, orb-fed
+   *  or rejected) - once the last one settles, the SHARE button may show. */
+  private settleRollFate(throwId: string) {
+    if (this.unrolledThrows.delete(throwId)) this.updateShareGate();
+  }
+
+  /** The SHARE button shows only when the balls are spent AND every
+   *  thrown ball's result has actually reached the roll - revealing it
+   *  mid-flight let players copy a 4-entry roll off 5 throws. */
+  private updateShareGate() {
+    this.share.setOutOfBalls(
+      this.throwsRemaining !== null &&
+        this.throwsRemaining <= 0 &&
+        this.unrolledThrows.size === 0,
+    );
+  }
+
   /** The authoritative result came back - score display + juice + log. */
   private presentOutcome(e: ThrowOutcome) {
     // resolved before the viewer came back: log-only, never flush a
@@ -1188,7 +1217,10 @@ export class CourtScene extends Phaser.Scene {
     };
     if (e.made) {
       // the share button's roll tracks OWN throws only: ✅ hit, 🟥 miss
-      if (own) this.share.noteResult(true, e.points);
+      if (own) {
+        this.share.noteResult(true, e.points);
+        this.settleRollFate(e.throwId);
+      }
       // recordings exist only for OWN throws - never match a remote outcome
       const rec = own ? this.recsByThrowId.get(e.throwId) : undefined;
       this.recsByThrowId.delete(e.throwId);
@@ -1203,7 +1235,10 @@ export class CourtScene extends Phaser.Scene {
     // (drop), or a DOM timeout fires - Phaser pauses on hidden tabs and
     // a held miss must not survive forever.
     const present = () => {
-      if (own) this.share.noteResult(false, 0);
+      if (own) {
+        this.share.noteResult(false, 0);
+        this.settleRollFate(e.throwId);
+      }
       const rec = own ? this.recsByThrowId.get(e.throwId) : undefined;
       this.recsByThrowId.delete(e.throwId);
       presentMiss(ctx, o, e.slam, rec ? () => this.recording.play(rec) : undefined);
