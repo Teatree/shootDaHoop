@@ -72,28 +72,21 @@ export function courtName(lobbyId: string): string {
 }
 
 /**
- * The share piece the Copy button puts on the clipboard: a framed
- * plain-text poster that reads well pasted into Discord/Slack/WhatsApp.
- * The pop-up still DISPLAYS the bare URL; this is what travels.
+ * The clickable call-to-action, in literal markdown - chats that render
+ * `[text](url)` show a named link; the rest at least autolink the URL.
+ * Shared by the Settings invite and the SHARE blurb (share.ts).
  */
-export function buildInvite(lobbyId: string, url: string): string {
-  const frame = `🏀${"━".repeat(22)}🏀`;
-  return [
-    frame,
-    center("PICK-UP  GAME"),
-    center(`the ${courtName(lobbyId)} court`),
-    frame,
-    "",
-    "The court is open and the rim is",
-    "calling - come shoot a hoop.",
-    "",
-    `▶ ${url}`,
-  ].join("\n");
+export function ctaLink(url: string): string {
+  return `[Come Shoot Some Hoop!](${url})`;
 }
 
-/** Rough centering against the frame (two emoji ≈ four columns wide). */
-function center(s: string): string {
-  return " ".repeat(Math.max(0, Math.floor((26 - s.length) / 2))) + s;
+/**
+ * The piece the Copy button puts on the clipboard (simplified per the
+ * owner ask 2026-07-17: header + link, nothing else). The pop-up still
+ * DISPLAYS the bare URL; this is what travels.
+ */
+export function buildInvite(url: string): string {
+  return `🏀 shootDaHoop new Lobby! 🏀\n${ctaLink(url)}`;
 }
 
 function cryptoRand(maxExclusive: number): number {

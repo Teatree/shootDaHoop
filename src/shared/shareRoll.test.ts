@@ -10,9 +10,9 @@ const hit = (points: number) => ({ made: true, points });
 const miss = () => ({ made: false, points: 0 });
 
 describe("rollLine", () => {
-  it("renders hits as checks and misses as red squares, with the sum", () => {
+  it("renders spaced checks and red squares, with the sum", () => {
     expect(rollLine([hit(100), miss(), hit(100)])).toBe(
-      "🏀: ✅🟥✅ **+200pts**",
+      "🏀: ✅ 🟥 ✅ **+200pts**",
     );
   });
 

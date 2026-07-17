@@ -62,7 +62,7 @@ function openSettings(): void {
       location.search,
       lobbyId,
     );
-    invite = buildInvite(lobbyId, urlInput.value);
+    invite = buildInvite(urlInput.value);
     result.hidden = false;
     copyBtn.textContent = "Copy invite";
     urlInput.select();

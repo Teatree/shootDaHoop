@@ -89,16 +89,12 @@ describe("courtName", () => {
 
 describe("buildInvite", () => {
   const url = "http://h/?lobby=velvet-vulture-83d0";
-  const invite = buildInvite("velvet-vulture-83d0", url);
+  const invite = buildInvite(url);
 
-  it("names the court and carries the URL on its own line", () => {
-    expect(invite).toContain("the velvet vulture court");
-    expect(invite.split("\n")).toContain(`▶ ${url}`);
-  });
-
-  it("is framed top and bottom", () => {
-    const lines = invite.split("\n");
-    expect(lines[0]).toMatch(/^🏀━+🏀$/);
-    expect(lines[3]).toBe(lines[0]);
+  it("is exactly the header plus the named markdown link", () => {
+    expect(invite.split("\n")).toEqual([
+      "🏀 shootDaHoop new Lobby! 🏀",
+      `[Come Shoot Some Hoop!](${url})`,
+    ]);
   });
 });

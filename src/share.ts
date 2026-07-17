@@ -1,19 +1,20 @@
 import { copyText } from "./settings";
-import { buildLobbyUrl, shortLobbyTag } from "./shared/lobbyLink";
+import { buildLobbyUrl, ctaLink, shortLobbyTag } from "./shared/lobbyLink";
 import { rollLine, type RollResult } from "./shared/shareRoll";
 
 // The SHARE button (owner ask 2026-07-16): sits top-center of the game
 // section, where the score display used to live. It collects the local
 // player's throw results this session and pressing it copies a
-// structured blurb to the clipboard (share v3, owner ask same day):
+// structured blurb to the clipboard (share v4, owner ask 2026-07-17):
 //
 //   # shootDaHoop #123
-//   🏀: ✅✅🟥🟥✅ **+200pts** 🔥🔥
-//   https://…/?lobby=mossy-fox-3f2a&need=450&hoop=3
+//   🏀: ✅ ✅ 🟥 🟥 ✅ **+200pts** 🔥🔥
+//   [Come Shoot Some Hoop!](https://…/?lobby=mossy-fox-3f2a&need=450&hoop=3)
 //
-// The `# ` title and the `**bold**` points are LITERAL Discord-flavored
-// markdown, exactly as the owner spec'd them - chats that render
-// markdown show a heading and bold text, the rest show the raw marks.
+// The `# ` title, the `**bold**` points and the `[named](link)` are
+// LITERAL Discord-flavored markdown, exactly as the owner spec'd them -
+// chats that render markdown show a heading, bold text and a named
+// link, the rest show the raw marks (the URL still autolinks).
 // #123 is shortLobbyTag(lobby); the middle line is shared/shareRoll.ts;
 // the need/hoop params carry the court's progress AT SHARE TIME into
 // the link preview (shared/shareMeta.ts).
@@ -61,7 +62,7 @@ export function initShare(lobby: string | null): ShareTracker {
             : undefined,
         )
       : location.origin + location.pathname;
-    void copyText(`${title}\n${rollLine(results)}\n${url}`).then((ok) => {
+    void copyText(`${title}\n${rollLine(results)}\n${ctaLink(url)}`).then((ok) => {
       btn.textContent = ok ? "Copied!" : "Copy failed";
       setTimeout(() => (btn.textContent = LABEL), 1500);
     });
