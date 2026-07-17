@@ -92,9 +92,11 @@ export const BALANCE = {
     curves: {
       // midM: where gains start diminishing (the logistic midpoint,
       //       measured from the rim); k: steepness; maxAddPts: the
-      //       flat-tail ceiling of the distance bonus
-      tier1: { midM: 10, k: 0.6, maxAddPts: 200 }, //     max 300, flat ~16 m
-      tier2plus: { midM: 12.5, k: 0.5, maxAddPts: 250 }, // max 350, flat ~20 m
+      //       flat-tail ceiling of the distance bonus. Owner correction
+      //       2026-07-17: the max ADD equals the base (not 2x it) - a
+      //       deep tier-1 bomb tops out at 200, not 300.
+      tier1: { midM: 10, k: 0.6, maxAddPts: 100 }, //     max 200, flat ~16 m
+      tier2plus: { midM: 12.5, k: 0.5, maxAddPts: 125 }, // max 225, flat ~20 m
     },
     upperRimMult: 1.25, //   the double hoop's smaller upper rim pays more
     bigScorePts: 300, //     per-shot points above this = rainbow log + big juice
@@ -160,7 +162,7 @@ export const BALANCE = {
   // ── Throw budget (server-authoritative online; LocalBackend enforces
   //    the same rule offline against a localStorage counter) ───────────
   budget: {
-    throwsPerDay: 5,
+    throwsPerDay: 10, // was 5 (owner 2026-07-17: more room to learn)
   },
 
   // ── Catch the ball (own missed ball landing at your feet comes back;

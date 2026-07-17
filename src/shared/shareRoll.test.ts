@@ -17,12 +17,13 @@ describe("rollLine", () => {
   });
 
   it("awards the perfect-day fire only at the full daily count", () => {
-    const four = Array.from({ length: 4 }, () => hit(100));
-    expect(rollLine(four)).not.toContain("🔥");
-    const five = Array.from({ length: 5 }, () => hit(100));
-    expect(rollLine(five)).toContain("🔥");
+    const day = BALANCE.budget.throwsPerDay;
+    const oneShort = Array.from({ length: day - 1 }, () => hit(100));
+    expect(rollLine(oneShort)).not.toContain("🔥");
+    const full = Array.from({ length: day }, () => hit(100));
+    expect(rollLine(full)).toContain("🔥");
     // one miss in the run kills it
-    expect(rollLine([...four, miss()])).not.toContain("🔥");
+    expect(rollLine([...oneShort, miss()])).not.toContain("🔥");
   });
 
   it("awards the hot-hand fire at 1.5x the closest-place score", () => {
@@ -36,8 +37,11 @@ describe("rollLine", () => {
   });
 
   it("stacks both fires on a perfect long-range day", () => {
-    const five = Array.from({ length: 5 }, () => hit(250));
-    expect(rollLine(five)).toContain("🔥🔥");
+    // 200 = the deep tier-1 maximum - attainable and comfortably hot-hand
+    const full = Array.from({ length: BALANCE.budget.throwsPerDay }, () =>
+      hit(200),
+    );
+    expect(rollLine(full)).toContain("🔥🔥");
   });
 
   it("caught balls simply never arrive - an empty roll still reads", () => {

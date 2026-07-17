@@ -17,14 +17,14 @@ describe("pointsForDistance - hoop 1 curve", () => {
     expect(pointsForDistance(EDGE, 1)).toBe(100);
   });
 
-  it("matches the sign-off table (mid 10 m, k 0.6, max add 200)", () => {
-    expect(pointsForDistance(8, 1)).toBe(139);
-    expect(pointsForDistance(10, 1)).toBe(195); // the midpoint - half the add
-    expect(pointsForDistance(15, 1)).toBe(290);
+  it("matches the sign-off table (mid 10 m, k 0.6, max add 100)", () => {
+    expect(pointsForDistance(8, 1)).toBe(119);
+    expect(pointsForDistance(10, 1)).toBe(148); // the midpoint - half the add
+    expect(pointsForDistance(15, 1)).toBe(195);
   });
 
-  it("is flat at 300 in the deep court - max add = 2x base", () => {
-    expect(pointsForDistance(26, 1)).toBe(300);
+  it("is flat at 200 in the deep court - max add = the base", () => {
+    expect(pointsForDistance(26, 1)).toBe(200);
     // the last meters buy almost nothing (the flat tail)
     expect(pointsForDistance(26, 1) - pointsForDistance(20, 1)).toBeLessThanOrEqual(1);
   });
@@ -45,14 +45,14 @@ describe("pointsForDistance - hoop 2+ curve", () => {
     expect(pointsForDistance(EDGE, 3)).toBe(100);
   });
 
-  it("matches the sign-off table (mid 12.5 m, k 0.5, max add 250)", () => {
-    expect(pointsForDistance(10, 2)).toBe(151);
-    expect(pointsForDistance(12.5, 2)).toBe(222); // the midpoint
-    expect(pointsForDistance(16, 2)).toBe(312);
+  it("matches the sign-off table (mid 12.5 m, k 0.5, max add 125)", () => {
+    expect(pointsForDistance(10, 2)).toBe(126);
+    expect(pointsForDistance(12.5, 2)).toBe(161); // the midpoint
+    expect(pointsForDistance(16, 2)).toBe(206);
   });
 
-  it("is flat at 350 in the deep court - max add = 2.5x base", () => {
-    expect(pointsForDistance(26, 2)).toBe(350);
+  it("is flat at 225 in the deep court - max add = 1.25x base", () => {
+    expect(pointsForDistance(26, 2)).toBe(225);
   });
 
   // the later midpoint shifts the reward deeper, matching the taller hoop
@@ -65,24 +65,24 @@ describe("pointsForDistance - hoop 2+ curve", () => {
 describe("rimPoints - the double hoop's smaller upper rim", () => {
   it("pays x1.25 on the whole curve value", () => {
     expect(rimPoints(EDGE, 3, "upper")).toBe(125);
-    expect(rimPoints(10, 3, "upper")).toBe(Math.round(151 * 1.25)); // 189
-    expect(rimPoints(26, 3, "upper")).toBe(438); // 350 x 1.25 rounded
+    expect(rimPoints(10, 3, "upper")).toBe(Math.round(126 * 1.25)); // 158
+    expect(rimPoints(26, 3, "upper")).toBe(281); // 225 x 1.25 rounded
   });
 
   it("any other rim pays the plain curve", () => {
-    expect(rimPoints(10, 3, "lower")).toBe(151);
-    expect(rimPoints(10, 1, "main")).toBe(195);
+    expect(rimPoints(10, 3, "lower")).toBe(126);
+    expect(rimPoints(10, 1, "main")).toBe(148);
   });
 });
 
 describe("pointsForRims - made throws", () => {
   it("a double shot SUMS lower + upper = 2.25x the curve", () => {
     expect(pointsForRims(EDGE, 3, ["upper", "lower"])).toBe(225);
-    expect(pointsForRims(26, 3, ["upper", "lower"])).toBe(350 + 438); // 788
+    expect(pointsForRims(26, 3, ["upper", "lower"])).toBe(225 + 281); // 506
   });
 
   it("a scored ball with no rim id still banks one plain curve value", () => {
-    expect(pointsForRims(10, 1, [])).toBe(195);
+    expect(pointsForRims(10, 1, [])).toBe(148);
   });
 });
 

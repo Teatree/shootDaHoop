@@ -21,7 +21,7 @@ export const HOT_HAND_MULT = 1.5;
  * "🏀: ✅ ✅ 🟥 🟥 ✅ **+200pts** 🔥🔥" - the `**` is literal Discord
  * markdown, per the owner's spec; the squares are spaced out for
  * readability (owner ask 2026-07-17). Fires (max 2, owner-confirmed):
- *   🔥 every throw this session hit, at least the full daily 5
+ *   🔥 every throw this session hit, at least the full daily budget
  *   🔥 2+ hits and total points >= HOT_HAND_MULT x what the same hits
  *      would have scored from the closest possible spot (basePts each)
  */

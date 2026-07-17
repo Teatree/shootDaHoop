@@ -18,11 +18,14 @@ Every made basket banks `basePts` (100), plus a logistic distance bonus:
   the gains diminish; the deep court is flat well before the baseline
   (farthest reachable shot ~26 m).
 
+Owner correction (same day): the max ADD equals the BASE, not 2x it -
+all adds halved from the first draft.
+
 | Hoop | mid | k | maxAdd | max hit | flat from |
 |---|---|---|---|---|---|
-| 1 | 10 m (2x zone) | 0.6 | +200 | 300 | ~16 m |
-| 2+ | 12.5 m (2.5x zone) | 0.5 | +250 | 350 | ~20 m |
-| 3 upper rim | same curve x1.25 | | +312 | 437 | ~20 m |
+| 1 | 10 m (2x zone) | 0.6 | +100 | 200 | ~16 m |
+| 2+ | 12.5 m (2.5x zone) | 0.5 | +125 | 225 | ~20 m |
+| 3 upper rim | same curve x1.25 | | +156 | 281 | ~20 m |
 
 Special cases:
 
@@ -40,23 +43,25 @@ Special cases:
 | Dist | Hoop 1 | Hoop 2 / H3 lower | H3 upper | H3 double |
 |---|---|---|---|---|
 | 5 m | 100 | 100 | 125 | 225 |
-| 8 m | 139 | 119 | 148 | 267 |
-| 10 m | 195 | 151 | 189 | 340 |
-| 12.5 m | 257 | 222 | 277 | 499 |
-| 16 m | 294 | 312 | 390 | 702 |
-| 26 m | 300 | 350 | 438 | 788 |
+| 8 m | 119 | 109 | 136 | 245 |
+| 10 m | 148 | 126 | 158 | 284 |
+| 12.5 m | 181 | 161 | 201 | 362 |
+| 16 m | 197 | 206 | 258 | 464 |
+| 26 m | 200 | 225 | 281 | 506 |
 
 ## Thresholds - anchored to LOW-SKILLED players (owner call)
 
-Target: a trio of low-skilled players (1-2 close-range hits each per
-5-ball day, ~117 pts/hit) finishes the whole ladder in three days:
+The daily budget is 10 balls (owner 2026-07-17, was 5). Thresholds are
+the original low-skill anchors x2.5 - the owner's rule: doubling the
+balls is worth MORE than 2x the score, because players get more
+chances to learn from their misses.
 
-- Hoop 1 income ~525/day -> **threshold 500**: Hoop 2 on day 1.
-- Hoop 2 income ~490/day -> **threshold 1000**: Hoop 3 on day 3.
+- **Hoop 2: threshold 1250**
+- **Hoop 3: threshold 2500**
 
-Faster groups scale down naturally: the "2-3 mixed-range hits" trio
-(~1,275/day H1, ~1,120/day H2) closes the ladder in ~1.5 days; a
-semi-skilled trio (3-4 hits at 10-14 m) in about a day.
+The anchor trio stays the low-skilled one (close-range hits, ~110
+pts/hit on the corrected curve); faster groups still finish in a
+fraction of the time.
 
 ## Implementation map
 

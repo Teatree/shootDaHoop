@@ -15,9 +15,9 @@ must never become a gameplay problem. The two DOM-only moments the
 server can't see (SHARE pressed, invite minted) arrive as a tiny
 `POST /a` beacon that `server/web.ts` forwards into the same queue -
 in dev, vite has no `/a` route, so dev sessions stay untracked, which
-is the desired behaviour. The daily 5-ball budget caps volume for free:
-even 200 daily players is ~1,000 throw rows/day, far inside Apps
-Script's quotas.
+is the desired behaviour. The daily ball budget caps volume for free:
+even 200 daily players at 10 balls each is ~2,000 throw rows/day, far
+inside Apps Script's quotas.
 
 ## The tabs
 

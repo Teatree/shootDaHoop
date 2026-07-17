@@ -49,10 +49,10 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
   {
     id: 2,
     name: "Taller Rim, Cheering & Mahogany",
-    // ── Balanced 2026-07-17 (docs/scoring-curve.md): one day of a
-    // low-skilled trio (3 players x 1-2 close-range hits x 5 balls)
-    // earns ~525/day at Hoop 1 - the first upgrade lands that evening ──
-    threshold: 500,
+    // ── Balanced 2026-07-17 (docs/scoring-curve.md): anchored to the
+    // low-skilled trio; x2.5'd with the move to 10 balls/day (owner
+    // call - more balls means more chances to learn, not just x2) ──
+    threshold: 1250,
     changes: [
       // 1. Hoop Change - taller hoop, wider rim.
       {
@@ -151,10 +151,9 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
   {
     id: 3,
     name: "Double Hoop, Jukebox, Glass & Orbs",
-    // ── Balanced 2026-07-17 (docs/scoring-curve.md): two more days of
-    // the same low-skilled trio at Hoop 2's curve (~490/day) - the
-    // whole ladder closes in three days, faster groups in under two ──
-    threshold: 1000,
+    // ── Balanced 2026-07-17 (docs/scoring-curve.md): the longer second
+    // leg for the same trio; x2.5'd with the 10-ball day (owner call) ──
+    threshold: 2500,
     changes: [
       // 1. Hoop Change - Double Hoop: one post carrying two stacked
       //    rims, each hittable independently.
