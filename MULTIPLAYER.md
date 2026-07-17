@@ -376,10 +376,13 @@ chat+bubble, walk, teleport slam, ghost replays) all green.
   points table is keyed to the *shot spot*, not the release point. It also
   carries `slam` - ✅ now VALIDATED server-side (the Room only honors it
   within `levitatingUntil` after its own teleport ruling; step 8).
-- The throw **budget constant** lives in `BALANCE.budget.throwsPerDay`;
-  the helpers are shared (`src/shared/budget.ts`). Online the server enforces
-  it against the persisted profile (build step 7); offline `LocalBackend`
-  enforces the same rule against a localStorage counter (`shootDaHoop.budget`)
+- The ball **budget is ENERGY-style since 2026-07-18** (was a daily
+  UTC-midnight refill): `BALANCE.budget.ballCap` balls, one regenerating
+  every `regenMinutes`, the clock starting on the throw from full, AFK
+  earnings on return - helpers shared (`src/shared/budget.ts`). Online
+  the server enforces it against the persisted profile; offline
+  `LocalBackend` enforces the same rules against localStorage
+  (`shootDaHoop.budget`)
   - originally single-player practice was unlimited, but 5 always-lit ball
   slots read as a bug, so the budget now applies everywhere (2026-07-12).
 

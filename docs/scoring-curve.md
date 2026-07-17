@@ -49,19 +49,23 @@ Special cases:
 | 16 m | 197 | 206 | 258 | 464 |
 | 26 m | 200 | 225 | 281 | 506 |
 
-## Thresholds - anchored to LOW-SKILLED players (owner call)
+## Thresholds - anchored to 3 bad players x 15 min/day (owner call 2026-07-18)
 
-The daily budget is 10 balls (owner 2026-07-17, was 5). Thresholds are
-the original low-skill anchors x2.5 - the owner's rule: doubling the
-balls is worth MORE than 2x the score, because players get more
-chances to learn from their misses.
+The budget is ENERGY now: cap 5 balls, one regenerating every 10
+minutes, the clock starting on the throw from full (shared/budget.ts).
+A 15-minute session therefore yields ~6 throws (5 stock + 1 regen).
 
-- **Hoop 2: threshold 1250**
-- **Hoop 3: threshold 2500**
+The anchor trio: bad players, ~25% close-range hits - ~1.5 hits each
+at ~110 pts (Hoop 1 curve) / ~105 pts (Hoop 2 curve):
 
-The anchor trio stays the low-skilled one (close-range hits, ~110
-pts/hit on the corrected curve); faster groups still finish in a
-fraction of the time.
+| | income/day (trio) | threshold | lands |
+|---|---|---|---|
+| Hoop 2 | ~495 at Hoop 1 | **500** | end of day 1 |
+| Hoop 3 | ~470 at Hoop 2 | **1000** | day 3 |
+
+Players who stay longer than 15 minutes farm regen balls (6 per extra
+hour) and finish faster - that is the point of the energy model: time
+in the court converts to progress, not just skill.
 
 ## Implementation map
 
