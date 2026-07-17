@@ -343,7 +343,10 @@ export class CourtScene extends Phaser.Scene {
     this.backend.on("welcome", (e) => {
       this.selfId = e.selfId;
       this.renderHistory(e.history);
-      this.hud.log("presence", `${esc(this.playerName)} joined the court.`);
+      this.hud.log(
+        "presence",
+        `${this.nameHtml(this.playerName)} joined the court.`,
+      );
       const seen = this.loadSeenTier();
       if (seen !== null && seen < e.world.tierId) {
         // the world upgraded while this player was AWAY (tab closed):
@@ -444,14 +447,14 @@ export class CourtScene extends Phaser.Scene {
     this.backend.on("playerLeft", (e) => {
       // legacy/edge path - normal disconnects now go playerWentOffline
       this.removeRemote(e.id);
-      this.hud.log("presence", `${esc(e.name)} left the court.`);
+      this.hud.log("presence", `${this.nameHtml(e.name)} left the court.`);
     });
     this.backend.on("playerWentOffline", (e) => {
       // the character STAYS and waits - only the tag changes
       this.remotes.get(e.id)?.avatar.setOffline(true);
       this.hud.log(
         "presence",
-        `${esc(e.name)} left the court - their character waits around.`,
+        `${this.nameHtml(e.name)} left the court - their character waits around.`,
       );
     });
     this.backend.on("playerMoved", (e) => {
@@ -497,7 +500,13 @@ export class CourtScene extends Phaser.Scene {
       this.recsByThrowId.delete(e.throwId);
       const who = e.id === this.selfId ? this.playerName : e.name;
       presentCatch(
-        { scene: this, hud: this.hud, hoop: this.hoop, who },
+        {
+          scene: this,
+          hud: this.hud,
+          hoop: this.hoop,
+          who,
+          mine: e.id === this.selfId,
+        },
         rec ? () => this.recording.play(rec) : undefined,
       );
     });
@@ -541,9 +550,13 @@ export class CourtScene extends Phaser.Scene {
       }
     });
     this.backend.on("chatMessage", (e) => {
+      // YOUR messages sit right-aligned in green, like a messenger's
+      // own bubbles (owner 2026-07-18) - a local class, nothing shared
+      const mine = e.id === this.selfId;
       this.hud.log(
         "chat",
-        `<span class="who">${esc(e.name)}:</span> ${linkify(esc(e.text))}`,
+        `<span class="who">${this.nameHtml(e.name)}:</span> ${linkify(esc(e.text))}`,
+        mine ? "mine" : undefined,
       );
       if (document.hidden) return; // the wall has it; no stale bubbles
       if (e.id === this.selfId) this.speech.say(e.text);
@@ -553,7 +566,7 @@ export class CourtScene extends Phaser.Scene {
     this.backend.on("worldReset", (e) => {
       this.director.applyInstant(e.world.tierId);
       this.setWorld(e.world);
-      this.hud.log("world", `${esc(e.name)} reset the court score.`);
+      this.hud.log("world", `${this.nameHtml(e.name)} reset the court score.`);
     });
     this.backend.on("upgraded", (e) => this.onUpgraded(e));
     this.backend.on("upgradeRejected", (e) => {
@@ -572,8 +585,8 @@ export class CourtScene extends Phaser.Scene {
       this.hud.log(
         "world",
         e.state
-          ? `♪ ${esc(e.byName)} spins the jukebox - ${esc(this.jukebox?.songLabel(e.state.song) ?? `song ${e.state.song + 1}`)}.`
-          : `⏹ ${esc(e.byName)} turned the jukebox off.`,
+          ? `♪ ${this.nameHtml(e.byName)} spins the jukebox - ${esc(this.jukebox?.songLabel(e.state.song) ?? `song ${e.state.song + 1}`)}.`
+          : `⏹ ${this.nameHtml(e.byName)} turned the jukebox off.`,
       );
     });
     this.backend.on("snapshot", (e) => {
@@ -825,7 +838,7 @@ export class CourtScene extends Phaser.Scene {
     const tier = getTier(e.tierId);
     this.hud.log(
       "world",
-      `${esc(e.byName)} upgraded the court - Hoop ${e.tierId}: ${esc(tier?.name ?? "")}!`,
+      `${this.nameHtml(e.byName)} upgraded the court - Hoop ${e.tierId}: ${esc(tier?.name ?? "")}!`,
     );
     if (this.idle.isAfk) {
       // AFK catch-up: hold the old world; the return replays the moment
@@ -887,36 +900,45 @@ export class CourtScene extends Phaser.Scene {
     this.remotes.delete(id);
   }
 
+  /** YOUR name reads GREEN on your own wall (the messenger look, owner
+   *  2026-07-18) - dim on plain lines, bright inside chat (style.css).
+   *  Pure local decoration; nothing changes on the wire. */
+  private nameHtml(name: string): string {
+    const escd = esc(name);
+    return name === this.playerName ? `<span class="me">${escd}</span>` : escd;
+  }
+
   /** The persistent court wall: lines that happened before we joined. */
   private renderHistory(entries: HistoryEntry[]) {
     for (const h of entries) {
       if (h.kind === "chat") {
         this.hud.log(
           "chat",
-          `<span class="who">${esc(h.name)}:</span> ${linkify(esc(h.text))}`,
+          `<span class="who">${this.nameHtml(h.name)}:</span> ${linkify(esc(h.text))}`,
+          h.name === this.playerName ? "mine" : undefined,
         );
       } else if (h.kind === "presence") {
         this.hud.log(
           "presence",
-          `${esc(h.name)} ${h.joined ? "joined" : "left"} the court.`,
+          `${this.nameHtml(h.name)} ${h.joined ? "joined" : "left"} the court.`,
         );
       } else if (h.kind === "reset") {
-        this.hud.log("world", `${esc(h.name)} reset the court score.`);
+        this.hud.log("world", `${this.nameHtml(h.name)} reset the court score.`);
       } else if (h.kind === "upgrade") {
         this.hud.log(
           "world",
-          `${esc(h.name)} upgraded the court to Hoop ${h.tierId}.`,
+          `${this.nameHtml(h.name)} upgraded the court to Hoop ${h.tierId}.`,
         );
       } else if (h.kind === "catch") {
         this.hud.log(
           "throw",
-          `${esc(h.name)} caught their ball back! <span class="catch">+🏀</span>`,
+          `${this.nameHtml(h.name)} caught their ball back! <span class="catch">+🏀</span>`,
         );
       } else {
         // a caught miss never was a miss - its catch entry follows
         if (!h.made && h.caught) continue;
         const d = h.distM.toFixed(1);
-        const who = esc(h.name);
+        const who = this.nameHtml(h.name);
         // entries that recorded a throwId replay from the stored ghost
         const throwId = h.throwId;
         this.hud.log(
@@ -1257,7 +1279,7 @@ export class CourtScene extends Phaser.Scene {
     const who = own
       ? this.playerName
       : (this.remotes.get(e.playerId)?.avatar.name ?? "Someone");
-    const ctx = { scene: this, hud: this.hud, hoop: this.hoop, who };
+    const ctx = { scene: this, hud: this.hud, hoop: this.hoop, who, mine: own };
     // rimIds don't ride the wire outcome - display code never prices rims
     const o = {
       made: e.made,

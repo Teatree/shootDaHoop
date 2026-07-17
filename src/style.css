@@ -851,6 +851,31 @@ body {
   border: 1px solid #2b1e16;
 }
 
+/* ── the messenger look (owner 2026-07-18): YOUR OWN lines, locally.
+   Your name reads green everywhere - dim on plain lines, bright inside
+   chat - and your chat messages sit right-aligned like a messenger's
+   own bubbles. Pure local decoration; nothing changes on the wire. */
+.log-line .me {
+  color: #4e9166;
+  font-weight: bold;
+}
+
+.log-line.chat .me {
+  color: #6ac48a;
+}
+
+.log-line.chat.mine {
+  text-align: right;
+  border-left: none;
+  border-right: 3px solid #6ac48a;
+  background: rgba(106, 196, 138, 0.08);
+}
+
+/* a right-aligned line's gif hugs the right edge too */
+.log-line.chat.mine .chat-gif {
+  margin-left: auto;
+}
+
 /* Chat - styled MORE prominently than other lines */
 .log-line.chat {
   color: #fff3d6;

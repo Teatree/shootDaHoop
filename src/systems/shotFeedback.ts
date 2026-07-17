@@ -15,6 +15,15 @@ export interface FeedbackCtx {
   hud: HUD;
   hoop: HoopParts;
   who: string; // player name (raw; escaped here)
+  /** the LOCAL player's own line - their name greens on their wall
+   *  (the messenger look, owner 2026-07-18; local decoration only) */
+  mine?: boolean;
+}
+
+/** The escaped, optionally green-wrapped name for the log line. */
+function whoHtml(ctx: FeedbackCtx): string {
+  const escd = esc(ctx.who);
+  return ctx.mine ? `<span class="me">${escd}</span>` : escd;
 }
 
 export function presentScore(
@@ -71,7 +80,7 @@ export function presentScore(
   }
 
   const d = o.distM.toFixed(1);
-  const who = esc(ctx.who);
+  const who = whoHtml(ctx);
   // big lines are plain text - the rainbow gradient owns the whole line
   ctx.hud.log(
     "throw",
@@ -98,8 +107,8 @@ export function presentMiss(
   ctx.hud.log(
     "throw",
     slam
-      ? `${esc(ctx.who)} - teleport slam failed!`
-      : `${esc(ctx.who)} - ${o.distM.toFixed(1)}m miss`,
+      ? `${whoHtml(ctx)} - teleport slam failed!`
+      : `${whoHtml(ctx)} - ${o.distM.toFixed(1)}m miss`,
     "miss", // the wall's filter dropdown can hide miss lines
     onReplay,
   );
@@ -109,7 +118,7 @@ export function presentMiss(
 export function presentCatch(ctx: FeedbackCtx, onReplay?: () => void) {
   ctx.hud.log(
     "throw",
-    `${esc(ctx.who)} caught their ball back! <span class="catch">+🏀</span>`,
+    `${whoHtml(ctx)} caught their ball back! <span class="catch">+🏀</span>`,
     undefined,
     onReplay,
   );
