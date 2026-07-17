@@ -3,20 +3,23 @@
 Put final art/sound files in this folder with these exact names. Anything
 missing is covered by a generated placeholder - the game always runs.
 
-## Images (PNG)
+## Images (WebP)
 
-| File             | Size / notes                                                      |
-| ---------------- | ----------------------------------------------------------------- |
-| `head_v1.png`    | 26 × 25 head variant (bald). Drawn facing **right**.               |
-| `head_v2.png`    | 28 × 29 head variant (haired).                                     |
-| `head_v3.png`    | 25 × 25 head variant (plain).                                      |
-| `body_upper.png` | 43 × 36 white t-shirt torso - hard-tinted to the shirt colour.     |
-| `body_lower.png` | 43 × 12 trouser band - subtle tint only.                           |
-| `left_hand.png`  | 13 × 14 hand circle (drawn behind the body).                       |
-| `right_hand.png` | 13 × 14 hand circle (drawn in front of the body).                  |
-| `ball.png`       | ~10 × 10 (0.3 m at 32 px/m). Round; spin is applied in code.       |
-| `court.png`      | Optional full-court floor art, 896 px wide (28 m × 32 px/m).       |
-| `hoop.png`       | Optional composite hoop (pole + board + rim), rim at 3.05 m high.  |
+Lossless WebP since 2026-07-17 (was PNG; ~44% lighter, identical pixels).
+Convert new art with: `ffmpeg -i in.png -c:v libwebp -lossless 1 out.webp`
+
+| File              | Size / notes                                                      |
+| ----------------- | ----------------------------------------------------------------- |
+| `head_v1.webp`    | 26 × 25 head variant (bald). Drawn facing **right**.               |
+| `head_v2.webp`    | 28 × 29 head variant (haired).                                     |
+| `head_v3.webp`    | 25 × 25 head variant (plain).                                      |
+| `body_upper.webp` | 43 × 36 white t-shirt torso - hard-tinted to the shirt colour.     |
+| `body_lower.webp` | 43 × 12 trouser band - subtle tint only.                           |
+| `left_hand.webp`  | 13 × 14 hand circle (drawn behind the body).                       |
+| `right_hand.webp` | 13 × 14 hand circle (drawn in front of the body).                  |
+| `ball.webp`       | ~10 × 10 (0.3 m at 32 px/m). Round; spin is applied in code.       |
+| `court.webp`      | Optional full-court floor art, 896 px wide (28 m × 32 px/m).       |
+| `hoop.webp`       | Optional composite hoop (pole + board + rim), rim at 3.05 m high.  |
 
 > The character is composed from the part files at runtime (characterRig.ts):
 > heads + hands share one skin tint (white→brown ramp - draw them pale so a

@@ -203,7 +203,7 @@ export class CourtScene extends Phaser.Scene {
   preload() {
     // only assets that were probed to exist - everything else is a placeholder
     for (const key of this.assets.images)
-      this.load.image(key, `assets/${key}.png`);
+      this.load.image(key, `assets/${key}.webp`);
     for (const key of this.assets.audio)
       this.load.audio(key, [`assets/${key}.wav`]);
     // NOTE: jukebox music is deliberately NOT loaded through Phaser -

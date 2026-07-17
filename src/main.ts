@@ -115,7 +115,7 @@ async function boot() {
   const music: { key: string; url: string }[] = [];
   await Promise.all([
     ...IMAGE_MANIFEST.map(async (k) => {
-      if (await exists(`assets/${k}.png`)) images.push(k);
+      if (await exists(`assets/${k}.webp`)) images.push(k);
     }),
     ...AUDIO_MANIFEST.map(async (k) => {
       if (await exists(`assets/${k}.wav`)) audio.push(k);
