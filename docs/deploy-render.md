@@ -24,6 +24,8 @@ deployed site.
    - `ADMIN_TOKEN` = a long random secret (the admin CLI's key; the
      default is "dev-admin" - do not ship that)
    - `DATA_DIR` = `/var/data` (only if you add a disk, step 5)
+   - `ANALYTICS_URL` + `ANALYTICS_SECRET` = the Google Sheets analytics
+     sink (optional - see docs/analytics.md; unset = analytics off)
    - (`PORT` is set by render automatically; the server reads it)
 5. **Persistence** (recommended once real players exist): profiles,
    world scores and the wall live as JSON files (server/storage.ts).

@@ -1,3 +1,4 @@
+import { reportEvent } from "./analytics";
 import { copyText } from "./settings";
 import { buildLobbyUrl, ctaLink, shortLobbyTag } from "./shared/lobbyLink";
 import { rollLine, type RollResult } from "./shared/shareRoll";
@@ -47,6 +48,7 @@ export function initShare(lobby: string | null): ShareTracker {
 
   btn.addEventListener("click", () => {
     btn.blur(); // Space/Enter must go back to the game, not re-share
+    reportEvent("share_clicked", lobby);
     const title = lobby
       ? `# shootDaHoop #${shortLobbyTag(lobby)}`
       : "# shootDaHoop";

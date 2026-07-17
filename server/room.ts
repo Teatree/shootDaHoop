@@ -33,6 +33,7 @@ import {
   type BudgetFields,
 } from "../src/shared/budget";
 import { OrbAuthority } from "./orb";
+import { track } from "./analytics";
 
 // One live world. Holds who's here (presence) and the shared world state.
 // A DISCONNECT does not despawn the character: the occupant goes OFFLINE
@@ -59,6 +60,12 @@ interface Occupant {
   /** catches banked: the NEXT throw is born from a caught ball and can
    *  never be caught again - the once-per-ball rule */
   catchCredits: number;
+  // ── analytics bookkeeping (docs/analytics.md) - never gameplay ─────
+  /** when this connection began - the sessions tab's leave row */
+  joinedAtMs: number;
+  throwsThisSession: number;
+  /** brand-new profile - its first throw ever is a growth event */
+  firstThrowPending: boolean;
 }
 
 export class Room {
@@ -147,6 +154,7 @@ export class Room {
     // must never lock its own player (or friends) out
     if (!existing && this.connectedCount() >= BALANCE.lobby.maxPlayers) {
       send(ws, { t: "join-rejected", reason: "full" });
+      track("ops", this.lobby, identity.id, "join_rejected_full", "");
       return false;
     }
 
@@ -155,6 +163,14 @@ export class Room {
       // progression), keep the wall + everyone's daily budgets
       this.world = { sharedScore: 0, tierId: 1 };
       this.record({ kind: "reset", name: identity.name }); // also persists
+      track(
+        "progression",
+        this.lobby,
+        identity.id,
+        "score_reset",
+        1,
+        this.connectedCount(),
+      );
       this.broadcast({
         t: "world-reset",
         name: identity.name,
@@ -164,9 +180,11 @@ export class Room {
 
     // profile is persistent and travels across worlds (budgets are kept
     // per lobby inside it - see budgetFor)
-    const profile: PlayerProfile = (await this.storage.loadProfile(
-      identity.id,
-    )) ?? {
+    const stored = await this.storage.loadProfile(identity.id);
+    // a profile the storage has never seen = a player the GAME has never
+    // seen - and lobby joins only happen through invite links
+    const isNew = !stored;
+    const profile: PlayerProfile = stored ?? {
       id: identity.id,
       name: identity.name,
       shirtColor: identity.shirtColor,
@@ -195,6 +213,9 @@ export class Room {
       existing.info.name = identity.name;
       existing.profile = profile;
       if (wasOffline) {
+        // a reclaim starts a fresh session; a zombie-socket swap doesn't
+        existing.joinedAtMs = Date.now();
+        existing.throwsThisSession = 0;
         // the character comes back to life: un-gray the tag everywhere
         delete existing.info.offline;
         this.broadcast({ t: "player-joined", player: { ...existing.info } }, ws);
@@ -219,10 +240,24 @@ export class Room {
         levitatingUntil: 0,
         offlineWalkTimer: null,
         catchCredits: 0,
+        joinedAtMs: Date.now(),
+        throwsThisSession: 0,
+        firstThrowPending: isNew,
       });
       this.broadcast({ t: "player-joined", player: info }, ws);
       this.record({ kind: "presence", name: identity.name, joined: true });
     }
+
+    track(
+      "sessions",
+      this.lobby,
+      identity.id,
+      "join",
+      identity.name,
+      isNew ? 1 : 0,
+    );
+    // fresh profile arriving at a lobby = an invite link converted
+    if (isNew) track("growth", this.lobby, identity.id, "invite_opened");
 
     send(ws, {
       t: "welcome",
@@ -245,6 +280,16 @@ export class Room {
     occ.info.offline = true;
     this.broadcast({ t: "player-offline", id: playerId, name: occ.info.name });
     this.record({ kind: "presence", name: occ.info.name, joined: false });
+    track(
+      "sessions",
+      this.lobby,
+      playerId,
+      "leave",
+      occ.info.name,
+      "",
+      Math.round((Date.now() - occ.joinedAtMs) / 1000),
+      occ.throwsThisSession,
+    );
     this.scheduleOfflineWalk(playerId, occ);
     if (this.connectedCount() === 0) {
       // last CONNECTED player gone: flush in-flight outcomes so the
@@ -414,6 +459,11 @@ export class Room {
           t: "budget",
           throwsRemaining: remainingThrows(this.budgetFor(occ.profile), new Date()),
         });
+        occ.throwsThisSession++;
+        if (occ.firstThrowPending) {
+          occ.firstThrowPending = false;
+          track("growth", this.lobby, playerId, "first_throw");
+        }
         // never trust the client: a slam only counts if WE teleported
         // this player moments ago (the orb is server-side now)
         const slam = msg.launch.slam && Date.now() < occ.levitatingUntil;
@@ -493,6 +543,16 @@ export class Room {
         const next = nextTier(this.world.tierId);
         if (!canUpgrade(this.world) || !next) {
           send(sock, { t: "upgrade-rejected", reason: "threshold" });
+          // in the wild this usually means A STALE SERVER BUILD - the
+          // ops eye wants to see it happening
+          track(
+            "progression",
+            this.lobby,
+            playerId,
+            "upgrade_rejected_threshold",
+            this.world.tierId,
+            this.connectedCount(),
+          );
           break;
         }
         if (
@@ -500,6 +560,14 @@ export class Room {
           BALANCE.upgrade.proximityM
         ) {
           send(sock, { t: "upgrade-rejected", reason: "proximity" });
+          track(
+            "progression",
+            this.lobby,
+            playerId,
+            "upgrade_rejected_proximity",
+            this.world.tierId,
+            this.connectedCount(),
+          );
           break;
         }
         // the next tier counts fresh from zero
@@ -512,6 +580,14 @@ export class Room {
           return { id, x: spot.x, d: spot.d };
         });
         this.record({ kind: "upgrade", name: occ.info.name, tierId: next.id });
+        track(
+          "progression",
+          this.lobby,
+          playerId,
+          "tier_unlock",
+          next.id,
+          this.connectedCount(),
+        );
         this.broadcast({
           t: "upgraded",
           tierId: next.id,
@@ -546,6 +622,7 @@ export class Room {
         this.persistWorld();
         // heard by EVERYONE in the world - not local
         this.broadcast({ t: "jukebox", state, byName: occ.info.name });
+        track("features", this.lobby, playerId, "jukebox", "play", song);
         break;
       }
       case "jukebox-off": {
@@ -567,6 +644,7 @@ export class Room {
         this.world = { ...this.world, jukebox: null };
         this.persistWorld();
         this.broadcast({ t: "jukebox", state: null, byName: occ.info.name });
+        track("features", this.lobby, playerId, "jukebox", "off", "");
         break;
       }
       case "chat": {
@@ -580,6 +658,8 @@ export class Room {
           text,
         });
         this.record({ kind: "chat", name: occ.info.name, text });
+        // count + length only - message CONTENT never leaves the game
+        track("features", this.lobby, playerId, "chat", "msg", text.length);
         break;
       }
       case "join":
@@ -634,6 +714,7 @@ export class Room {
           });
       }
       this.broadcast({ t: "orb-removed", seq: orbSeq, byId: playerId });
+      track("features", this.lobby, playerId, "orb", "teleport", "");
       this.broadcast({
         t: "teleported",
         id: playerId,
@@ -697,6 +778,20 @@ export class Room {
       points: res.points,
     };
     this.record(entry);
+    const thrower = this.occupants.get(playerId); // may have left mid-flight
+    track(
+      "throws",
+      this.lobby,
+      playerId,
+      Math.round(res.distM * 100) / 100,
+      res.swish ? "swish" : res.made ? "hit" : "miss",
+      res.points,
+      res.rims,
+      this.world.tierId,
+      thrower
+        ? remainingThrows(this.budgetFor(thrower.profile), new Date())
+        : "",
+    );
     // a miss opens the catch window: the thrower may take the ball back
     // while it is physically still on the court (client-detected landing;
     // the server only rules WHOSE throw, WAS a miss, ONCE per ball)
@@ -753,6 +848,7 @@ export class Room {
         throwsRemaining: remainingThrows(this.budgetFor(occ.profile), new Date()),
       });
     this.record({ kind: "catch", name: occ.info.name }); // also persists
+    track("features", this.lobby, playerId, "catch", "done", "");
     this.broadcast({
       t: "caught",
       id: playerId,

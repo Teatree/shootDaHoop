@@ -3,6 +3,7 @@ import { createReadStream, promises as fs } from "fs";
 import path from "path";
 import { gzipSync } from "zlib";
 import { injectShareMeta } from "../src/shared/shareMeta";
+import { CLIENT_EVENTS, track } from "./analytics";
 
 // The HTTP face of the game server (deploy ask 2026-07-17): ONE render.com
 // web service serves the built client AND speaks WebSocket on the same
@@ -47,6 +48,33 @@ export function createWebServer(distDir: string): Server {
   return createServer((req, res) => {
     void (async () => {
       const url = new URL(req.url ?? "/", "http://localhost");
+
+      // the client's two DOM-side analytics moments (share pressed,
+      // invite minted) arrive as beacons here - the WS may not exist
+      // yet (offline play) and the Sheets secret must stay server-side.
+      // Always 204: analytics never surfaces an error to a player.
+      if (req.method === "POST" && url.pathname === "/a") {
+        let body = "";
+        req.on("data", (c: Buffer) => {
+          body += c;
+          if (body.length > 1024) req.destroy(); // not analytics-shaped
+        });
+        req.on("end", () => {
+          try {
+            const { event, lobby } = JSON.parse(body) as {
+              event?: string;
+              lobby?: string;
+            };
+            if (event && CLIENT_EVENTS.has(event))
+              track("growth", String(lobby ?? ""), "", event);
+          } catch {
+            /* malformed beacon - drop */
+          }
+          res.writeHead(204);
+          res.end();
+        });
+        return;
+      }
       // resolve inside dist only - a traversal lands on the index below
       const rel = path
         .normalize(decodeURIComponent(url.pathname))

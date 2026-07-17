@@ -1,3 +1,4 @@
+import { reportEvent } from "./analytics";
 import {
   buildInvite,
   buildLobbyUrl,
@@ -63,6 +64,7 @@ function openSettings(): void {
       lobbyId,
     );
     invite = buildInvite(urlInput.value);
+    reportEvent("invite_generated", lobbyId);
     result.hidden = false;
     copyBtn.textContent = "Copy invite";
     urlInput.select();

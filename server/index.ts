@@ -2,6 +2,7 @@ import { WebSocketServer, type WebSocket } from "ws";
 import { Room } from "./room";
 import { JsonFileStorage } from "./storage";
 import { createWebServer } from "./web";
+import { initAnalytics, track } from "./analytics";
 import type { ClientMsg } from "../src/shared/messages";
 
 // The game server: a WebSocket relay with one Room per lobby id. Lobbies
@@ -14,6 +15,12 @@ import type { ClientMsg } from "../src/shared/messages";
 // In dev vite serves the client and this stays the plain :9999 relay.
 
 const PORT = Number(process.env.PORT ?? 9999);
+
+// Google Sheets analytics (docs/analytics.md) - off unless ANALYTICS_URL
+// is set. On render's free tier a boot row doubles as a spin-down log:
+// every cold start after idle shows up here.
+initAnalytics();
+track("ops", "", "", "server_boot", `port=${PORT}`);
 
 // Storage is the swap point: JSON files for local dev, Postgres on Render.
 const storage = new JsonFileStorage(process.env.DATA_DIR ?? "data");
