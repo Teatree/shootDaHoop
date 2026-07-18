@@ -493,6 +493,122 @@ describe("the AFK lineup survives restarts", () => {
   });
 });
 
+// Lobby scaling (owner ask 2026-07-18): ?players=N on the invite link
+// sizes the court at CREATION - one shot, persisted for life; resets
+// and upgrades must carry it, later joins must not touch it.
+describe("expectedPlayers is captured once at world creation", () => {
+  const ws = (f: FakeWS) => f as unknown as WebSocket;
+
+  it("the creating join sizes the court; later joins can't", async () => {
+    const storage = new MemStorage(); // no bundle = fresh world
+    room = new Room("test", storage, () => {});
+    const a = new FakeWS();
+    await room.join(ws(a), identity("alice"), false, 5);
+    const [w] = a.of("welcome");
+    if (w?.t !== "welcome") throw new Error("unreachable");
+    expect(w.world.expectedPlayers).toBe(5);
+
+    const b = new FakeWS();
+    await room.join(ws(b), identity("bob"), false, 2); // too late
+    const [wb] = b.of("welcome");
+    if (wb?.t !== "welcome") throw new Error("unreachable");
+    expect(wb.world.expectedPlayers).toBe(5);
+  });
+
+  it("no ?players defaults to the balance baseline 3, clamped 2-5", async () => {
+    const storage = new MemStorage();
+    room = new Room("test", storage, () => {});
+    const a = new FakeWS();
+    await room.join(ws(a), identity("alice"), false, 99);
+    const [w] = a.of("welcome");
+    if (w?.t !== "welcome") throw new Error("unreachable");
+    expect(w.world.expectedPlayers).toBe(5); // clamped down
+
+    const storage2 = new MemStorage();
+    const r2 = new Room("test2", storage2, () => {});
+    const b = new FakeWS();
+    await r2.join(ws(b), identity("bob"));
+    const [wb] = b.of("welcome");
+    if (wb?.t !== "welcome") throw new Error("unreachable");
+    expect(wb.world.expectedPlayers).toBe(3);
+    r2.destroy();
+  });
+
+  it("a hydrated world never re-captures (the link param goes inert)", async () => {
+    const storage = new MemStorage();
+    storage.worlds.set("test", {
+      lobby: "test",
+      world: { sharedScore: 100, tierId: 1, expectedPlayers: 4 },
+      history: [],
+    });
+    room = new Room("test", storage, () => {});
+    const a = new FakeWS();
+    await room.join(ws(a), identity("alice"), false, 2);
+    const [w] = a.of("welcome");
+    if (w?.t !== "welcome") throw new Error("unreachable");
+    expect(w.world.expectedPlayers).toBe(4);
+  });
+
+  it("?reset keeps the court's size while wiping the score", async () => {
+    const storage = new MemStorage();
+    storage.worlds.set("test", {
+      lobby: "test",
+      world: { sharedScore: 900, tierId: 2, expectedPlayers: 5 },
+      history: [],
+    });
+    room = new Room("test", storage, () => {});
+    const a = new FakeWS();
+    await room.join(ws(a), identity("alice"), true);
+    const [w] = a.of("welcome");
+    if (w?.t !== "welcome") throw new Error("unreachable");
+    expect(w.world).toMatchObject({
+      sharedScore: 0,
+      tierId: 1,
+      expectedPlayers: 5,
+    });
+  });
+
+  it("the upgrade carries the size and enforces the scaled threshold", async () => {
+    // a 2-player court: tier 2 unlocks at 600, not 1000
+    const storage = new MemStorage();
+    storage.worlds.set("test", {
+      lobby: "test",
+      world: { sharedScore: 700, tierId: 1, expectedPlayers: 2 },
+      history: [],
+    });
+    room = new Room("test", storage, () => {});
+    const a = new FakeWS();
+    await room.join(ws(a), identity("alice"));
+    standAtHoop(room, "alice");
+    room.handle("alice", { t: "upgrade" });
+    const [up] = a.of("upgraded");
+    if (up?.t !== "upgraded") throw new Error("700 >= 600 must upgrade");
+    expect(up.world).toMatchObject({
+      sharedScore: 0,
+      tierId: 2,
+      expectedPlayers: 2,
+    });
+  });
+
+  it("a 5-player court refuses the baseline threshold", async () => {
+    const storage = new MemStorage();
+    storage.worlds.set("test", {
+      lobby: "test",
+      world: { sharedScore: 1500, tierId: 1, expectedPlayers: 5 },
+      history: [],
+    });
+    room = new Room("test", storage, () => {});
+    const a = new FakeWS();
+    await room.join(ws(a), identity("alice"));
+    standAtHoop(room, "alice");
+    room.handle("alice", { t: "upgrade" }); // needs 2000 on a 5p court
+    expect(a.of("upgraded")).toHaveLength(0);
+    const [rej] = a.of("upgrade-rejected");
+    if (rej?.t !== "upgrade-rejected") throw new Error("no rejection sent");
+    expect(rej.reason).toBe("threshold");
+  });
+});
+
 describe("throw budgets are PER LOBBY", () => {
   it("balls spent in one lobby don't follow the player to a fresh one", async () => {
     const storage = new MemStorage();

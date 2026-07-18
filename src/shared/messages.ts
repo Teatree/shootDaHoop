@@ -58,6 +58,14 @@ export interface WorldState {
   tierId: number; //     current hoop tier (see shared/tiers.ts)
   /** current jukebox loop; absent/null = silence (or no jukebox yet) */
   jukebox?: JukeboxState | null;
+  /**
+   * How many players this court was built for (2-5; absent = 3, the
+   * balance baseline). Captured ONCE at world creation from the invite
+   * link and never changed mid-life. Scales ONLY the tier unlock
+   * thresholds (see tierRules.scaledThreshold) - more players means
+   * better odds of a sharp shooter, so requirements grow superlinearly.
+   */
+  expectedPlayers?: number;
 }
 
 /**
@@ -124,6 +132,9 @@ export type ClientMsg =
       identity: Cosmetics & { id: string };
       /** ?reset link flag: wipe the world's shared score before joining */
       reset?: boolean;
+      /** ?players=N from the invite link - only the join that CREATES
+       *  the world reads it (2-5); ignored ever after */
+      players?: number;
     }
   | { t: "move-to"; x: number; d: number }
   | { t: "throw"; throwId: string; launch: ThrowLaunch }

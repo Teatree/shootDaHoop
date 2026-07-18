@@ -29,6 +29,9 @@ export class SocketBackend implements Backend {
       identity: SocketIdentity;
       /** ?reset link: ask the server to wipe the shared score on join */
       reset?: boolean;
+      /** ?players=N from the invite link - sizes the court IF this join
+       *  is the one that creates the world (server decides) */
+      players?: number;
     },
   ) {}
 
@@ -41,6 +44,7 @@ export class SocketBackend implements Backend {
         lobby: this.opts.lobby,
         identity: this.opts.identity,
         reset: this.opts.reset,
+        players: this.opts.players,
       });
     ws.onmessage = (ev) => {
       try {

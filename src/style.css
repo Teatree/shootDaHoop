@@ -323,6 +323,25 @@ body {
   flex: 1;
 }
 
+/* The invite's court-size slider row: label + range + live value */
+.modal-slider-row {
+  align-items: center;
+  font-size: 13px;
+  color: #cdbb9b;
+}
+
+.modal-slider-row input[type="range"] {
+  flex: 1;
+  accent-color: #d9873a;
+}
+
+.modal-slider-val {
+  min-width: 1.2em;
+  text-align: center;
+  font-weight: bold;
+  color: #fff3d6;
+}
+
 .modal-url-input {
   width: min(420px, 70vw);
   padding: 8px 12px;

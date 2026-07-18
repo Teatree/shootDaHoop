@@ -78,7 +78,7 @@ wss.on("connection", (ws: WebSocket) => {
       if (msg.t === "join") {
         const lobby = String(msg.lobby).slice(0, 64) || "court";
         const r = roomFor(lobby);
-        if (await r.join(ws, msg.identity, msg.reset === true)) {
+        if (await r.join(ws, msg.identity, msg.reset === true, msg.players)) {
           room = r;
           playerId = msg.identity.id;
           console.log(

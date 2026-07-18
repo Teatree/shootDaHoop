@@ -16,6 +16,8 @@ import {
   interactivesForTier,
   nextTier,
   orbTimingForTier,
+  scaledThreshold,
+  thresholdScale,
 } from "./tierRules";
 
 // The tier recipes are DATA - these tests pin the doc's exact numbers
@@ -307,5 +309,53 @@ describe("canUpgrade / nextTier", () => {
     const top = HOOP_TIERS[HOOP_TIERS.length - 1].id;
     expect(nextTier(top)).toBeNull();
     expect(canUpgrade({ sharedScore: 999999, tierId: top })).toBe(false);
+  });
+});
+
+// Lobby scaling (owner ask 2026-07-18): a court built for n players
+// scales ONLY the tier thresholds - superlinearly, because a bigger
+// crowd is likelier to hold a sharp shooter. 3 is the balance baseline.
+describe("lobby scaling (thresholdScale / scaledThreshold)", () => {
+  it("the baseline trio scales by exactly 1 - today's numbers", () => {
+    expect(thresholdScale(3)).toBe(1);
+    expect(thresholdScale(undefined)).toBe(1);
+    for (const t of HOOP_TIERS)
+      expect(scaledThreshold(t, undefined)).toBe(t.threshold);
+  });
+
+  it("grows superlinearly with the crowd", () => {
+    expect(thresholdScale(2)).toBeCloseTo(0.6);
+    expect(thresholdScale(4)).toBeCloseTo((4 / 3) * 1.1);
+    expect(thresholdScale(5)).toBeCloseTo(2);
+    // per-head requirement rises with n (the skill-odds premium)
+    expect(thresholdScale(5) / 5).toBeGreaterThan(thresholdScale(2) / 2);
+  });
+
+  it("clamps wild inputs into the 2-5 slider range", () => {
+    expect(thresholdScale(0)).toBe(thresholdScale(2));
+    expect(thresholdScale(99)).toBe(thresholdScale(5));
+    expect(thresholdScale(Number.NaN)).toBe(1);
+  });
+
+  it("rounds thresholds to a friendly 50", () => {
+    for (const n of [2, 3, 4, 5])
+      for (const t of HOOP_TIERS.slice(1))
+        expect(scaledThreshold(t, n) % 50).toBe(0);
+  });
+
+  it("canUpgrade enforces the scaled threshold", () => {
+    const t2 = nextTier(1)!;
+    const duo = scaledThreshold(t2, 2); // 600 at today's numbers
+    expect(duo).toBeLessThan(t2.threshold);
+    expect(
+      canUpgrade({ sharedScore: duo - 1, tierId: 1, expectedPlayers: 2 }),
+    ).toBe(false);
+    expect(
+      canUpgrade({ sharedScore: duo, tierId: 1, expectedPlayers: 2 }),
+    ).toBe(true);
+    // the same score is NOT enough on a five-player court
+    expect(
+      canUpgrade({ sharedScore: duo, tierId: 1, expectedPlayers: 5 }),
+    ).toBe(false);
   });
 });

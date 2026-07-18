@@ -8,6 +8,8 @@ import {
 } from "../src/shared/court";
 import { resolveThrow } from "../src/shared/simulate";
 import {
+  MAX_EXPECTED_PLAYERS,
+  MIN_EXPECTED_PLAYERS,
   canUpgrade,
   cheerDeckForTier,
   clampToWalkable,
@@ -139,12 +141,18 @@ export class Room {
     }, BALANCE.lobby.snapshotIntervalS * 1000);
   }
 
+  /** No bundle existed at hydrate - the FIRST join creates this world
+   *  and may size it via the invite link's ?players=N (one shot). */
+  private freshWorld = false;
+
   private async hydrate() {
     const bundle = await this.storage.loadWorld(this.lobby);
     if (bundle) {
       this.world = bundle.world;
       this.history = bundle.history ?? [];
       this.seedOfflineLineup(bundle.offline ?? []);
+    } else {
+      this.freshWorld = true;
     }
   }
 
@@ -224,8 +232,19 @@ export class Room {
     ws: WebSocket,
     identity: Cosmetics & { id: string },
     reset = false,
+    players?: number,
   ): Promise<boolean> {
     await this.ready;
+    if (this.freshWorld) {
+      // the creating join sizes the court - once; later joins (and any
+      // hand-tweaked ?players on the same link) change nothing. Stored
+      // explicitly, default included, so the bundle shows the choice.
+      this.freshWorld = false;
+      this.world = {
+        ...this.world,
+        expectedPlayers: clampExpectedPlayers(players),
+      };
+    }
     const existing = this.occupants.get(identity.id);
     // capacity counts CONNECTED players - a waiting offline character
     // must never lock its own player (or friends) out
@@ -237,8 +256,13 @@ export class Room {
 
     if (reset) {
       // the ?reset link: wipe the world's shared score (the communal
-      // progression), keep the wall + everyone's daily budgets
-      this.world = { sharedScore: 0, tierId: 1 };
+      // progression), keep the wall + everyone's daily budgets - and
+      // the court's size (expectedPlayers is for life)
+      this.world = {
+        sharedScore: 0,
+        tierId: 1,
+        expectedPlayers: this.world.expectedPlayers,
+      };
       this.record({ kind: "reset", name: identity.name }); // also persists
       track(
         "progression",
@@ -715,8 +739,12 @@ export class Room {
           );
           break;
         }
-        // the next tier counts fresh from zero
-        this.world = { sharedScore: 0, tierId: next.id };
+        // the next tier counts fresh from zero (the court keeps its size)
+        this.world = {
+          sharedScore: 0,
+          tierId: next.id,
+          expectedPlayers: this.world.expectedPlayers,
+        };
         // teleport every active player clear of the hoop
         const placements = [...this.occupants.entries()].map(([id, o]) => {
           const spot = rollUpgradeClearSpot();
@@ -1035,6 +1063,16 @@ function send(ws: WebSocket, msg: ServerMsg) {
 
 function logSaveError(err: unknown) {
   console.error("persist failed (state kept in memory):", err);
+}
+
+/** The invite link's court size, over the wire - keep it 2-5, whole. */
+function clampExpectedPlayers(n: unknown): number {
+  return typeof n === "number" && Number.isFinite(n)
+    ? Math.min(
+        MAX_EXPECTED_PLAYERS,
+        Math.max(MIN_EXPECTED_PLAYERS, Math.round(n)),
+      )
+    : 3;
 }
 
 /** Head variant must index a real part texture on every client. */

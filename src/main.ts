@@ -70,12 +70,15 @@ function chooseBackend(
   const defaultUrl = import.meta.env.DEV
     ? `ws://${location.hostname}:9999`
     : `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`;
+  const players = Number(params.get("players"));
   return new SocketBackend({
     url: params.get("server") ?? defaultUrl,
     lobby,
     identity: { id: params.get("pid") ?? devIdentity(), ...identity },
     // ?reset wipes the lobby's shared score on join (dev/owner tool)
     reset: params.has("reset"),
+    // ?players=N sizes a FRESH court's thresholds (invite slider)
+    players: Number.isFinite(players) && players > 0 ? players : undefined,
   });
 }
 

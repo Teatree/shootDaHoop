@@ -35,10 +35,44 @@ export function nextTier(tierId: number): HoopTierDef | null {
   return getTier(tierId + 1) ?? null;
 }
 
+/** The crowd sizes a court can be built for (the invite slider). */
+export const MIN_EXPECTED_PLAYERS = 2;
+export const MAX_EXPECTED_PLAYERS = 5;
+
+/**
+ * Superlinear crowd scale for the tier thresholds: more players means
+ * better odds one of them is a sharp shooter, so the requirement grows
+ * FASTER than headcount. (n/3) * (1 + 0.1 * (n - 3)) - 3 players is the
+ * balance baseline (the anchor trio, docs/scoring-curve.md):
+ * 2 -> 0.60, 3 -> 1.00, 4 -> ~1.47, 5 -> 2.00.
+ */
+export function thresholdScale(n: number | undefined): number {
+  const raw = Math.round(n ?? 3);
+  const c = Number.isFinite(raw)
+    ? Math.min(MAX_EXPECTED_PLAYERS, Math.max(MIN_EXPECTED_PLAYERS, raw))
+    : 3;
+  return (c / 3) * (1 + 0.1 * (c - 3));
+}
+
+/** The tier's unlock threshold on an n-player court, rounded to a
+ *  friendly 50 so the hoop-foot screen never shows a ragged number. */
+export function scaledThreshold(
+  tier: HoopTierDef,
+  expectedPlayers: number | undefined,
+): number {
+  return Math.round((tier.threshold * thresholdScale(expectedPlayers)) / 50) * 50;
+}
+
 /** Threshold met → the "Upgrade" button may appear and a press is valid. */
-export function canUpgrade(w: { sharedScore: number; tierId: number }): boolean {
+export function canUpgrade(w: {
+  sharedScore: number;
+  tierId: number;
+  expectedPlayers?: number;
+}): boolean {
   const next = nextTier(w.tierId);
-  return next !== null && w.sharedScore >= next.threshold;
+  return (
+    next !== null && w.sharedScore >= scaledThreshold(next, w.expectedPlayers)
+  );
 }
 
 /** Tiers 1..tierId in play order - effects accumulate across them. */

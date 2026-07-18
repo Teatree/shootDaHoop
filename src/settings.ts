@@ -25,6 +25,11 @@ function openSettings(): void {
   const overlay = buildOverlay(`
     <div class="modal-title">Settings</div>
     <div class="modal-sub">Start a new court and invite friends to it.</div>
+    <label class="modal-row modal-slider-row" for="gen-players">
+      <span>Expected players:</span>
+      <input type="range" id="gen-players" min="2" max="5" step="1" value="3" />
+      <span id="gen-players-val" class="modal-slider-val">3</span>
+    </label>
     <button class="modal-btn" id="gen-link">Generate lobby link</button>
     <div id="gen-result" hidden>
       <input class="modal-url-input" id="gen-url" type="text" readonly />
@@ -52,19 +57,30 @@ function openSettings(): void {
     e.stopPropagation(); // keep keys from reaching the game/chat
   });
 
+  // the court-size slider (2-5): the new lobby's hoop thresholds scale
+  // for this crowd - captured by the server at the world's creation
+  const playersInput = q<HTMLInputElement>("#gen-players");
+  const playersVal = q<HTMLSpanElement>("#gen-players-val");
+  playersInput.addEventListener("input", () => {
+    playersVal.textContent = playersInput.value;
+  });
+
   // the pop-up shows the bare URL; the clipboard gets the stylized
   // invitation poster (the link rides along inside it)
   let invite = "";
   q("#gen-link").addEventListener("click", () => {
     const lobbyId = generateLobbyId();
+    const players = playersInput.value;
     urlInput.value = buildLobbyUrl(
       location.origin,
       location.pathname,
       location.search,
       lobbyId,
+      // the default stays off the link - baseline courts keep clean URLs
+      players !== "3" ? { players } : undefined,
     );
     invite = buildInvite(urlInput.value);
-    reportEvent("invite_generated", lobbyId);
+    reportEvent("invite_generated", `${lobbyId} (${players}p)`);
     result.hidden = false;
     copyBtn.textContent = "Copy invite";
     urlInput.select();
