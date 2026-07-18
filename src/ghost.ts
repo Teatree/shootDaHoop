@@ -21,12 +21,15 @@ import { FIGURE_H } from "./shared/pose";
 // The aim indicator is never recorded, so it never appears in a replay.
 
 import {
+  inferRecordingTier,
   lerpBall,
   lerpFrame,
   sampleAt,
   type FrameSample,
   type ThrowRecording,
 } from "./ghostData";
+import { createHoop, type HoopParts } from "./placeholders";
+import { hoopGeometryForTier, hoopLookForTier } from "./shared/tierRules";
 
 // data types + interpolation live in ghostData.ts (pure, unit-testable);
 // re-exported so consumers keep one import site
@@ -44,6 +47,9 @@ interface Ghosts {
   orbCore: Phaser.GameObjects.Arc;
   bubble: Phaser.GameObjects.Container | null;
   bubbleText: string | null;
+  /** the RECORDED tier's hoop, rebuilt half-alpha behind the live one
+   *  when the tiers differ - the throw scores where it really scored */
+  ghostHoop: HoopParts | null;
   ballShown: boolean;
   outcomeFired: boolean;
   catchFired: boolean;
@@ -58,8 +64,11 @@ export class GhostPlayback {
     private readonly scene: Phaser.Scene,
     /** the recorded player's look - recordings are always OWN throws */
     private readonly look: RigLook,
-    /** fired at the recording's hit moment so the scene can snap the net */
-    private readonly onMade: () => void,
+    /** the LIVE world tier - a replay from another tier ghosts its hoop */
+    private readonly currentTier: () => number,
+    /** fired at the recording's hit moment so the scene can snap the
+     *  net - of the ghost hoop when the replay brought its own */
+    private readonly onMade: (ghostHoop: HoopParts | null) => void,
   ) {}
 
   /** Start replaying - instantly replaces any recording already playing. */
@@ -115,6 +124,30 @@ export class GhostPlayback {
       .circle(0, 0, orbR, 0x2e7bff, 0.95 * a)
       .setVisible(false);
 
+    // a replay from ANOTHER tier brings its own hoop: the recorded
+    // tier's geometry + paint, half-alpha behind the live one, so the
+    // ball visibly scores on the hoop it was thrown at (owner ask
+    // 2026-07-18). Same-tier replays use the live hoop as before.
+    let ghostHoop: HoopParts | null = null;
+    const recTier = inferRecordingTier(rec);
+    if (recTier !== null && recTier !== this.currentTier()) {
+      ghostHoop = createHoop(
+        this.scene,
+        hoopGeometryForTier(recTier),
+        hoopLookForTier(recTier),
+        { ghost: true },
+      );
+      // pop in with the rest of the ghost cast
+      ghostHoop.body.setAlpha(0);
+      for (const r of ghostHoop.rims) r.net.setAlpha(0);
+      this.scene.tweens.add({
+        targets: [ghostHoop.body, ...ghostHoop.rims.map((r) => r.net)],
+        alpha: a,
+        duration: T.ghost.popMs,
+        ease: "Cubic.easeOut",
+      });
+    }
+
     // pop in (the rig fades in above - its scaleX carries the mirror)
     label.setScale(0);
     this.scene.tweens.add({
@@ -136,6 +169,7 @@ export class GhostPlayback {
       orbCore,
       bubble: null,
       bubbleText: null,
+      ghostHoop,
       ballShown: false,
       outcomeFired: false,
       catchFired: false,
@@ -161,8 +195,13 @@ export class GhostPlayback {
       g.orbCore,
     ];
     if (g.bubble) objs.push(g.bubble);
+    // the ghost hoop fades with the cast; destroy() also sweeps its
+    // hidden dressing (Phaser's destroy is a no-op the second time)
+    if (g.ghostHoop)
+      objs.push(g.ghostHoop.body, ...g.ghostHoop.rims.map((r) => r.net));
     if (instant) {
       for (const o of objs) o.destroy();
+      g.ghostHoop?.destroy();
       this.g = null;
     } else {
       if (g.fading) return;
@@ -174,6 +213,7 @@ export class GhostPlayback {
         ease: "Cubic.easeIn",
         onComplete: () => {
           for (const o of objs) o.destroy();
+          g.ghostHoop?.destroy();
           if (this.g === g) this.g = null;
         },
       });
@@ -247,10 +287,11 @@ export class GhostPlayback {
       if (rec.teleportTo) this.zap(rec.teleportTo);
     }
 
-    // the recorded hit moment: let the scene snap the real net
+    // the recorded hit moment: let the scene snap the net - the ghost
+    // hoop's own net when the replay brought one
     if (!g.outcomeFired && rec.outcomeT !== undefined && g.t >= rec.outcomeT) {
       g.outcomeFired = true;
-      if (rec.made) this.onMade();
+      if (rec.made) this.onMade(g.ghostHoop);
     }
 
     // the recorded catch: the ball popped back to the player right here

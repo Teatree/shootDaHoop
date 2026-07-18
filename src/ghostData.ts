@@ -42,6 +42,13 @@ export interface ThrowRecording {
    * from before this field default to classic.
    */
   ballLook?: BallLookId;
+  /**
+   * The world tier AT RECORD TIME (owner ask 2026-07-18): when it
+   * differs from the live tier, the replay rebuilds THAT hoop as a
+   * ghost so the throw scores where it actually scored. Absent on old
+   * recordings - inferRecordingTier guesses from the ball look.
+   */
+  tierId?: number;
   playerSamples: FrameSample[];
   ballSamples: BallSample[];
   outcomeT?: number; //  when the hit/miss happened (recording time)
@@ -56,6 +63,18 @@ export interface ThrowRecording {
   duration?: number; //  outcomeT + postRollS, set when finalized
   done: boolean;
   evicted: boolean; //   samples dropped to bound memory - unplayable
+}
+
+/**
+ * The tier a recording was made at. Explicit stamps win; legacy
+ * recordings only carry the ball look, and "classic" balls only ever
+ * existed at tier 1 - "red" is ambiguous (tier 2 or 3), so those replay
+ * without a ghost hoop (null) rather than guess wrong.
+ */
+export function inferRecordingTier(rec: ThrowRecording): number | null {
+  if (rec.tierId !== undefined) return rec.tierId;
+  if ((rec.ballLook ?? "classic") === "classic") return 1;
+  return null;
 }
 
 const lin = (a: number, b: number, f: number) => a + (b - a) * f;

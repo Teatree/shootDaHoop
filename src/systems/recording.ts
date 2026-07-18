@@ -7,6 +7,7 @@ import type { TeleportOrb } from "../powerup";
 import type { SpeechBubbles } from "../speech";
 import type { Ball } from "../ball";
 import type { RigLook } from "../characterRig";
+import type { HoopParts } from "../placeholders";
 import type { BallLookId } from "../shared/tierChanges";
 
 // Ghost records, capture side: a rolling buffer of world frame samples
@@ -46,12 +47,14 @@ export class RecordingSystem {
     scene: Phaser.Scene,
     private readonly providers: RecordingProviders,
     private readonly look: RigLook,
-    onMade: () => void,
+    /** the LIVE world tier - replays from another tier ghost their hoop */
+    currentTier: () => number,
+    onMade: (ghostHoop: HoopParts | null) => void,
     /** a recording just finalized - the scene ships it to the backend
      *  so the wall line replays on every screen, forever */
     private readonly onFinished?: (rec: ThrowRecording) => void,
   ) {
-    this.playback = new GhostPlayback(scene, look, onMade);
+    this.playback = new GhostPlayback(scene, look, currentTier, onMade);
   }
 
   /** Anchors the next slam recording and lets it replay the zapp. */
@@ -70,6 +73,7 @@ export class RecordingSystem {
     name: string,
     ballLook: BallLookId = "classic",
     throwId?: string,
+    tierId?: number,
   ): ThrowRecording {
     const tp = isSlam ? this.lastTeleport : undefined;
     const t0 = tp ? tp.at - T.ghost.slamPreRollS : this.timeS - T.ghost.preRollS;
@@ -85,6 +89,7 @@ export class RecordingSystem {
         headVariant: this.look.headVariant,
       },
       ballLook, // stamped NOW - the replay recolour rule reads this
+      tierId, //   the hoop the throw was really aimed at (ghost hoop)
       playerSamples: this.history
         .filter((s) => s.t >= t0)
         .map((s) => ({ ...s, t: s.t - t0 })),

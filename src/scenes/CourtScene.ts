@@ -331,7 +331,9 @@ export class CourtScene extends Phaser.Scene {
       this,
       { player: this.player, orb: this.teleport.orb, speech: this.speech },
       this.identity,
-      () => replayMadeEffect(this, this.hoop),
+      () => this.director.tierId,
+      // a replay from another tier scores on ITS ghost hoop, not ours
+      (ghostHoop) => replayMadeEffect(this, ghostHoop ?? this.hoop),
       // a finished recording ships to the authority: the wall line then
       // replays on EVERY screen, and survives restarts (owner 2026-07-17)
       (rec) => {
@@ -1127,6 +1129,7 @@ export class CourtScene extends Phaser.Scene {
       this.playerName,
       this.director.ballLook, // the recolour rule stamps record time
       throwId,
+      this.director.tierId, // ...and so does the hoop tier (ghost hoop)
     );
     this.recsByThrowId.set(throwId, rec);
     this.ballsByThrowId.set(throwId, ball);

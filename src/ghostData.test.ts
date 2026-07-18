@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  inferRecordingTier,
   lerpBall,
   lerpFrame,
   sampleAt,
   type BallSample,
   type FrameSample,
+  type ThrowRecording,
 } from "./ghostData";
 
 const b = (t: number, x: number): BallSample => ({ t, x, d: 3, h: 1 });
@@ -42,6 +44,35 @@ describe("sampleAt", () => {
   it("survives duplicate timestamps", () => {
     const arr = [b(0, 0), b(0.5, 4), b(0.5, 4), b(1, 10)];
     expect(sampleAt(arr, 0.5, lerpBall)!.x).toBeCloseTo(4, 10);
+  });
+});
+
+// The ghost-hoop rule (owner 2026-07-18): a replay rebuilds the hoop of
+// the tier it was RECORDED at. New recordings stamp the tier; legacy
+// ones only carry the ball look - classic pins tier 1, red is ambiguous
+// (tier 2 or 3) so those replay against the live hoop (null).
+describe("inferRecordingTier", () => {
+  const rec = (extra: Partial<ThrowRecording>): ThrowRecording => ({
+    name: "t",
+    playerSamples: [],
+    ballSamples: [],
+    done: true,
+    evicted: false,
+    ...extra,
+  });
+
+  it("an explicit stamp always wins", () => {
+    expect(inferRecordingTier(rec({ tierId: 3, ballLook: "classic" }))).toBe(3);
+    expect(inferRecordingTier(rec({ tierId: 1, ballLook: "red" }))).toBe(1);
+  });
+
+  it("legacy classic balls only ever existed at tier 1", () => {
+    expect(inferRecordingTier(rec({ ballLook: "classic" }))).toBe(1);
+    expect(inferRecordingTier(rec({}))).toBe(1); // pre-ballLook = classic
+  });
+
+  it("legacy red balls are ambiguous - no ghost hoop", () => {
+    expect(inferRecordingTier(rec({ ballLook: "red" }))).toBeNull();
   });
 });
 

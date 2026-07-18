@@ -577,11 +577,17 @@ function darken(c: number, f = 0.8): number {
  * tier's paint job, standing at the right end of the court. Rebuilt on
  * upgrade (the tier director destroys the old parts and creates the new
  * ones, staged for choreo).
+ *
+ * `ghost` renders the SAME hoop as a half-alpha stand-in behind the
+ * live one (a replay of a throw from another tier scores on the hoop
+ * it was actually thrown at): no floor shadow, no foot screen - just
+ * the structure and its nets, ready for the replay's net snap.
  */
 export function createHoop(
   scene: Phaser.Scene,
   geom: HoopGeometry,
   look: HoopLook = DEFAULT_HOOP_LOOK,
+  opts?: { ghost?: boolean },
 ): HoopParts {
   const baseY = floorY(RIM.d);
   const boardX = geom.boardX * M;
@@ -704,6 +710,18 @@ export function createHoop(
 
     return { id: rim.id, net, rimSX: rim.x * M, rimSY: rimY };
   });
+
+  if (opts?.ghost) {
+    // half-alpha structure BEHIND the live hoop; the dressing (shadow,
+    // foot housing, score screen) stays built - HoopParts keeps one
+    // shape - but hidden: a ghost casts no shadow and counts no score
+    const a = T.ghost.alpha;
+    shadow.setVisible(false);
+    foot.setVisible(false);
+    scoreText.setVisible(false);
+    g.setAlpha(a).setDepth(sortDepth(RIM.d) - 2);
+    for (const r of rims) r.net.setAlpha(a).setDepth(sortDepth(RIM.d) - 2);
+  }
 
   const primary = rims[geom.rims.indexOf(lowest)];
   return {
