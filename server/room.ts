@@ -781,8 +781,13 @@ export class Room {
             ? { seed: (Math.random() * 0xffffffff) >>> 0, anchorMs: Date.now() }
             : null,
         };
-        // teleport every active player clear of the hoop
+        // teleport every active player clear of the hoop - but a PARKED
+        // offline statue keeps its waiting spot (deck seat / lineup
+        // slot): those already stand clear, and scattering them undid
+        // the seating (seen live 2026-07-18)
         const placements = [...this.occupants.entries()].map(([id, o]) => {
+          if (o.ws === null && (o.deckSlot !== null || o.waitSlot !== null))
+            return { id, x: o.info.x, d: o.info.d };
           const spot = rollUpgradeClearSpot();
           o.info.x = spot.x;
           o.info.d = spot.d;

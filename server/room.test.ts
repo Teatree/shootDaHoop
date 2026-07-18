@@ -291,6 +291,32 @@ describe("offline characters wait around", () => {
     }
   });
 
+  it("an upgrade leaves parked statues on their waiting spots", async () => {
+    vi.useFakeTimers();
+    try {
+      const { room } = await makeRoom(HOOP_TIERS[2].threshold, 2); // tier 2 -> 3
+      const spots = interactiveSpots(cheerDeckForTier(2)!);
+      const a = new FakeWS();
+      const b = new FakeWS();
+      await room.join(ws(a), identity("alice"));
+      await room.join(ws(b), identity("bob"));
+      room.leave("bob", ws(b));
+      vi.advanceTimersByTime(BALANCE.presence.offlineWalkDelayS * 1000 + 50);
+
+      standAtHoop(room, "alice");
+      room.handle("alice", { t: "upgrade" });
+      const [up] = a.of("upgraded");
+      if (up?.t !== "upgraded") throw new Error("no upgrade");
+      const statue = up.placements.find((p) => p.id === "bob");
+      if (!statue) throw new Error("statue missing from placements");
+      // still on deck seat 0 - not scattered into the clear band
+      expect(statue.x).toBeCloseTo(spots[0].x);
+      expect(statue.d).toBeCloseTo(spots[0].d);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("a reclaim before the delay cancels the waiting walk", async () => {
     vi.useFakeTimers();
     try {
