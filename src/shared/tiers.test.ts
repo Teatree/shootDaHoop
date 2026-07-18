@@ -13,6 +13,7 @@ import {
   hoopChoreoGeometries,
   hoopGeometryForTier,
   hoopLookForTier,
+  hoopMotionForTier,
   interactivesForTier,
   nextTier,
   orbTimingForTier,
@@ -109,6 +110,16 @@ describe("hoopGeometryForTier", () => {
     expect(upper.h - lower.h).toBeGreaterThan(ball * 2 * 1.5);
   });
 
+  it("tier 4 is back to ONE rim: 20% wider, same structure height", () => {
+    const g = hoopGeometryForTier(4);
+    expect(g.rims).toHaveLength(1);
+    expect(g.rims[0].id).toBe("main");
+    // no heightScale on the tier-4 change: the structure keeps 1.4 * 1.1
+    expect(g.rims[0].h).toBeCloseTo(BALANCE.hoop.rimHeightM * 1.4 * 1.1, 10);
+    // the rim folds 1.15 (tier 2) * 1.2 (tier 4) over the base width
+    expect(g.rims[0].r).toBeCloseTo(BALANCE.hoop.rimRadiusM * 1.15 * 1.2, 10);
+  });
+
   it("the board always sits behind the back-most rim", () => {
     for (const t of HOOP_TIERS) {
       const g = hoopGeometryForTier(t.id);
@@ -147,8 +158,42 @@ describe("hoopChoreoGeometries (the upgrade animation's staged looks)", () => {
     expect(full).toEqual(t3);
   });
 
+  it("tier 4: the double collapses to one → rim widens → starts moving", () => {
+    const stages = hoopChoreoGeometries(4);
+    expect(stages).toHaveLength(4); // collapse, wait, widen, start-moving
+    const [collapsed, wait, wide, moving] = stages;
+    const t4 = hoopGeometryForTier(4);
+    // beat 1: ONE rim again, still at the tier-3 fold's width
+    expect(collapsed.rims).toHaveLength(1);
+    expect(collapsed.rims[0].r).toBeCloseTo(
+      BALANCE.hoop.rimRadiusM * 1.15,
+      10,
+    );
+    expect(wait).toEqual(collapsed);
+    // beat 3: the rim widens to the full tier-4 opening
+    expect(wide).toEqual(t4);
+    // the start-moving cue changes no geometry - it flips the carriage on
+    expect(moving).toEqual(t4);
+  });
+
   it("tier 1 has no hoop choreography", () => {
     expect(hoopChoreoGeometries(1)).toEqual([]);
+  });
+});
+
+describe("hoopMotionForTier (the Hoop 4 moving hoop)", () => {
+  it("hoops stand still through tier 3", () => {
+    for (const id of [1, 2, 3]) expect(hoopMotionForTier(id)).toBeNull();
+  });
+
+  it("tier 4 rides slowly with 2-4 s dwells (owner spec 2026-07-18)", () => {
+    const m = hoopMotionForTier(4)!;
+    expect(m).not.toBeNull();
+    expect(m.dwellMinS).toBe(2);
+    expect(m.dwellMaxS).toBe(4);
+    expect(m.travelM).toBeGreaterThan(0);
+    // "moves slowly": under a meter per second on average
+    expect(m.travelM / m.travelS).toBeLessThan(1);
   });
 });
 
@@ -169,6 +214,12 @@ describe("effectivePowerForTier (+25% ball travel)", () => {
   it("tier 3 adds no further range", () => {
     expect(effectivePowerForTier(3)).toEqual(effectivePowerForTier(2));
   });
+
+  it("tier 4 stacks another +25% travel: speed folds to √(1.25 * 1.25)", () => {
+    const p = effectivePowerForTier(4);
+    expect(p.maxPowerM).toBeCloseTo(BALANCE.power.maxPowerM * 1.25, 10);
+    expect(p.minPowerM).toBeCloseTo(BALANCE.power.minPowerM * 1.25, 10);
+  });
 });
 
 describe("looks", () => {
@@ -176,12 +227,27 @@ describe("looks", () => {
     expect(ballLookForTier(1)).toBe("classic");
     expect(ballLookForTier(2)).toBe("red");
     expect(ballLookForTier(3)).toBe("red");
+    expect(ballLookForTier(4)).toBe("pinkpurple");
   });
 
-  it("court floor: standard → mahogany → glass", () => {
+  it("court floor: standard → mahogany → glass → white", () => {
     expect(courtLookForTier(1)).toBe("standard");
     expect(courtLookForTier(2)).toBe("mahogany");
     expect(courtLookForTier(3)).toBe("glass");
+    expect(courtLookForTier(4)).toBe("white");
+  });
+
+  it("tier 4 hoop: light brown base/wall, BLACK rim (owner 2026-07-18)", () => {
+    const t4 = hoopLookForTier(4);
+    const rgb = (c: number) => [(c >> 16) & 0xff, (c >> 8) & 0xff, c & 0xff];
+    for (const part of [t4.board, t4.pole]) {
+      const [r, g, b] = rgb(part);
+      expect(r).toBeGreaterThan(g); // brown: warm...
+      expect(g).toBeGreaterThan(b); // ...descending r > g > b
+      expect(r).toBeGreaterThan(0x90); // LIGHT brown, not mahogany
+    }
+    const [r, g, b] = rgb(t4.rim);
+    expect(Math.max(r, g, b)).toBeLessThan(0x30); // black rim
   });
 
   it("hoop paint: each hoop change repaints board/rim/pole", () => {
@@ -243,6 +309,25 @@ describe("atmosphereForTier", () => {
     const sky = a.sky;
     const skyAvg = (((sky >> 16) & 0xff) + ((sky >> 8) & 0xff) + (sky & 0xff)) / 3;
     expect((r + g + b) / 3).toBeLessThan(skyAvg - 40);
+  });
+
+  it("tier 4: green-gray sky, one BIG bright-yellow sun at Hoop 1 pace", () => {
+    const a = atmosphereForTier(4);
+    const rgb = (c: number) => [(c >> 16) & 0xff, (c >> 8) & 0xff, c & 0xff];
+    // the sun: bright yellow (strong red + green, weak blue), BIGGER,
+    // back at the base speed, steady
+    const [r, g, b] = rgb(a.sun.coreColor);
+    expect(r).toBeGreaterThan(0xe0);
+    expect(g).toBeGreaterThan(0xb0);
+    expect(b).toBeLessThan(0x60);
+    expect(a.sun.sizeScale).toBeGreaterThan(1);
+    expect(a.sun.speedScale).toBe(1);
+    expect(a.sun.pulsate).toBe(false);
+    // the sky: green-gray - green leads, and the channels sit close
+    const [sr, sg, sb] = rgb(a.sky);
+    expect(sg).toBeGreaterThanOrEqual(sr);
+    expect(sg).toBeGreaterThan(sb);
+    expect(Math.max(sr, sg, sb) - Math.min(sr, sg, sb)).toBeLessThan(0x28);
   });
 
   it("the sky: base cream through tier 2, LIGHT GRAY at tier 3, gradual", () => {

@@ -393,6 +393,16 @@ const COURT_PALETTES: Record<
     line: 0xffffff,
     shine: true,
   },
+  // Hoop 4: white court, black painted lines. PLACEHOLDER (tune):
+  // near-white planks in two barely-different shades so the stripes
+  // still read, a light-gray lip, hard black lines.
+  white: {
+    even: 0xf4f4f0,
+    odd: 0xebebe5,
+    lip: 0xc8c8c0,
+    line: 0x141414,
+    shine: false,
+  },
 };
 
 /** The court floor band with its painted lines, in the given skin. */

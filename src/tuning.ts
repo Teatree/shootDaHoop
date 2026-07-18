@@ -158,6 +158,12 @@ export const T = {
   ballLooks: {
     classic: 0xffffff,
     red: 0xff5f4a,
+    // Hoop 4: pink-purple. NOTE a multiply tint cannot make true purple
+    // out of the orange emoji ball (orange has no blue channel) - the
+    // world ball gets a recolored canvas TEXTURE (placeholders.ts);
+    // this tint is the fallback where ctx.filter is unsupported.
+    // PLACEHOLDER (tune)
+    pinkpurple: 0xd66bff,
   } as Record<string, number>,
   // PLACEHOLDER (tune): YOUR ball vs everyone else's - a warm cream
   // multiply over whatever look the tier gives, so it composes with the

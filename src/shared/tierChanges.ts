@@ -21,10 +21,10 @@
 export type FxKind = "pop" | "splash" | "pop-splash" | "none";
 
 /** Court-floor skins the Scene Visual Change can switch between. */
-export type CourtLookId = "standard" | "mahogany" | "glass";
+export type CourtLookId = "standard" | "mahogany" | "glass" | "white";
 
 /** Ball skins the Permanent Effect can switch between (world + UI + ghosts). */
-export type BallLookId = "classic" | "red";
+export type BallLookId = "classic" | "red" | "pinkpurple";
 
 // ── 1. Hoop Change ────────────────────────────────────────────────────
 // Alters the hoop's shape and/or behaviour. Scales are relative to the
@@ -38,6 +38,10 @@ export type HoopBeat =
   | { beat: "widen-rim"; fx: FxKind }
   | { beat: "upper-juts-forward"; fx: FxKind }
   | { beat: "lower-appears"; fx: FxKind }
+  /** a double hoop folds back into ONE rim (Hoop 4's opening beat) */
+  | { beat: "collapse-to-single"; fx: FxKind }
+  /** presentation cue: the carriage begins its slow oscillation */
+  | { beat: "start-moving"; fx: FxKind }
   | { beat: "wait"; delayS: number };
 
 /** The hoop's paint job - board, rim and pole colours (0xRRGGBB). */
@@ -63,14 +67,34 @@ export interface DoubleHoopSpec {
   gapM: number;
 }
 
+/**
+ * Hoop 4's moving hoop: rim + backboard ride a slow vertical carriage
+ * between a low and a high stop; the pole never moves. The carriage
+ * dwells a RANDOM dwellMinS..dwellMaxS at each stop before moving
+ * again - the schedule is a seeded fold over epoch time
+ * (shared/hoopMotion.ts), so every client and the server compute the
+ * SAME position with no per-move messages.
+ */
+export interface HoopMotionSpec {
+  travelM: number; //   vertical travel between the two stops
+  travelS: number; //   seconds low -> high (smoothstep-eased = gradual)
+  dwellMinS: number; // the random dwell at each stop...
+  dwellMaxS: number; // ...rolled per stop from the seeded schedule
+}
+
 export interface HoopChange {
   type: "hoop-change";
   /** × the previous tier's overall hoop height (1.4 = +40% taller) */
   heightScale?: number;
   /** × the previous tier's rim opening width (1.15 = +15% wider) */
   rimWidthScale?: number;
-  /** replace the single rim with two stacked rims on one post */
-  doubleHoop?: DoubleHoopSpec;
+  /** replace the single rim with two stacked rims on one post;
+   *  EXPLICIT null removes a previous tier's double hoop
+   *  (undefined = inherit whatever came before) */
+  doubleHoop?: DoubleHoopSpec | null;
+  /** the hoop oscillates vertically from this tier on (null = stops;
+   *  undefined = inherit) */
+  motion?: HoopMotionSpec | null;
   /** repaint the hoop (board/rim/pole) from this tier on */
   look?: HoopLook;
   /** the upgrade animation, beat by beat, in order */

@@ -268,6 +268,94 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
     ],
   },
 
+  // ══════════════════════════════════════════════════════════════════
+  //  Hoop 4 - Moving Hoop, Sunshine & Chalk
+  //  (owner spec 2026-07-18) Green-gray world under a big bright-yellow
+  //  sun; back to ONE hoop - light brown, black rim, 20% wider - that
+  //  slowly rides up and down (pole stays, wall + rim move together);
+  //  white court with black lines; pink-purple balls, more powerful,
+  //  with 3 extra dots on the aim preview.
+  // ══════════════════════════════════════════════════════════════════
+  {
+    id: 4,
+    name: "Moving Hoop, Sunshine & Chalk",
+    // ── owner call 2026-07-18: DOUBLE Hoop 3's cost (2000 -> 4000).
+    // With tier-3 double shots paying up to 2.25x the curve, that is
+    // roughly two more of the anchor trio's days ──
+    threshold: 4000,
+    changes: [
+      // 1. Atmosphere Change FIRST (the owner's unlock order: BG + Sun,
+      //    then hoop, then court, then balls) - green-gray world, one
+      //    BIG bright-yellow sun back at Hoop 1's pace.
+      {
+        type: "atmosphere",
+        // PLACEHOLDER (tune): a faint green-gray wash over everything
+        overlay: { color: 0x8fa07a, alpha: 0.1 },
+        sun: {
+          coreColor: 0xffd928, // bright yellow      PLACEHOLDER (tune)
+          glowColor: 0xfff2a0, // warm halo          PLACEHOLDER (tune)
+          sizeScale: 1.35, //     clearly BIGGER      PLACEHOLDER (tune)
+          speedScale: 1.0, //     back to Hoop 1 speeds
+          pulsate: false,
+        },
+        sky: 0x9aa48f, // green-gray background      PLACEHOLDER (tune)
+        fx: "pop",
+      },
+
+      // 2. Hoop Change - back to a SINGLE hoop: light brown base and
+      //    wall, black rim 20% wider - and it MOVES: the rim + wall
+      //    ride a slow vertical carriage (the pole stays), dwelling a
+      //    random 2-4 s at each end before moving again.
+      {
+        type: "hoop-change",
+        rimWidthScale: 1.2, // 20% wider - easier to hit on the move
+        doubleHoop: null, //   explicitly removes tier 3's double hoop
+        look: {
+          board: 0xb8916a, //     light brown wall   PLACEHOLDER (tune)
+          boardEdge: 0x8a6a48, // darker brown edge  PLACEHOLDER (tune)
+          rim: 0x141414, //       BLACK rim
+          pole: 0xa8825c, //      light brown pole   PLACEHOLDER (tune)
+        },
+        motion: {
+          // PLACEHOLDER (tune): all four - "moves up and down slowly"
+          travelM: 1.2, //  low <-> high span
+          travelS: 2.4, //  one leg = 0.5 m/s average, eased = gradual
+          dwellMinS: 2, //  the owner's "between 2 and 4 seconds"
+          dwellMaxS: 4,
+        },
+        choreo: [
+          // the double hoop folds back into one...
+          { beat: "collapse-to-single", fx: "pop-splash" },
+          { beat: "wait", delayS: 0.8 }, // PLACEHOLDER (tune)
+          // ...the rim widens to its new 20%...
+          { beat: "widen-rim", fx: "pop-splash" },
+          // ...and the carriage starts its slow ride.
+          { beat: "start-moving", fx: "pop" },
+        ],
+        cameraRefit: true, // the camera envelope covers the full travel
+      },
+
+      // 3. Scene Visual Change - White Court with black painted lines.
+      {
+        type: "scene-visual",
+        target: "court-floor",
+        look: "white",
+        fx: "splash",
+      },
+
+      // 4. Permanent Effect - Pink-Purple Balls, more powerful. The aim
+      //    preview grows 3 extra dots (tuning.ts aim looks key off the
+      //    ball look id).
+      {
+        type: "permanent-effect",
+        effect: "ball-range",
+        travelScale: 1.25, // PLACEHOLDER (tune): +25% again, like tier 2
+        ballLook: "pinkpurple",
+        uiFx: "splash",
+      },
+    ],
+  },
+
   // To add Hoop N: copy a tier block above, set identity + threshold,
   // compose the ordered change list from shared/tierChanges.ts blocks.
 ] as const;

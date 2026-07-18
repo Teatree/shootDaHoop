@@ -20,6 +20,7 @@ import type {
   FxKind,
   HoopChange,
   HoopLook,
+  HoopMotionSpec,
   InteractiveElement,
   SunMood,
 } from "./tierChanges";
@@ -107,26 +108,31 @@ interface HoopFold {
   /** "upper-only" is the mid-choreography stage where the upper rim has
    *  jutted forward but the lower hasn't appeared yet */
   dblStage: "none" | "upper-only" | "full";
+  /** the tier's vertical oscillation (Hoop 4+); null = a still hoop */
+  motion: HoopMotionSpec | null;
 }
 
 /** Fold every hoop-change of tiers 1..tierId: scales are relative to the
- *  PREVIOUS tier, so they multiply. */
+ *  PREVIOUS tier, so they multiply. doubleHoop/motion are last-wins with
+ *  EXPLICIT null as removal (undefined inherits). */
 function foldHoop(tierId: number): HoopFold {
   const f: HoopFold = {
     heightK: 1,
     rimR: BALANCE.hoop.rimRadiusM,
     dbl: null,
     dblStage: "none",
+    motion: null,
   };
   for (const t of tiersUpTo(tierId))
     for (const c of t.changes)
       if (c.type === "hoop-change") {
         f.heightK *= c.heightScale ?? 1;
         f.rimR *= c.rimWidthScale ?? 1;
-        if (c.doubleHoop) {
+        if (c.doubleHoop !== undefined) {
           f.dbl = c.doubleHoop;
-          f.dblStage = "full";
+          f.dblStage = c.doubleHoop ? "full" : "none";
         }
+        if (c.motion !== undefined) f.motion = c.motion;
       }
   return f;
 }
@@ -230,12 +236,27 @@ export function hoopChoreoGeometries(tierId: number): HoopGeometry[] {
       case "lower-appears":
         f.dblStage = "full";
         break;
+      case "collapse-to-single":
+        // Hoop 4's opening: the double hoop folds back into one rim
+        // (still at the PREVIOUS fold's width - widening is its own beat)
+        f.dbl = null;
+        f.dblStage = "none";
+        break;
+      case "start-moving":
+        // a presentation cue - geometry unchanged; pushed anyway so the
+        // beat indices stay aligned with the choreo array
+        break;
       case "wait":
         break;
     }
     out.push(buildGeometry(f));
   }
   return out;
+}
+
+/** The tier's hoop oscillation, or null while hoops stand still. */
+export function hoopMotionForTier(tierId: number): HoopMotionSpec | null {
+  return foldHoop(tierId).motion;
 }
 
 // ── Hoop look (the paint job repaints with each hoop change) ──────────
