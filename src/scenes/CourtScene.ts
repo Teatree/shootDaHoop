@@ -990,28 +990,48 @@ export class CourtScene extends Phaser.Scene {
   /** The persistent court wall: lines that happened before we joined. */
   private renderHistory(entries: HistoryEntry[]) {
     for (const h of entries) {
+      // replayed lines show their RECORDED time; entries from before
+      // the stamp existed show no chip (null) instead of a wrong "now"
+      const at = h.atMs ?? null;
       if (h.kind === "chat") {
         this.hud.log(
           "chat",
           `<span class="who">${this.nameHtml(h.name)}:</span> ${linkify(esc(h.text))}`,
           h.name === this.playerName ? "mine" : undefined,
+          undefined,
+          at,
         );
       } else if (h.kind === "presence") {
         this.hud.log(
           "presence",
           `${this.nameHtml(h.name)} ${h.joined ? "joined" : "left"} the court.`,
+          undefined,
+          undefined,
+          at,
         );
       } else if (h.kind === "reset") {
-        this.hud.log("world", `${this.nameHtml(h.name)} reset the court score.`);
+        this.hud.log(
+          "world",
+          `${this.nameHtml(h.name)} reset the court score.`,
+          undefined,
+          undefined,
+          at,
+        );
       } else if (h.kind === "upgrade") {
         this.hud.log(
           "world",
           `${this.nameHtml(h.name)} upgraded the court to Hoop ${h.tierId}.`,
+          undefined,
+          undefined,
+          at,
         );
       } else if (h.kind === "catch") {
         this.hud.log(
           "throw",
           `${this.nameHtml(h.name)} caught their ball back! <span class="catch">+🏀</span>`,
+          undefined,
+          undefined,
+          at,
         );
       } else {
         // a caught miss never was a miss - its catch entry follows
@@ -1029,6 +1049,7 @@ export class CourtScene extends Phaser.Scene {
               : `${who} - ${d}m miss`,
           h.made ? undefined : "miss",
           throwId ? () => this.backend.requestRecording(throwId) : undefined,
+          at,
         );
       }
     }

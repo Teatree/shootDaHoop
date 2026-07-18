@@ -40,12 +40,15 @@ export interface HUD {
   setBudget(n: number, nextBallAtMs: number | null, popFrom?: number): void;
   /** the tier's ball look on the UI icons; splash = play the upgrade pop */
   setBallLook(look: BallLookId, splash: boolean): void;
-  /** text may contain the placeholders handled below; kept plain-text safe. */
+  /** text may contain the placeholders handled below; kept plain-text safe.
+   *  `atMs` stamps the line's HH:MM chip - undefined = now (live lines);
+   *  null = no chip (replayed history from before times were recorded) */
   log(
     type: LogType,
     html: string,
     extraClass?: string,
     onClick?: () => void,
+    atMs?: number | null,
   ): void;
   onChat(cb: (msg: string) => void): void;
 }
@@ -255,10 +258,18 @@ export function initHUD(): HUD {
       }
     },
 
-    log(type: LogType, html: string, extraClass?: string, onClick?: () => void) {
+    log(
+      type: LogType,
+      html: string,
+      extraClass?: string,
+      onClick?: () => void,
+      atMs?: number | null,
+    ) {
       const line = document.createElement("div");
       line.className = `log-line ${type}${extraClass ? ` ${extraClass}` : ""}`;
-      line.innerHTML = html;
+      // the time chip: simple 24h HH:MM, player-local (owner 2026-07-19)
+      const chip = atMs === null ? "" : `<span class="log-t">${hhmm(atMs)}</span>`;
+      line.innerHTML = chip + html;
       if (onClick) {
         line.classList.add("clickable");
         line.addEventListener("click", onClick);
@@ -271,6 +282,13 @@ export function initHUD(): HUD {
       chatCb = cb;
     },
   };
+}
+
+/** "14:07" - player-local 24h hour:minute, zero-padded. */
+function hhmm(atMs?: number): string {
+  const d = new Date(atMs ?? Date.now());
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 /** Escape user-typed text before it goes into innerHTML. */

@@ -782,6 +782,14 @@ body {
   text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.4);
 }
 
+/* the HH:MM time chip in front of every line (owner 2026-07-19) -
+   quiet, so the line's content stays the read */
+.log-t {
+  color: #8a7a5e;
+  font-size: 10px;
+  margin-right: 5px;
+}
+
 /* Throw outcomes - the standard line */
 .log-line.throw {
   color: #cdbb9b;

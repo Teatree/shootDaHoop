@@ -553,6 +553,9 @@ export class Room {
 
   /** Append to the wall history and persist the bundle - save on event. */
   private record(entry: HistoryEntry) {
+    // stamp the wall time (owner 2026-07-19: HH:MM per line) - the
+    // archive keeps its own `at`, this one replays to late joiners
+    if (entry.atMs === undefined) entry.atMs = Date.now();
     // the permanent archive gets EVERY entry, forever, per lobby -
     // the in-memory wall below stays capped for welcome replay
     void this.storage

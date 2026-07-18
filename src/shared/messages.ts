@@ -112,8 +112,13 @@ export interface ThrowOutcome {
   world: WorldState; // shared state after this outcome
 }
 
-/** A line of the persistent court wall, replayed to late joiners. */
-export type HistoryEntry =
+/** A line of the persistent court wall, replayed to late joiners.
+ *  Every entry carries `atMs` (stamped by the server's record()) so the
+ *  wall shows a simple HH:MM per line; absent on walls from before the
+ *  stamp existed - those lines just show no time. */
+export type HistoryEntry = HistoryEntryBody & { atMs?: number };
+
+type HistoryEntryBody =
   | {
       kind: "outcome";
       name: string;
