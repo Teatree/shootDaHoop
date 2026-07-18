@@ -12,15 +12,33 @@
 
 import { BALL_TYPES, DEFAULT_BALL } from "./balls";
 
+// ── Court shortening (owner 2026-07-19): the floor's LEFT edge pulls in
+// to 250 px left of the ORIGINAL full court's center (x 14). The
+// coordinate system does not move - x 0, the rim and every landmark
+// stay put; the floor just starts further right. The scoring curve's
+// midpoint sits at the SHORTENED court's center (the drawn center
+// circle), so gains visibly drop off exactly there. ──────────────────
+const COURT_METER_PX = 32;
+const COURT_LENGTH_M = 28;
+const RIM_FROM_BASELINE_M = 1.575;
+const COURT_LEFT_EDGE_M = COURT_LENGTH_M / 2 - 250 / COURT_METER_PX; // 6.1875
+const COURT_CENTER_M = (COURT_LEFT_EDGE_M + COURT_LENGTH_M) / 2; // 17.09375
+/** curve midpoint: floor distance from the rim to the court's center */
+const CURVE_MID_M =
+  COURT_LENGTH_M - RIM_FROM_BASELINE_M - COURT_CENTER_M; // 9.33125
+
 export const BALANCE = {
   // ── Court & coordinate system ─────────────────────────────────────
   court: {
-    meterPx: 32, //          world pixels per meter (character is 2m → 64px tall)
-    lengthM: 28, //          full court, left baseline → right baseline
+    meterPx: COURT_METER_PX, // world pixels per meter (character is 2m → 64px tall)
+    lengthM: COURT_LENGTH_M, // x of the RIGHT baseline (the coordinate span)
+    /** x of the LEFT baseline - the floor starts here, 250 px left of
+     *  the original center (owner 2026-07-19; was 0) */
+    leftEdgeM: COURT_LEFT_EDGE_M,
     depthM: 6, //            playable depth band (far ↔ near sideline)
     depthPxPerM: 16, //      vertical px per depth meter (side-view foreshortening)
     floorBaseY: 420, //      world-px Y of the floor's FAR edge (depth = 0)
-    rimFromBaselineM: 1.575, // rim center distance from the right baseline
+    rimFromBaselineM: RIM_FROM_BASELINE_M, // rim center distance from the right baseline
     threePtM: 6.75, //       3-point line distance from the rim (floor)
     freeThrowM: 4.225, //    free-throw (spawn) spot distance from the rim
   },
@@ -47,7 +65,7 @@ export const BALANCE = {
   // ── Movement ──────────────────────────────────────────────────────
   move: {
     speedM: 4.5, //          walk speed, m/s
-    minXM: 0.4, //           left clamp (far baseline - one court length from hoop)
+    minXM: COURT_LEFT_EDGE_M + 0.4, // left clamp - same margin off the (new) left baseline
     hoopStandoffM: 5.0, //   keep-out radius around the hoop (160 world px; was 6.25, -20% 2026-07-10)
     arriveEps: 0.08, //      "close enough" to the click target, m
     spawnAreaM: 3.125, //    players spawn in this square (100 px) just outside the keep-out zone
@@ -92,11 +110,13 @@ export const BALANCE = {
     curves: {
       // midM: where gains start diminishing (the logistic midpoint,
       //       measured from the rim); k: steepness; maxAddPts: the
-      //       flat-tail ceiling of the distance bonus. Owner correction
-      //       2026-07-17: the max ADD equals the base (not 2x it) - a
-      //       deep tier-1 bomb tops out at 200, not 300.
-      tier1: { midM: 10, k: 0.6, maxAddPts: 100 }, //     max 200, flat ~16 m
-      tier2plus: { midM: 12.5, k: 0.5, maxAddPts: 125 }, // max 225, flat ~20 m
+      //       flat-tail ceiling of the distance bonus. Owner rework
+      //       2026-07-19 (with the court shortening): the drop-off sits
+      //       at the COURT'S CENTER on every curve, and the max add is
+      //       75% of the base (was 100%/125%) - a deep bomb tops out at
+      //       175. Tier 2+ keeps its shallower ramp (smaller k).
+      tier1: { midM: CURVE_MID_M, k: 0.6, maxAddPts: 75 },
+      tier2plus: { midM: CURVE_MID_M, k: 0.5, maxAddPts: 75 },
     },
     upperRimMult: 1.25, //   the double hoop's smaller upper rim pays more
     bigScorePts: 300, //     per-shot points above this = rainbow log + big juice

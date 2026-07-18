@@ -75,7 +75,14 @@ describe("landmarks", () => {
   });
 
   it("boundary walls sit offsetPx past both baselines", () => {
-    expect(WALL_LEFT_X).toBeCloseTo(-T.wall.offsetPx / M, 10);
+    // the left wall follows the SHORTENED left baseline (owner 2026-07-19)
+    expect(WALL_LEFT_X).toBeCloseTo(T.court.leftEdgeM - T.wall.offsetPx / M, 10);
     expect(WALL_RIGHT_X).toBeCloseTo(T.court.lengthM + T.wall.offsetPx / M, 10);
+  });
+
+  it("the court's left edge is 250 px left of the ORIGINAL center", () => {
+    expect(T.court.leftEdgeM).toBeCloseTo(T.court.lengthM / 2 - 250 / M, 10);
+    // the playable clamp keeps its margin off the new baseline
+    expect(T.move.minXM).toBeCloseTo(T.court.leftEdgeM + 0.4, 10);
   });
 });

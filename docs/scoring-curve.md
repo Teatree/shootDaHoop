@@ -15,26 +15,31 @@ Every made basket banks `basePts` (100), plus a logistic distance bonus:
   the "normal score point", add exactly 0.
 - Normalized so the flat tail is exactly `maxAdd`.
 - Shape: stepping out of the keep-out zone pays off FAST; past `mid`
-  the gains diminish; the deep court is flat well before the baseline
-  (farthest reachable shot ~26 m).
+  the gains diminish; the deep court is flat well before the baseline.
 
-Owner correction (same day): the max ADD equals the BASE, not 2x it -
-all adds halved from the first draft.
+Owner correction (2026-07-17): the max ADD equals the BASE, not 2x it.
+Owner rework (2026-07-19, with the court shortening - the left edge
+pulled to 250 px left of the old center, x 6.1875): every curve's
+midpoint sits at the SHORTENED court's center (~9.33 m from the rim -
+the drawn center circle IS the drop-off landmark), and the max add is
+75% of the base. The farthest reachable shot is now ~20 m; the tiers
+differ only by ramp steepness (k).
 
 | Hoop | mid | k | maxAdd | max hit | flat from |
 |---|---|---|---|---|---|
-| 1 | 10 m (2x zone) | 0.6 | +100 | 200 | ~16 m |
-| 2+ | 12.5 m (2.5x zone) | 0.5 | +125 | 225 | ~20 m |
-| 3 upper rim | same curve x1.25 | | +156 | 281 | ~20 m |
+| 1 | ~9.33 m (court center) | 0.6 | +75 | 175 | ~16 m |
+| 2+ | ~9.33 m (court center) | 0.5 | +75 | 175 | ~18 m |
+| 3 upper rim | same curve x1.25 | | +94 | 219 | ~18 m |
 
 Special cases:
 
-- **Purple orb throw (slam)**: flat `basePts` (100). Distance ignored -
-  the orb is a traversal toy, not a strategy (was 500, which dwarfed
-  every curve value).
+- **Purple orb throw (slam)**: flat `slamPts` (100) PER RIM, clamped to
+  the double - a teleport double through both tier-3 rims pays 200
+  (owner 2026-07-19; was flat 100 no matter the rims). Distance stays
+  ignored - the orb is a traversal toy, not a strategy.
 - **Double shot** (tier 3, both rims one throw): SUM of the rims -
   lower pays the curve, upper pays x1.25, together 2.25x. Range
-  225 (edge) to 787 (deep court). Was `points x rims`.
+  225 (edge) to 394 (deep court). Was `points x rims`.
 - Rounding: each rim's value rounds independently (`rimPoints`), the
   double sums the rounded values.
 
@@ -43,11 +48,11 @@ Special cases:
 | Dist | Hoop 1 | Hoop 2 / H3 lower | H3 upper | H3 double |
 |---|---|---|---|---|
 | 5 m | 100 | 100 | 125 | 225 |
-| 8 m | 119 | 109 | 136 | 245 |
-| 10 m | 148 | 126 | 158 | 284 |
-| 12.5 m | 181 | 161 | 201 | 362 |
-| 16 m | 197 | 206 | 258 | 464 |
-| 26 m | 200 | 225 | 281 | 506 |
+| 8 m | 119 | 120 | 150 | 270 |
+| 10 m | 143 | 140 | 175 | 315 |
+| 12.5 m | 165 | 161 | 201 | 362 |
+| 16 m | 174 | 172 | 215 | 387 |
+| 20 m | 175 | 175 | 219 | 394 |
 
 ## Thresholds - anchored to 3 bad players x 15 min/day (owner call 2026-07-18)
 
@@ -84,7 +89,7 @@ in the court converts to progress, not just skill.
 
 ## Knobs left as-is, deliberately
 
-- `bigScorePts: 300` (the rainbow log line): on Hoop 1 the max hit is
-  exactly 300, so rainbows only fire from tier 2 on. Flagged to the
-  owner in the balancing session; drop to ~250 if Hoop 1 should
-  celebrate its deepest bombs.
+- `bigScorePts: 300` (the rainbow log line): after the 2026-07-19
+  rework no SINGLE hit reaches it at any tier (max 219, the deep upper
+  rim) - rainbows now only fire on doubles (315+ past ~10 m), slams
+  never. Flag for the owner if singles should still celebrate.

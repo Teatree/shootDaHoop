@@ -469,16 +469,18 @@ export function drawCourt(
   look: CourtLookId = "standard",
 ): Phaser.GameObjects.Graphics {
   const pal = COURT_PALETTES[look];
-  const x0 = 0;
+  const x0 = T.court.leftEdgeM * M; // the shortened left baseline
   const x1 = T.court.lengthM * M;
   const yTop = floorY(0);
   const yBot = floorY(T.court.depthM);
   const g = scene.add.graphics().setDepth(-50);
 
-  // planks (alternating meter stripes)
-  for (let m = 0; m < T.court.lengthM; m++) {
+  // planks (alternating meter stripes, parity by ABSOLUTE meter index
+  // so the stripes don't shift if the edge tunes; first plank clipped)
+  for (let m = Math.floor(T.court.leftEdgeM); m < T.court.lengthM; m++) {
+    const xa = Math.max(m * M, x0);
     g.fillStyle(m % 2 === 0 ? pal.even : pal.odd);
-    g.fillRect(x0 + m * M, yTop, M, yBot - yTop);
+    g.fillRect(xa, yTop, (m + 1) * M - xa, yBot - yTop);
   }
   // front lip (court edge facing the viewer)
   g.fillStyle(pal.lip).fillRect(x0, yBot, x1 - x0, 8);
@@ -528,14 +530,17 @@ export function drawCourt(
   g.lineStyle(3, line, 0.9);
   g.strokeRect(x0 + 1, yTop + 1, x1 - x0 - 2, yBot - yTop - 2); // boundary
 
-  // half-court line + center circle (radius 1.8 m, like the real thing)
+  // center line + circle at the SHORTENED court's true middle (radius
+  // 1.8 m) - the scoring curve's drop-off sits exactly here, so the
+  // marking doubles as the "past this, gains flatten" landmark
   g.lineStyle(3, line, 0.7);
-  const half = (T.court.lengthM / 2) * M;
+  const centerM = (T.court.leftEdgeM + T.court.lengthM) / 2;
+  const half = centerM * M;
   g.beginPath();
   g.moveTo(half, yTop);
   g.lineTo(half, yBot);
   g.strokePath();
-  floorArc(T.court.lengthM / 2, RIM.d, 1.8, 0, Math.PI * 2);
+  floorArc(centerM, RIM.d, 1.8, 0, Math.PI * 2);
 
   // the key (the paint): baseline to the free-throw line, 4.9 m wide,
   // centered on the rim lane; a whisper of fill so it reads as painted

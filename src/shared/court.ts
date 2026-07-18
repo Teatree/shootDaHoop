@@ -19,8 +19,10 @@ export const RIM = {
 export const THREE_PT_X = RIM.x - BALANCE.court.threePtM;
 export const FREE_THROW_X = RIM.x - BALANCE.court.freeThrowM;
 
-// boundary walls, offset past both baselines (meters)
-export const WALL_LEFT_X = -BALANCE.wall.offsetPx / BALANCE.court.meterPx;
+// boundary walls, offset past both baselines (meters) - the left wall
+// follows the SHORTENED left baseline (owner 2026-07-19)
+export const WALL_LEFT_X =
+  BALANCE.court.leftEdgeM - BALANCE.wall.offsetPx / BALANCE.court.meterPx;
 export const WALL_RIGHT_X =
   BALANCE.court.lengthM + BALANCE.wall.offsetPx / BALANCE.court.meterPx;
 
