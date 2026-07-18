@@ -1206,6 +1206,7 @@ export class CourtScene extends Phaser.Scene {
       this.director.ballLook, // the recolour rule stamps record time
       throwId,
       this.director.tierId, // ...and so does the hoop tier (ghost hoop)
+      this.world.hoopMotion, // ...and the moving hoop's schedule
     );
     this.recsByThrowId.set(throwId, rec);
     this.ballsByThrowId.set(throwId, ball);

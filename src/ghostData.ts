@@ -6,6 +6,7 @@
 import { lerpPoseState } from "./shared/pose";
 import type { AvatarState } from "./shared/messages";
 import type { BallLookId } from "./shared/tierChanges";
+import type { HoopMotionState } from "./shared/hoopMotion";
 
 export interface FrameSample extends AvatarState {
   t: number; //  seconds since recording start
@@ -49,6 +50,15 @@ export interface ThrowRecording {
    * recordings - inferRecordingTier guesses from the ball look.
    */
   tierId?: number;
+  /**
+   * The moving hoop's schedule at record time (tier 4+): with
+   * startedAtMs (the epoch of recording t=0) the replay computes the
+   * hoop's RECORDED lift at any sample time - the ghost hoop rides
+   * exactly where the live one rode during the original throw.
+   */
+  hoopMotion?: HoopMotionState | null;
+  /** epoch ms of recording t=0 - anchors hoopMotion into replay time */
+  startedAtMs?: number;
   playerSamples: FrameSample[];
   ballSamples: BallSample[];
   outcomeT?: number; //  when the hit/miss happened (recording time)

@@ -34,7 +34,12 @@ import {
   createHoop,
   type HoopParts,
 } from "./placeholders";
-import { hoopGeometryForTier, hoopLookForTier } from "./shared/tierRules";
+import {
+  hoopGeometryForTier,
+  hoopLookForTier,
+  hoopMotionForTier,
+} from "./shared/tierRules";
+import { motionLiftAt } from "./shared/hoopMotion";
 
 // data types + interpolation live in ghostData.ts (pure, unit-testable);
 // re-exported so consumers keep one import site
@@ -131,15 +136,24 @@ export class GhostPlayback {
     // a replay from ANOTHER tier brings its own hoop: the recorded
     // tier's geometry + paint, half-alpha behind the live one, so the
     // ball visibly scores on the hoop it was thrown at (owner ask
-    // 2026-07-18). Same-tier replays use the live hoop as before.
+    // 2026-07-18). Same-tier replays use the live hoop as before -
+    // EXCEPT when the recording carries a moving-hoop schedule: the
+    // live tier-4 hoop rides its own clock, so the replay needs a ghost
+    // at the RECORDED position either way.
     let ghostHoop: HoopParts | null = null;
     const recTier = inferRecordingTier(rec);
-    if (recTier !== null && recTier !== this.currentTier()) {
+    if (
+      recTier !== null &&
+      (recTier !== this.currentTier() || rec.hoopMotion)
+    ) {
       ghostHoop = createHoop(
         this.scene,
         hoopGeometryForTier(recTier),
         hoopLookForTier(recTier),
-        { ghost: true },
+        {
+          ghost: true,
+          liftHeadroomM: hoopMotionForTier(recTier)?.travelM ?? 0,
+        },
       );
       // pop in with the rest of the ghost cast
       ghostHoop.body.setAlpha(0);
@@ -238,6 +252,18 @@ export class GhostPlayback {
     if (!g || g.fading) return;
     g.t += dt;
     const rec = g.rec;
+
+    // a tier-4 recording rides its ghost hoop along the RECORDED
+    // timeline: the schedule it was thrown against, anchored at the
+    // recording's own t=0 epoch - not the live world's clock
+    if (g.ghostHoop && rec.hoopMotion && rec.startedAtMs !== undefined) {
+      const recTier = inferRecordingTier(rec);
+      const spec = recTier !== null ? hoopMotionForTier(recTier) : null;
+      if (spec)
+        g.ghostHoop.setLift(
+          motionLiftAt(spec, rec.hoopMotion, rec.startedAtMs + g.t * 1000),
+        );
+    }
 
     // player ghost (plus the orb and speech bubble they saw)
     const ps = sampleAt(rec.playerSamples, g.t, lerpFrame);

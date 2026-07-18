@@ -9,6 +9,7 @@ import type { Ball } from "../ball";
 import type { RigLook } from "../characterRig";
 import type { HoopParts } from "../placeholders";
 import type { BallLookId } from "../shared/tierChanges";
+import type { HoopMotionState } from "../shared/hoopMotion";
 
 // Ghost records, capture side: a rolling buffer of world frame samples
 // (player + orb + speech bubble), one recorder per live throw, and the
@@ -74,6 +75,7 @@ export class RecordingSystem {
     ballLook: BallLookId = "classic",
     throwId?: string,
     tierId?: number,
+    hoopMotion?: HoopMotionState | null,
   ): ThrowRecording {
     const tp = isSlam ? this.lastTeleport : undefined;
     const t0 = tp ? tp.at - T.ghost.slamPreRollS : this.timeS - T.ghost.preRollS;
@@ -90,6 +92,10 @@ export class RecordingSystem {
       },
       ballLook, // stamped NOW - the replay recolour rule reads this
       tierId, //   the hoop the throw was really aimed at (ghost hoop)
+      // the moving hoop's schedule + the epoch of recording t=0, so a
+      // replay recomputes the hoop's RECORDED position per frame
+      hoopMotion,
+      startedAtMs: Date.now() - (this.timeS - t0) * 1000,
       playerSamples: this.history
         .filter((s) => s.t >= t0)
         .map((s) => ({ ...s, t: s.t - t0 })),
