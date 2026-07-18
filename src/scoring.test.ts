@@ -28,10 +28,10 @@ describe("pointsForDistance - hoop 1 curve", () => {
     expect(BALANCE.score.curves.tier2plus.midM).toBeCloseTo(rimX - centerX, 10);
   });
 
-  it("matches the sign-off table (mid ~9.33 m, k 0.6, max add 75)", () => {
-    expect(pointsForDistance(8, 1)).toBe(119);
-    expect(pointsForDistance(10, 1)).toBe(143);
-    expect(pointsForDistance(15, 1)).toBe(172);
+  it("matches the sign-off table (mid ~8.86 m, k 0.6, max add 75)", () => {
+    expect(pointsForDistance(8, 1)).toBe(123);
+    expect(pointsForDistance(10, 1)).toBe(147);
+    expect(pointsForDistance(15, 1)).toBe(173);
   });
 
   it("is flat at 175 in the deep court - max add = 75% of the base", () => {
@@ -56,10 +56,10 @@ describe("pointsForDistance - hoop 2+ curve", () => {
     expect(pointsForDistance(EDGE, 3)).toBe(100);
   });
 
-  it("matches the sign-off table (mid ~9.33 m, k 0.5, max add 75)", () => {
-    expect(pointsForDistance(10, 2)).toBe(140);
-    expect(pointsForDistance(12.5, 2)).toBe(161);
-    expect(pointsForDistance(16, 2)).toBe(172);
+  it("matches the sign-off table (mid ~8.86 m, k 0.5, max add 75)", () => {
+    expect(pointsForDistance(10, 2)).toBe(144);
+    expect(pointsForDistance(12.5, 2)).toBe(163);
+    expect(pointsForDistance(16, 2)).toBe(173);
   });
 
   it("is flat at 175 in the deep court, same cap as every curve", () => {
@@ -76,13 +76,13 @@ describe("pointsForDistance - hoop 2+ curve", () => {
 describe("rimPoints - the double hoop's smaller upper rim", () => {
   it("pays x1.25 on the whole curve value", () => {
     expect(rimPoints(EDGE, 3, "upper")).toBe(125);
-    expect(rimPoints(10, 3, "upper")).toBe(Math.round(140 * 1.25)); // 175
+    expect(rimPoints(10, 3, "upper")).toBe(180); // round(144 x 1.25)
     expect(rimPoints(20, 3, "upper")).toBe(219); // 175 x 1.25 rounded
   });
 
   it("any other rim pays the plain curve", () => {
-    expect(rimPoints(10, 3, "lower")).toBe(140);
-    expect(rimPoints(10, 1, "main")).toBe(143);
+    expect(rimPoints(10, 3, "lower")).toBe(144);
+    expect(rimPoints(10, 1, "main")).toBe(147);
   });
 });
 
@@ -93,7 +93,7 @@ describe("pointsForRims - made throws", () => {
   });
 
   it("a scored ball with no rim id still banks one plain curve value", () => {
-    expect(pointsForRims(10, 1, [])).toBe(143);
+    expect(pointsForRims(10, 1, [])).toBe(147);
   });
 });
 

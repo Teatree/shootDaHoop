@@ -19,17 +19,18 @@ Every made basket banks `basePts` (100), plus a logistic distance bonus:
 
 Owner correction (2026-07-17): the max ADD equals the BASE, not 2x it.
 Owner rework (2026-07-19, with the court shortening - the left edge
-pulled to 250 px left of the old center, x 6.1875): every curve's
-midpoint sits at the SHORTENED court's center (~9.33 m from the rim -
-the drawn center circle IS the drop-off landmark), and the max add is
-75% of the base. The farthest reachable shot is now ~20 m; the tiers
-differ only by ramp steepness (k).
+pulled to 220 px left of the old center, x 7.125, the floor at ~75% of
+its original length): every curve's midpoint sits at the SHORTENED
+court's center (~8.86 m from the rim - the drawn center circle IS the
+drop-off landmark), and the max add is 75% of the base. The farthest
+reachable shot is now ~19 m; the tiers differ only by ramp
+steepness (k).
 
 | Hoop | mid | k | maxAdd | max hit | flat from |
 |---|---|---|---|---|---|
-| 1 | ~9.33 m (court center) | 0.6 | +75 | 175 | ~16 m |
-| 2+ | ~9.33 m (court center) | 0.5 | +75 | 175 | ~18 m |
-| 3 upper rim | same curve x1.25 | | +94 | 219 | ~18 m |
+| 1 | ~8.86 m (court center) | 0.6 | +75 | 175 | ~15 m |
+| 2+ | ~8.86 m (court center) | 0.5 | +75 | 175 | ~17 m |
+| 3 upper rim | same curve x1.25 | | +94 | 219 | ~17 m |
 
 Special cases:
 
@@ -48,10 +49,10 @@ Special cases:
 | Dist | Hoop 1 | Hoop 2 / H3 lower | H3 upper | H3 double |
 |---|---|---|---|---|
 | 5 m | 100 | 100 | 125 | 225 |
-| 8 m | 119 | 120 | 150 | 270 |
-| 10 m | 143 | 140 | 175 | 315 |
-| 12.5 m | 165 | 161 | 201 | 362 |
-| 16 m | 174 | 172 | 215 | 387 |
+| 8 m | 123 | 123 | 154 | 277 |
+| 10 m | 147 | 144 | 180 | 324 |
+| 12.5 m | 167 | 163 | 204 | 367 |
+| 16 m | 174 | 173 | 216 | 389 |
 | 20 m | 175 | 175 | 219 | 394 |
 
 ## Thresholds - anchored to 3 bad players x 15 min/day (owner call 2026-07-18)

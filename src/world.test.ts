@@ -80,8 +80,12 @@ describe("landmarks", () => {
     expect(WALL_RIGHT_X).toBeCloseTo(T.court.lengthM + T.wall.offsetPx / M, 10);
   });
 
-  it("the court's left edge is 250 px left of the ORIGINAL center", () => {
-    expect(T.court.leftEdgeM).toBeCloseTo(T.court.lengthM / 2 - 250 / M, 10);
+  it("the court's left edge is 220 px left of the ORIGINAL center", () => {
+    expect(T.court.leftEdgeM).toBeCloseTo(T.court.lengthM / 2 - 220 / M, 10);
+    // ...which lands the floor at ~75% of its original length
+    expect(
+      (T.court.lengthM - T.court.leftEdgeM) / T.court.lengthM,
+    ).toBeCloseTo(0.75, 1);
     // the playable clamp keeps its margin off the new baseline
     expect(T.move.minXM).toBeCloseTo(T.court.leftEdgeM + 0.4, 10);
   });

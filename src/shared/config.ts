@@ -12,16 +12,17 @@
 
 import { BALL_TYPES, DEFAULT_BALL } from "./balls";
 
-// ── Court shortening (owner 2026-07-19): the floor's LEFT edge pulls in
-// to 250 px left of the ORIGINAL full court's center (x 14). The
-// coordinate system does not move - x 0, the rim and every landmark
-// stay put; the floor just starts further right. The scoring curve's
-// midpoint sits at the SHORTENED court's center (the drawn center
-// circle), so gains visibly drop off exactly there. ──────────────────
+// ── Court shortening (owner 2026-07-19, tightened same day: 250 px ->
+// 220 px left of the ORIGINAL full court's center x 14, which lands
+// the whole floor at ~75% of its original 28 m). The coordinate system
+// does not move - x 0, the rim and every landmark stay put; the floor
+// just starts further right. The scoring curve's midpoint sits at the
+// SHORTENED court's center (the drawn center circle), so gains visibly
+// drop off exactly there. ─────────────────────────────────────────────
 const COURT_METER_PX = 32;
 const COURT_LENGTH_M = 28;
 const RIM_FROM_BASELINE_M = 1.575;
-const COURT_LEFT_EDGE_M = COURT_LENGTH_M / 2 - 250 / COURT_METER_PX; // 6.1875
+const COURT_LEFT_EDGE_M = COURT_LENGTH_M / 2 - 220 / COURT_METER_PX; // 7.125
 const COURT_CENTER_M = (COURT_LEFT_EDGE_M + COURT_LENGTH_M) / 2; // 17.09375
 /** curve midpoint: floor distance from the rim to the court's center */
 const CURVE_MID_M =
@@ -32,8 +33,8 @@ export const BALANCE = {
   court: {
     meterPx: COURT_METER_PX, // world pixels per meter (character is 2m → 64px tall)
     lengthM: COURT_LENGTH_M, // x of the RIGHT baseline (the coordinate span)
-    /** x of the LEFT baseline - the floor starts here, 250 px left of
-     *  the original center (owner 2026-07-19; was 0) */
+    /** x of the LEFT baseline - the floor starts here, 220 px left of
+     *  the original center (owner 2026-07-19; was 0, then 250 px) */
     leftEdgeM: COURT_LEFT_EDGE_M,
     depthM: 6, //            playable depth band (far ↔ near sideline)
     depthPxPerM: 16, //      vertical px per depth meter (side-view foreshortening)

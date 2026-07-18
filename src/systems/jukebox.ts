@@ -52,11 +52,8 @@ export class Jukebox {
   private readonly music: AvailableAssets["music"];
 
   private box: Phaser.GameObjects.Graphics | null = null;
-  /** the radial track timer drawn on the box's face while a song plays
-   *  (owner 2026-07-19): a little dial whose pie depletes with the
-   *  track - redrawn per frame, empty (invisible) while silent */
-  private dial: Phaser.GameObjects.Graphics | null = null;
-  /** the play/pause toggle: ▶ starts a (re-rolled) song, ⏸ stops it */
+  /** the play/pause toggle: ▶ starts a (re-rolled) song, ⏸ stops it -
+   *  the radial track timer rides on it (setProgress) */
   private button: ProximityButton | null = null;
   /** the streamed playback element (null = silent) */
   private audio: HTMLAudioElement | null = null;
@@ -90,11 +87,6 @@ export class Jukebox {
   spawn(animated: boolean) {
     if (this.box) return;
     this.box = this.drawBox();
-    // the dial sits at the box's position, one depth step in front
-    this.dial = this.scene.add
-      .graphics()
-      .setPosition(this.box.x, this.box.y)
-      .setDepth(sortDepth(this.el.placement.dM) - 1);
     const bx = this.el.placement.xM * M;
     // owner 2026-07-16: 20 px higher than before
     const by = floorY(this.el.placement.dM - this.el.depthM / 2) - 66;
@@ -122,8 +114,6 @@ export class Jukebox {
     this.syncedStartMs = null;
     this.box?.destroy();
     this.box = null;
-    this.dial?.destroy();
-    this.dial = null;
     this.button?.destroy();
     this.button = null;
   }
@@ -138,8 +128,16 @@ export class Jukebox {
     // press-in-passing: no occupancy, just the trigger area
     const near = this.edgeDistPx() <= this.el.proximityPx + 1;
     this.button.setNear(near);
-    // the toggle face tracks the playback: ▶ to start, ⏸ to stop
+    // the toggle face tracks the playback: ▶ to start, ⏸ to stop - and
+    // the radial track timer rides the button (owner 2026-07-19: shows
+    // only while the button does, i.e. standing close), half-alpha
     this.button.setLabel(this.isPlaying ? "⏸" : "▶");
+    const a = this.audio;
+    this.button.setProgress(
+      this.isPlaying && a && Number.isFinite(a.duration) && a.duration > 0
+        ? a.currentTime / a.duration
+        : null,
+    );
 
     this.t += dt;
     if (this.audio) this.audio.volume = this.volumeAtPlayer();
@@ -166,45 +164,6 @@ export class Jukebox {
     } else if (this.box && this.box.scale !== 1 && !this.scene.tweens.isTweening(this.box)) {
       this.box.setScale(1);
     }
-    this.drawDial();
-  }
-
-  /**
-   * The radial track timer (owner 2026-07-19): a small dial on the
-   * box's face whose bright pie DEPLETES as the song plays - empty
-   * paint (invisible) while nothing audibly plays, so the box reads
-   * idle the moment the track ends. Needs the audio element (duration
-   * comes from its metadata); silent slots just never show a dial.
-   */
-  private drawDial() {
-    const d = this.dial;
-    if (!d) return;
-    d.clear();
-    const a = this.audio;
-    if (
-      !this.isPlaying ||
-      !a ||
-      !Number.isFinite(a.duration) ||
-      a.duration <= 0
-    )
-      return;
-    const frac = Math.min(1, a.currentTime / a.duration);
-    // PLACEHOLDER (tune): centered on the speaker-grill band, small
-    // enough to keep the glowing window visible above it
-    const cx = 0;
-    const cy = -26;
-    const r = 7.5;
-    d.fillStyle(0x2a1020, 0.9).fillCircle(cx, cy, r + 2.5);
-    // the remaining time, from 12 o'clock clockwise - clamped shy of a
-    // full turn (a 2π slice renders as nothing) and skipped when spent
-    const remaining = Math.min(0.999, 1 - frac);
-    if (remaining > 0.002) {
-      const start = -Math.PI / 2;
-      d.fillStyle(0xffd97a, 0.95);
-      d.slice(cx, cy, r, start, start + remaining * Math.PI * 2, false);
-      d.fillPath();
-    }
-    d.lineStyle(1.5, 0x5c1e34).strokeCircle(cx, cy, r + 2.5);
   }
 
   /**
