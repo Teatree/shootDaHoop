@@ -281,6 +281,10 @@ export class CourtScene extends Phaser.Scene {
             () => this.backend.jukeboxOffPress(),
           );
           this.jukebox.spawn(animated);
+          // the deferred AFK catch-up show spawns the box AFTER the
+          // welcome sync ran into nothing - adopt the persisted song now
+          // (seeked); sync dedupes on startedAtMs so this is idempotent
+          this.jukebox.sync(this.world.jukebox);
         }
       },
       clearInteractives: () => {
