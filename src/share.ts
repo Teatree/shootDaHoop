@@ -7,7 +7,7 @@ import { rollLine } from "./shared/shareRoll";
 // the FIRST HIT of the share-day and stays up. Pressing it copies:
 //
 //   # shootDaHoop #123
-//   🏀🏀🏀 **+345pts**
+//   🏀 🏀 🏀 **+345pts**
 //   [Come Shoot Some Hoop!](https://…/?lobby=mossy-fox-3f2a&need=450&hoop=3)
 //
 // Hits only - misses stay off the brag sheet (shared/shareRoll.ts).

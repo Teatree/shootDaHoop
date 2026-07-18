@@ -8,7 +8,10 @@
 export const MAX_SHOWN = 5;
 
 export function rollLine(hits: number, pts: number): string {
-  const balls = "🏀".repeat(Math.min(Math.max(0, hits), MAX_SHOWN));
+  // spaced out (owner ask 2026-07-19) - a run of bare emoji renders as
+  // one clump in most chats; a space per ball keeps them countable
+  const n = Math.min(Math.max(0, hits), MAX_SHOWN);
+  const balls = Array.from({ length: n }, () => "🏀").join(" ");
   const more = hits > MAX_SHOWN ? "..." : "";
   return `${balls}${more} **+${pts}pts**`;
 }
