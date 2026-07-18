@@ -40,7 +40,7 @@ import { isMobileDevice } from "../mobile";
 import { runChatCommand } from "../commands";
 import { Ball } from "../ball";
 import { type BallState, fastForwardBall } from "../shared/physics";
-import { hoopGeometryAt } from "../shared/hoopMotion";
+import { hoopGeometryAt, motionLiftAt } from "../shared/hoopMotion";
 import { playSfx } from "../sfx";
 import type { AvailableAssets } from "../assets";
 import type { ThrowRecording } from "../ghostData";
@@ -61,6 +61,7 @@ import {
   effectivePowerForTier,
   getTier,
   hoopGeometryForTier,
+  hoopMotionForTier,
   interactivesForTier,
   nextTier,
   scaledThreshold,
@@ -137,6 +138,9 @@ export class CourtScene extends Phaser.Scene {
   private world: WorldState = { sharedScore: 0, tierId: 1 };
   /** clicked the Upgrade button from afar - press on arrival */
   private pendingUpgradePress = false;
+  /** the tier-4 carriage ride is VISIBLE (a live show holds it until
+   *  the start-moving beat; physics runs the motion regardless) */
+  private hoopMotionVisible = false;
   /** the rack as this client knows it (authority + local regen sim);
    *  null until the first welcome */
   private throwsRemaining: number | null = null;
@@ -221,8 +225,29 @@ export class CourtScene extends Phaser.Scene {
   }
 
   /** The ACTIVE tier's hoop geometry - physics, camera and render share it. */
+  /** The camera's framing envelope: the active tier's hoop, grown to
+   *  the TOP of its travel when the tier moves - the camera frames the
+   *  whole ride instead of chasing the carriage every frame. */
   private geom(): HoopGeometry {
-    return hoopGeometryForTier(this.director?.tierId ?? 1);
+    const tier = this.director?.tierId ?? 1;
+    const base = hoopGeometryForTier(tier);
+    const spec = hoopMotionForTier(tier);
+    if (!spec) return base;
+    return {
+      ...base,
+      rims: base.rims.map((r) => ({ ...r, h: r.h + spec.travelM })),
+      boardTopM: base.boardTopM + spec.travelM,
+    };
+  }
+
+  /** The carriage lift RIGHT NOW, meters - 0 while hoops stand still or
+   *  the show hasn't reached its start-moving beat yet. */
+  private currentLift(): number {
+    if (!this.hoopMotionVisible) return 0;
+    const spec = hoopMotionForTier(this.director?.tierId ?? 1);
+    const state = this.world.hoopMotion;
+    if (!spec || !state) return 0;
+    return motionLiftAt(spec, state, Date.now());
   }
 
   /**
@@ -269,9 +294,20 @@ export class CourtScene extends Phaser.Scene {
     this.hoop = createHoop(this, this.geom());
     this.updateHoopScreen(); // fresh world: "0 / <tier-2 threshold>"
     this.director = new TierDirector(this, {
+      setHoopMotionVisible: (on) => {
+        this.hoopMotionVisible = on;
+        if (!on) this.hoop?.setLift(0);
+      },
       rebuildHoop: (geom, look) => {
         this.hoop.destroy();
-        this.hoop = createHoop(this, geom, look);
+        this.hoop = createHoop(this, geom, look, {
+          // pole headroom so the tier-4 carriage never rides off the top
+          liftHeadroomM:
+            hoopMotionForTier(this.director?.tierId ?? 1)?.travelM ?? 0,
+        });
+        // a rebuild lands at rest height - re-seat the carriage NOW or
+        // the hoop pops to its base for a frame on every choreo beat
+        this.hoop.setLift(this.currentLift());
         this.updateHoopScreen(); // the foot screen survives every rebuild
       },
       hoopFx: (fx) => this.hoopFx(fx),
@@ -1010,6 +1046,10 @@ export class CourtScene extends Phaser.Scene {
     this.balls = this.balls.filter((b) => !b.done);
     this.rig.update(dt);
     this.idle.update();
+
+    // the tier-4 carriage rides the shared clock - every screen (and
+    // the server's resolver) reads the same seeded timeline
+    if (this.hoopMotionVisible) this.hoop.setLift(this.currentLift());
 
     // the atmosphere wash always covers exactly what the camera sees
     // (scroll AND zoom - a scrollFactor-0 rect would break under zoom)

@@ -8,6 +8,7 @@ import {
   hoopChoreoGeometries,
   hoopGeometryForTier,
   hoopLookForTier,
+  hoopMotionForTier,
   interactivesForTier,
   type Atmosphere,
   type HoopGeometry,
@@ -64,6 +65,12 @@ export interface TierDirectorHooks {
    *  ("Hoop N", owner ask 2026-07-17). Played shows only, never
    *  applyInstant snaps. */
   showFinished(tierId: number): void;
+  /** the VISUAL carriage ride switches on/off (tier 4's moving hoop):
+   *  a live show holds it until the start-moving beat lands; instant
+   *  applies flip it with the tier. Live PHYSICS runs the motion from
+   *  the upgrade instant regardless - players are teleported clear,
+   *  the same atomic-flip contract as every tier. */
+  setHoopMotionVisible?(on: boolean): void;
 }
 
 export class TierDirector {
@@ -177,6 +184,9 @@ export class TierDirector {
             this.at(at, () => {
               this.hooks.rebuildHoop(geom, hoopLookForTier(this.applied));
               if (beat.fx !== "none") this.hooks.hoopFx(beat.fx);
+              // the carriage visibly starts its ride on THIS beat
+              if (beat.beat === "start-moving")
+                this.hooks.setHoopMotionVisible?.(true);
             });
             at += fx.hoopBeatMs;
           });
@@ -230,6 +240,7 @@ export class TierDirector {
   /** Everything the applied tier implies, applied at once, no animation. */
   private applyFinalState() {
     this.visualTier = this.applied;
+    this.hooks.setHoopMotionVisible?.(hoopMotionForTier(this.applied) !== null);
     this.hooks.rebuildHoop(
       hoopGeometryForTier(this.applied),
       hoopLookForTier(this.applied),

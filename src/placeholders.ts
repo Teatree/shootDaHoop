@@ -553,8 +553,16 @@ export interface HoopRimParts {
 }
 
 export interface HoopParts {
-  /** pole + backboard + rim strokes - one graphics object */
+  /** the CARRIAGE: backboard + rim strokes + tie arms - everything that
+   *  rides the tier-4 vertical oscillation (setLift) */
   body: Phaser.GameObjects.Graphics;
+  /** the part that never moves: the pole (foot/screen/shadow are their
+   *  own objects) - split out so the carriage can ride alone */
+  fixed: Phaser.GameObjects.Graphics;
+  /** move the carriage (board + rims + nets) liftM meters up; the pole
+   *  and foot stay. Keeps rims[].rimSX/rimSY fresh - score juice and
+   *  the aim read them at effect time. */
+  setLift(liftM: number): void;
   /** one per hittable rim, top-most first (mirrors geom.rims) */
   rims: HoopRimParts[];
   /** the rim juice targets by default - the lowest one */
@@ -597,7 +605,7 @@ export function createHoop(
   scene: Phaser.Scene,
   geom: HoopGeometry,
   look: HoopLook = DEFAULT_HOOP_LOOK,
-  opts?: { ghost?: boolean },
+  opts?: { ghost?: boolean; liftHeadroomM?: number },
 ): HoopParts {
   const baseY = floorY(RIM.d);
   const boardX = geom.boardX * M;
@@ -620,15 +628,21 @@ export function createHoop(
 
   const armColor = darken(look.pole);
   const housingR = 52;
+  // FIXED half (drawn first = behind): the pole. The rest of the
+  // structure lives on the carriage graphics so the tier-4 oscillation
+  // can ride it up and down (setLift) while the pole stands.
+  const fixed = scene.add.graphics().setDepth(sortDepth(RIM.d));
   const g = scene.add.graphics().setDepth(sortDepth(RIM.d));
   // pole (behind the board, down INTO the foot housing - the housing is
   // a separate lower-depth object, so the pole must stop at its crown).
   // A rim RAISED above the board (tier 3's lifted upper) needs the post
   // to keep climbing past the board top so its tie-arm has something to
-  // hang from - "one post carrying two stacked rims".
+  // hang from - "one post carrying two stacked rims". A MOVING hoop
+  // (tier 4) adds liftHeadroomM so the carriage never rides off the top.
   const highestRimY = baseY - Math.max(...geom.rims.map((r) => r.h)) * M;
-  const poleTop = Math.min(boardTop + 14, highestRimY - 2);
-  g.fillStyle(look.pole).fillRect(
+  const poleTop =
+    Math.min(boardTop + 14, highestRimY - 2) - (opts?.liftHeadroomM ?? 0) * M;
+  fixed.fillStyle(look.pole).fillRect(
     boardX + boardW + 2,
     poleTop,
     7,
@@ -729,16 +743,30 @@ export function createHoop(
     shadow.setVisible(false);
     foot.setVisible(false);
     scoreText.setVisible(false);
+    fixed.setAlpha(a).setDepth(sortDepth(RIM.d) - 2);
     g.setAlpha(a).setDepth(sortDepth(RIM.d) - 2);
     for (const r of rims) r.net.setAlpha(a).setDepth(sortDepth(RIM.d) - 2);
   }
 
+  // the carriage ride needs each rim's REST screen height - rimSY is
+  // mutated live by setLift (score juice reads it at effect time)
+  const baseRimSY = rims.map((r) => r.rimSY);
+
   const primary = rims[geom.rims.indexOf(lowest)];
   return {
     body: g,
+    fixed,
     rims,
     primary,
     shadow,
+    setLift(liftM: number) {
+      const dy = liftM * M;
+      g.setY(-dy);
+      rims.forEach((r, i) => {
+        r.net.setY(baseRimSY[i] - dy);
+        r.rimSY = baseRimSY[i] - dy;
+      });
+    },
     setScoreDisplay(current: number, required: number | null) {
       // threshold reached → the screen stops counting and celebrates:
       // stars instead of numbers, until the upgrade is pressed
@@ -751,6 +779,7 @@ export function createHoop(
       );
     },
     destroy() {
+      fixed.destroy();
       g.destroy();
       foot.destroy();
       for (const r of rims) r.net.destroy();

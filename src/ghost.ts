@@ -139,9 +139,14 @@ export class GhostPlayback {
       );
       // pop in with the rest of the ghost cast
       ghostHoop.body.setAlpha(0);
+      ghostHoop.fixed.setAlpha(0);
       for (const r of ghostHoop.rims) r.net.setAlpha(0);
       this.scene.tweens.add({
-        targets: [ghostHoop.body, ...ghostHoop.rims.map((r) => r.net)],
+        targets: [
+          ghostHoop.body,
+          ghostHoop.fixed,
+          ...ghostHoop.rims.map((r) => r.net),
+        ],
         alpha: a,
         duration: T.ghost.popMs,
         ease: "Cubic.easeOut",
@@ -198,7 +203,11 @@ export class GhostPlayback {
     // the ghost hoop fades with the cast; destroy() also sweeps its
     // hidden dressing (Phaser's destroy is a no-op the second time)
     if (g.ghostHoop)
-      objs.push(g.ghostHoop.body, ...g.ghostHoop.rims.map((r) => r.net));
+      objs.push(
+        g.ghostHoop.body,
+        g.ghostHoop.fixed,
+        ...g.ghostHoop.rims.map((r) => r.net),
+      );
     if (instant) {
       for (const o of objs) o.destroy();
       g.ghostHoop?.destroy();
