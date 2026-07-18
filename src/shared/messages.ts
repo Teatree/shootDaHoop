@@ -75,6 +75,15 @@ export interface WorldState {
    * stands still (see shared/hoopMotion.ts).
    */
   hoopMotion?: HoopMotionState | null;
+  /**
+   * Extra score required ON TOP of the next tier's threshold - the
+   * ladder-extension migration (owner 2026-07-19): a world that was
+   * already sitting at the old ladder top (Hoop 3) with banked score
+   * gets base = that score at hydrate, so the new rung is EARNED from
+   * where they are instead of unlocking instantly. Upgrades and resets
+   * set it back to 0; absent counts as 0.
+   */
+  thresholdBase?: number;
 }
 
 /**

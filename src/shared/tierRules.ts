@@ -64,16 +64,35 @@ export function scaledThreshold(
   return Math.round((tier.threshold * thresholdScale(expectedPlayers)) / 50) * 50;
 }
 
+/**
+ * The score this world needs to unlock its next tier, or null at the
+ * ladder's top: the crowd-scaled threshold PLUS the world's
+ * thresholdBase - the ladder-extension offset for worlds that were
+ * already sitting at the old top when a new rung shipped (owner
+ * 2026-07-19: they must EARN the new hoop from where they are, not
+ * unlock it instantly off years of banked score).
+ */
+export function requiredScore(w: {
+  tierId: number;
+  expectedPlayers?: number;
+  thresholdBase?: number;
+}): number | null {
+  const next = nextTier(w.tierId);
+  if (!next) return null;
+  return (
+    scaledThreshold(next, w.expectedPlayers) + Math.max(0, w.thresholdBase ?? 0)
+  );
+}
+
 /** Threshold met → the "Upgrade" button may appear and a press is valid. */
 export function canUpgrade(w: {
   sharedScore: number;
   tierId: number;
   expectedPlayers?: number;
+  thresholdBase?: number;
 }): boolean {
-  const next = nextTier(w.tierId);
-  return (
-    next !== null && w.sharedScore >= scaledThreshold(next, w.expectedPlayers)
-  );
+  const req = requiredScore(w);
+  return req !== null && w.sharedScore >= req;
 }
 
 /** Tiers 1..tierId in play order - effects accumulate across them. */

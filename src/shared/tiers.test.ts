@@ -17,6 +17,7 @@ import {
   interactivesForTier,
   nextTier,
   orbTimingForTier,
+  requiredScore,
   scaledThreshold,
   thresholdScale,
 } from "./tierRules";
@@ -427,6 +428,21 @@ describe("lobby scaling (thresholdScale / scaledThreshold)", () => {
     for (const n of [2, 3, 4, 5])
       for (const t of HOOP_TIERS.slice(1))
         expect(scaledThreshold(t, n) % 50).toBe(0);
+  });
+
+  it("requiredScore stacks the ladder-extension base on the threshold", () => {
+    // a legacy Hoop 3 world with 9000 banked: Hoop 4 costs 9000 + 4000
+    const w = { sharedScore: 9000, tierId: 3, thresholdBase: 9000 };
+    expect(requiredScore(w)).toBe(9000 + 4000);
+    expect(canUpgrade(w)).toBe(false);
+    expect(canUpgrade({ ...w, sharedScore: 13000 })).toBe(true);
+    // composes with crowd scaling (a 2p court: 2400 + base)
+    expect(
+      requiredScore({ tierId: 3, expectedPlayers: 2, thresholdBase: 9000 }),
+    ).toBe(2400 + 9000);
+    // the ladder top stays null; garbage bases clamp to 0
+    expect(requiredScore({ tierId: 4, thresholdBase: 9000 })).toBeNull();
+    expect(requiredScore({ tierId: 3, thresholdBase: -500 })).toBe(4000);
   });
 
   it("canUpgrade enforces the scaled threshold", () => {

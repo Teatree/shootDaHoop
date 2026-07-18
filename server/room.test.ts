@@ -519,6 +519,70 @@ describe("the AFK lineup survives restarts", () => {
   });
 });
 
+// Ladder-extension migration (owner ask 2026-07-19): a world that sat
+// at Hoop 3 when it was the TOP has banked score that never meant
+// "progress toward Hoop 4" - hydrate stamps it as thresholdBase, so the
+// new rung is earned from where they are, never unlocked instantly.
+describe("Hoop 4 requirement stacks on legacy tier-3 score", () => {
+  const ws = (f: FakeWS) => f as unknown as WebSocket;
+
+  it("a legacy tier-3 world with 9000 banked needs 9000 + 4000", async () => {
+    const storage = new MemStorage();
+    storage.worlds.set("test", {
+      lobby: "test",
+      world: { sharedScore: 9000, tierId: 3 }, // no thresholdBase = legacy
+      history: [],
+    });
+    room = new Room("test", storage, () => {});
+    const a = new FakeWS();
+    await room.join(ws(a), identity("alice"));
+    const [w] = a.of("welcome");
+    if (w?.t !== "welcome") throw new Error("unreachable");
+    expect(w.world.thresholdBase).toBe(9000);
+    // 9000 banked is NOT enough anymore - the button must not fire
+    standAtHoop(room, "alice");
+    room.handle("alice", { t: "upgrade" });
+    expect(a.of("upgraded")).toHaveLength(0);
+  });
+
+  it("once past base + threshold the upgrade fires and clears the base", async () => {
+    // a world migrated earlier (base already stamped), now earned past it
+    const storage = new MemStorage();
+    storage.worlds.set("test", {
+      lobby: "test",
+      world: { sharedScore: 13100, tierId: 3, thresholdBase: 9000 },
+      history: [],
+    });
+    room = new Room("test", storage, () => {});
+    const a = new FakeWS();
+    await room.join(ws(a), identity("alice"));
+    standAtHoop(room, "alice");
+    room.handle("alice", { t: "upgrade" }); // 13100 >= 9000 + 4000
+    const [up] = a.of("upgraded");
+    if (up?.t !== "upgraded") throw new Error("must upgrade");
+    expect(up.world.tierId).toBe(4);
+    expect(up.world.thresholdBase).toBe(0); // the new rung counts fresh
+  });
+
+  it("a world that reaches tier 3 under the new build pays plain 4000", async () => {
+    // upgrading INTO tier 3 stamps thresholdBase 0 - never re-migrated
+    const storage = new MemStorage();
+    storage.worlds.set("test", {
+      lobby: "test",
+      world: { sharedScore: 2000, tierId: 2, thresholdBase: 0 },
+      history: [],
+    });
+    room = new Room("test", storage, () => {});
+    const a = new FakeWS();
+    await room.join(ws(a), identity("alice"));
+    standAtHoop(room, "alice");
+    room.handle("alice", { t: "upgrade" });
+    const [up] = a.of("upgraded");
+    if (up?.t !== "upgraded") throw new Error("must upgrade to 3");
+    expect(up.world).toMatchObject({ tierId: 3, thresholdBase: 0 });
+  });
+});
+
 // Lobby scaling (owner ask 2026-07-18): ?players=N on the invite link
 // sizes the court at CREATION - one shot, persisted for life; resets
 // and upgrades must carry it, later joins must not touch it.
@@ -822,8 +886,13 @@ describe("the upgrade press", () => {
       expect(up.tierId).toBe(2);
       expect(up.byName).toBe("alice");
       // the next tier counts fresh from zero (tier 2 doesn't move -
-      // hoopMotion rides along explicitly null)
-      expect(up.world).toEqual({ sharedScore: 0, tierId: 2, hoopMotion: null });
+      // hoopMotion rides along explicitly null, ladder base cleared)
+      expect(up.world).toEqual({
+        sharedScore: 0,
+        tierId: 2,
+        hoopMotion: null,
+        thresholdBase: 0,
+      });
       // every active player lands in the clear band, on the court
       expect(up.placements.map((p) => p.id).sort()).toEqual(["alice", "bob"]);
       for (const p of up.placements) {
@@ -972,6 +1041,7 @@ describe("the upgrade press", () => {
       sharedScore: 0,
       tierId: 2,
       hoopMotion: null,
+      thresholdBase: 0,
     });
   });
 });

@@ -66,7 +66,7 @@ import {
   hoopMotionForTier,
   interactivesForTier,
   nextTier,
-  scaledThreshold,
+  requiredScore,
   type Atmosphere,
   type HoopGeometry,
 } from "../shared/tierRules";
@@ -848,25 +848,19 @@ export class CourtScene extends Phaser.Scene {
     this.updateHoopScreen();
     this.rememberSeenTier();
     // the share blurb's link preview echoes the court's progress
-    const next = nextTier(w.tierId);
+    const req = requiredScore(w);
     this.share.setWorldProgress(
-      next
-        ? Math.max(0, scaledThreshold(next, w.expectedPlayers) - w.sharedScore)
-        : null,
-      next?.id ?? null,
+      req !== null ? Math.max(0, req - w.sharedScore) : null,
+      nextTier(w.tierId)?.id ?? null,
     );
   }
 
-  /** The hoop-foot screen: shared score / next threshold (or score alone
-   *  at the top of the ladder). Thresholds count from the post-upgrade
-   *  reset and scale with the court's expected players, so
-   *  current/required is exactly what the server will enforce. */
+  /** The hoop-foot screen: shared score / next requirement (or score
+   *  alone at the top of the ladder). The requirement is the crowd-
+   *  scaled threshold plus any ladder-extension base - exactly what the
+   *  server will enforce (tierRules.requiredScore). */
   private updateHoopScreen() {
-    const next = nextTier(this.world.tierId);
-    this.hoop.setScoreDisplay(
-      this.world.sharedScore,
-      next ? scaledThreshold(next, this.world.expectedPlayers) : null,
-    );
+    this.hoop.setScoreDisplay(this.world.sharedScore, requiredScore(this.world));
   }
 
   /**

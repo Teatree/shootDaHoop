@@ -151,6 +151,18 @@ export class Room {
     const bundle = await this.storage.loadWorld(this.lobby);
     if (bundle) {
       this.world = bundle.world;
+      // ── ladder-extension migration (owner 2026-07-19): a world that
+      // sat at Hoop 3 back when it was the TOP has banked score that
+      // was never "progress toward Hoop 4" - without this it would
+      // unlock instantly. Stamp the banked score as the extra base the
+      // next threshold sits on. Worlds upgraded/reset under the new
+      // build carry an explicit 0, so absent = legacy exactly once.
+      if (this.world.tierId === 3 && this.world.thresholdBase === undefined) {
+        this.world = {
+          ...this.world,
+          thresholdBase: Math.max(0, this.world.sharedScore),
+        };
+      }
       // defensive: a hand-edited bundle at a moving-hoop tier without a
       // schedule would leave the hoop frozen - synthesize one
       if (hoopMotionForTier(this.world.tierId) && !this.world.hoopMotion) {
@@ -275,6 +287,7 @@ export class Room {
         sharedScore: 0,
         tierId: 1,
         expectedPlayers: this.world.expectedPlayers,
+        thresholdBase: 0, // a reset starts the ladder clean
       };
       this.record({ kind: "reset", name: identity.name }); // also persists
       track(
@@ -780,6 +793,7 @@ export class Room {
           sharedScore: 0,
           tierId: next.id,
           expectedPlayers: this.world.expectedPlayers,
+          thresholdBase: 0, // the new rung counts fresh - no offset
           hoopMotion: hoopMotionForTier(next.id)
             ? { seed: (Math.random() * 0xffffffff) >>> 0, anchorMs: Date.now() }
             : null,
