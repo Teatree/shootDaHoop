@@ -16,6 +16,7 @@
 
 import { BALANCE } from "./shared/config";
 import { isMobileDevice } from "./mobile";
+import type { BallLookId } from "./shared/tierChanges";
 
 export type LogType = "throw" | "chat" | "presence" | "world";
 
@@ -38,7 +39,7 @@ export interface HUD {
    */
   setBudget(n: number, nextBallAtMs: number | null, popFrom?: number): void;
   /** the tier's ball look on the UI icons; splash = play the upgrade pop */
-  setBallLook(red: boolean, splash: boolean): void;
+  setBallLook(look: BallLookId, splash: boolean): void;
   /** text may contain the placeholders handled below; kept plain-text safe. */
   log(
     type: LogType,
@@ -242,9 +243,11 @@ export function initHUD(): HUD {
       tickCountdown();
     },
 
-    setBallLook(red: boolean, splash: boolean) {
+    setBallLook(look: BallLookId, splash: boolean) {
       const box = el<HTMLDivElement>("ball-slots");
-      box.classList.toggle("red", red);
+      // one CSS class per non-classic look (style.css filter chains)
+      box.classList.toggle("red", look === "red");
+      box.classList.toggle("pinkpurple", look === "pinkpurple");
       if (splash) {
         box.classList.remove("splash");
         void box.offsetWidth; // retrigger the animation

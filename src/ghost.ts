@@ -28,7 +28,12 @@ import {
   type FrameSample,
   type ThrowRecording,
 } from "./ghostData";
-import { createHoop, type HoopParts } from "./placeholders";
+import {
+  ballTexture,
+  ballTintFor,
+  createHoop,
+  type HoopParts,
+} from "./placeholders";
 import { hoopGeometryForTier, hoopLookForTier } from "./shared/tierRules";
 
 // data types + interpolation live in ghostData.ts (pure, unit-testable);
@@ -98,19 +103,18 @@ export class GhostPlayback {
       .setResolution(2);
     const pShadow = this.scene.add.ellipse(0, 0, 44, 9, 0x000000, a * 0.2);
     const diaPx = T.throw.ballRadiusM * 2 * M;
+    // the upgrade recolour rule: the ghost ball wears the look STAMPED AT
+    // RECORD TIME - a pre-upgrade replay keeps the old look forever
+    // (texture + tint, so pink-purple replays right too).
+    // Recordings are always OWN throws, so the own-ball marker rides too.
+    const recLook = rec.ballLook ?? "classic";
     const ball = this.scene.add
-      .image(0, 0, "ball")
+      .image(0, 0, ballTexture(recLook))
       .setOrigin(0.5)
       .setAlpha(0)
       .setVisible(false);
     ball.setDisplaySize(diaPx, diaPx);
-    // the upgrade recolour rule: the ghost ball wears the look STAMPED AT
-    // RECORD TIME - a pre-upgrade replay keeps the old look forever.
-    // Recordings are always OWN throws, so the own-ball marker rides too.
-    const lookTint = multiplyTint(
-      T.ballLooks[rec.ballLook ?? "classic"],
-      T.ownBallMarker,
-    );
+    const lookTint = multiplyTint(ballTintFor(recLook), T.ownBallMarker);
     if (lookTint !== 0xffffff) ball.setTint(lookTint);
     const bShadow = this.scene.add
       .ellipse(0, 0, diaPx * 1.2, diaPx * 0.4, 0x000000, 0)

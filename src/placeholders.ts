@@ -10,7 +10,7 @@ import {
   sortDepth,
 } from "./world";
 import type { HoopGeometry } from "./shared/tierRules";
-import type { CourtLookId, HoopLook } from "./shared/tierChanges";
+import type { BallLookId, CourtLookId, HoopLook } from "./shared/tierChanges";
 
 // Placeholder pixel art, generated at boot. Any texture the user supplies
 // in public/assets/ (see the README there) takes priority - we only
@@ -117,7 +117,65 @@ export function ensurePlaceholderTextures(scene: Phaser.Scene) {
     }
   }
 
+  // Hoop 4's pink-purple ball: a RECOLORED TEXTURE, not a tint - the
+  // orange emoji has near-zero blue, so no multiply tint can make it
+  // purple (the same trap the HUD icons hit; the fix is the same
+  // sepia-first filter chain, see style.css). Recolors whatever "ball"
+  // ended up being (emoji, drawn stand-in or user art); where
+  // ctx.filter is unsupported, consumers fall back to the tint.
+  if (!tex.exists("ball_pinkpurple")) {
+    const src = tex.get("ball").getSourceImage();
+    const recolored = recolorBallCanvas(
+      src as HTMLImageElement | HTMLCanvasElement,
+    );
+    if (recolored) {
+      tex.addCanvas("ball_pinkpurple", recolored);
+      pinkpurpleBallReady = true;
+    }
+  }
+
   ensurePartPlaceholders(scene);
+}
+
+/** ctx.filter recolor succeeded at boot - the helpers below key off it. */
+let pinkpurpleBallReady = false;
+
+// PLACEHOLDER (tune): the pink-purple chain - sepia first normalizes the
+// orange before the rotate lands it on purple (browser-compared rule,
+// 2026-07-17); keep it visually matched with style.css .pinkpurple
+const PINKPURPLE_FILTER =
+  "sepia(1) saturate(6) hue-rotate(225deg) brightness(0.9)";
+
+function recolorBallCanvas(
+  src: HTMLImageElement | HTMLCanvasElement,
+): HTMLCanvasElement | null {
+  const w = src.width;
+  const h = src.height;
+  if (!w || !h) return null;
+  const out = document.createElement("canvas");
+  out.width = w;
+  out.height = h;
+  const ctx = out.getContext("2d");
+  if (!ctx || typeof ctx.filter !== "string") return null;
+  ctx.filter = PINKPURPLE_FILTER;
+  if (ctx.filter === "none") return null; // parsed away = unsupported
+  ctx.drawImage(src, 0, 0);
+  return out;
+}
+
+/** The texture a ball of this look wears - the recolored one when the
+ *  boot-time recolor succeeded, else the base ball (tint fallback). */
+export function ballTexture(look: BallLookId): string {
+  return look === "pinkpurple" && pinkpurpleBallReady
+    ? "ball_pinkpurple"
+    : "ball";
+}
+
+/** The multiply tint that goes WITH ballTexture(look): none when the
+ *  look rides its own recolored texture. */
+export function ballTintFor(look: BallLookId): number {
+  if (look === "pinkpurple" && pinkpurpleBallReady) return 0xffffff;
+  return T.ballLooks[look] ?? T.ballLooks.classic;
 }
 
 /**

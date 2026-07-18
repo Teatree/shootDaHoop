@@ -107,8 +107,15 @@ export class CharacterRig {
     this.place(this.cur, null);
   }
 
-  /** The ball-look tint (Permanent Effect: "balls become more red"). */
-  setBallTint(tint: number) {
+  /** The ball-look tint (Permanent Effect: "balls become more red");
+   *  looks with their own recolored texture pass its key here too. */
+  setBallTint(tint: number, texture = "ball") {
+    if (this.heldBall.texture.key !== texture) {
+      this.heldBall.setTexture(texture);
+      // a texture swap resets the frame size - re-fit the true diameter
+      const dia = T.throw.ballRadiusM * 2 * M;
+      this.heldBall.setDisplaySize(dia, dia);
+    }
     this.heldBall.setTint(tint);
   }
 

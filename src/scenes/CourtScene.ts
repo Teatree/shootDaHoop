@@ -24,6 +24,8 @@ import { SpeechBubbles } from "../speech";
 import type { HUD } from "../hud";
 import { esc, linkify } from "../hud";
 import {
+  ballTexture,
+  ballTintFor,
   createHoop,
   createKeepOutZone,
   drawBackdrop,
@@ -132,7 +134,8 @@ export class CourtScene extends Phaser.Scene {
   /** the sky's CURRENT colour + its cross-fade tween state */
   private skyColor = BASE_ATMOSPHERE.sky;
   private readonly skyFade = { t: 0 };
-  /** the applied tier's ball tint - new balls spawn wearing it */
+  /** the applied tier's ball look + tint - new balls spawn wearing them */
+  private ballLook: BallLookId = "classic";
   private ballTint: number = T.ballLooks.classic;
   /** the latest authoritative world state (score + tier) */
   private world: WorldState = { sharedScore: 0, tierId: 1 };
@@ -826,10 +829,15 @@ export class CourtScene extends Phaser.Scene {
 
   /** The tier's ball look, everywhere at once (world, held, UI icons). */
   private applyBallLook(look: BallLookId, animated: boolean) {
-    this.ballTint = T.ballLooks[look] ?? T.ballLooks.classic;
-    this.player.rig.setBallTint(this.ballTint);
-    for (const r of this.remotes.values()) r.avatar.rig.setBallTint(this.ballTint);
-    this.hud.setBallLook(look !== "classic", animated);
+    this.ballLook = look;
+    // pink-purple rides a recolored TEXTURE (a multiply tint can't make
+    // purple from the orange emoji); the tint composes over it
+    this.ballTint = ballTintFor(look);
+    const tex = ballTexture(look);
+    this.player.rig.setBallTint(this.ballTint, tex);
+    for (const r of this.remotes.values())
+      r.avatar.rig.setBallTint(this.ballTint, tex);
+    this.hud.setBallLook(look, animated);
     if (animated) playSfx(this, "sfx_pop", 0.8);
   }
 
@@ -935,7 +943,8 @@ export class CourtScene extends Phaser.Scene {
   private addRemote(p: PlayerInfo) {
     if (this.remotes.has(p.id)) return;
     const avatar = new RemoteAvatar(this, p);
-    avatar.rig.setBallTint(this.ballTint); // joiners wear the tier's look
+    // joiners wear the tier's look (texture + tint)
+    avatar.rig.setBallTint(this.ballTint, ballTexture(this.ballLook));
     avatar.setOffline(!!p.offline); // waiting characters arrive grayed
     // an offline character standing on the deck cheers (wearily) - the
     // check reads the ACTIVE tier, so resets/upgrades are handled
@@ -1158,6 +1167,7 @@ export class CourtScene extends Phaser.Scene {
       // YOUR ball reads slightly different from everyone else's (you can
       // only catch your own) - composed over the tier's look
       tint: multiplyTint(this.ballTint, T.ownBallMarker),
+      texture: ballTexture(this.ballLook),
       onScore: (o) => {
         this.recording.stampOutcome(rec, true);
         this.backend.reportOutcome(throwId, {
@@ -1237,6 +1247,7 @@ export class CourtScene extends Phaser.Scene {
       own: false, // never triggers OUR power-ups; the server rules theirs
       geom: this.flightGeom(launch),
       tint: this.ballTint,
+      texture: ballTexture(this.ballLook),
       // cosmetic: the server's outcome event carries the result
       onScore: () => {},
       onMiss: () => {},

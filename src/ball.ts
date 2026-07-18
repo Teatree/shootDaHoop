@@ -37,6 +37,9 @@ interface BallOpts {
   geom: (simTimeS: number) => HoopGeometry;
   /** the tier's ball look, as a multiply tint (T.ballLooks) */
   tint: number;
+  /** the look's texture key (placeholders.ballTexture) - defaults to
+   *  the base ball; pink-purple rides its own recolored texture */
+  texture?: string;
   onScore: (o: ShotOutcome) => void;
   onMiss: (o: ShotOutcome) => void;
   onDone: (ball: Ball) => void;
@@ -96,7 +99,9 @@ export class Ball {
       0x000000,
       0.2,
     );
-    this.sprite = scene.add.image(0, 0, "ball").setOrigin(0.5);
+    this.sprite = scene.add
+      .image(0, 0, opts.texture ?? "ball")
+      .setOrigin(0.5);
     this.sprite.setDisplaySize(diaPx, diaPx);
     if (opts.tint !== 0xffffff) this.sprite.setTint(opts.tint);
     const baseScale = this.sprite.scaleX;

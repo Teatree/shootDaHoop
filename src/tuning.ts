@@ -63,6 +63,7 @@ export const T = {
       alphaStart: 0.95, //  dot alpha at the release point…
       alphaEnd: 0.2, //      …dissipating to this (no hard cutoff)
       heatStops: [0xfff3d6, 0xffb84d, 0xff5030], // cream → amber → red
+      bonusDots: 0, //      extra preview dots past the power length
     },
     // Boosted trail - active once a tier's ball-range permanent effect
     // recolors the ball (tier 2+): visibly longer at every power, and a
@@ -76,6 +77,21 @@ export const T = {
       alphaStart: 0.78,
       alphaEnd: 0.08,
       heatStops: [0xffb356, 0xff5aa0, 0xe03df0], // orange → hot pink → magenta
+      bonusDots: 0,
+    },
+    // Hoop 4's trail: the pink-purple family, longer again for the
+    // stacked +25% travel - and 3 ADDITIONAL dots on the preview at
+    // every power (owner spec 2026-07-18: "3 additional dots" on the
+    // aiming visual). PLACEHOLDER (tune): lengths ~x1.25 over boosted.
+    pinkpurple: {
+      previewMinLenM: 3.0,
+      previewMaxLenM: 9.9,
+      dotStartPx: 6,
+      dotEndPx: 1.5,
+      alphaStart: 0.78,
+      alphaEnd: 0.08,
+      heatStops: [0xffb356, 0xff5ad0, 0x9b30ff], // orange → pink → purple
+      bonusDots: 3,
     },
   },
 

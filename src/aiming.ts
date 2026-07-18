@@ -266,9 +266,16 @@ export class AimController {
     if (!this.aiming) return;
     this.preview.clear();
     const a = T.aim;
-    // boosted balls (tier 2+ range effect) draw a longer trail in the
-    // boosted hue family - the upgrade is visible in the aim itself
-    const look = this.trailLook() !== "classic" ? a.boosted : a.classic;
+    // boosted balls (tier 2+ range effect) draw a longer trail in their
+    // own hue family - the upgrade is visible in the aim itself. One
+    // block per ball look (tier 4's pinkpurple also carries bonusDots).
+    const lookId = this.trailLook();
+    const look =
+      lookId === "pinkpurple"
+        ? a.pinkpurple
+        : lookId === "red"
+          ? a.boosted
+          : a.classic;
 
     // the mobile touch ring, always visible while aiming: it IS the
     // cancel zone, brighter while the finger is back inside it
@@ -297,11 +304,15 @@ export class AimController {
     // instead of hard-stopping - except at 100% power, where it ends
     // in a pulsing ring: you're at the limit.
     const atMax = shot.power >= 1;
-    const maxLen = Phaser.Math.Linear(
-      look.previewMinLenM,
-      look.previewMaxLenM,
-      shot.power,
-    );
+    // bonusDots: the look's EXTRA preview dots at every power (owner
+    // spec 2026-07-18: tier 4's aim shows 3 additional dots)
+    const maxLen =
+      Phaser.Math.Linear(
+        look.previewMinLenM,
+        look.previewMaxLenM,
+        shot.power,
+      ) +
+      look.bonusDots * a.previewDotSpacingM;
     const color = heatColor(shot.power, look.heatStops);
     const rp = this.player.releasePoint();
     let px: number = rp.x;

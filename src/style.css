@@ -203,6 +203,13 @@ body {
   filter: sepia(1) saturate(10) hue-rotate(-40deg) brightness(0.75) contrast(1.2);
 }
 
+/* Hoop 4: pink-purple balls - same sepia-first rule, rotated the other
+   way. Keep visually matched with the world texture recolor
+   (placeholders.ts PINKPURPLE_FILTER). PLACEHOLDER (tune) */
+#ball-slots.pinkpurple .ball {
+  filter: sepia(1) saturate(6) hue-rotate(225deg) brightness(0.9);
+}
+
 /* the "simple splash" on the ball UI when the upgrade lands */
 #ball-slots.splash {
   animation: ball-ui-splash 700ms ease-out;
