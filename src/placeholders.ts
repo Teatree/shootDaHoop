@@ -833,13 +833,16 @@ export function createHoop(
     setScoreDisplay(current: number, required: number | null) {
       // threshold reached → the screen stops counting and celebrates:
       // stars instead of numbers, until the upgrade is pressed
-      scoreText.setText(
+      const text =
         required === null
           ? `${current}`
           : current >= required
             ? "★ ★ ★"
-            : `${current} / ${required}`,
-      );
+            : `${current} / ${required}`;
+      // big requirements (a migrated ladder base) shrink to stay
+      // inside the 88 px screen instead of bleeding past the housing
+      scoreText.setFontSize(text.length > 11 ? 11 : 14);
+      scoreText.setText(text);
     },
     destroy() {
       fixed.destroy();
