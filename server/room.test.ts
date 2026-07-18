@@ -11,6 +11,7 @@ import type { ServerMsg } from "../src/shared/messages";
 import { BALANCE } from "../src/shared/config";
 import { RIM } from "../src/shared/court";
 import { HOOP_TIERS } from "../src/shared/tiers";
+import { cheerDeckForTier, interactiveSpots } from "../src/shared/tierRules";
 
 // The upgrade is a SERVER-AUTHORITATIVE, communal event: any player may
 // press, but the server owns the rules - threshold met, presser at the
@@ -203,6 +204,93 @@ describe("offline characters wait around", () => {
     }
   });
 
+  // owner ask 2026-07-18: with a cheer platform in the world the AFK
+  // characters belong ON it - the deck seats fill first, overflow only
+  // then parks along the sideline lineup
+  it("with a cheer deck (tier 2+) the waiting spot is a deck seat", async () => {
+    vi.useFakeTimers();
+    try {
+      const { room } = await makeRoom(0, 2);
+      const a = new FakeWS();
+      const b = new FakeWS();
+      await room.join(ws(a), identity("alice"));
+      await room.join(ws(b), identity("bob"));
+      room.leave("bob", ws(b));
+      vi.advanceTimersByTime(BALANCE.presence.offlineWalkDelayS * 1000 + 50);
+
+      const spots = interactiveSpots(cheerDeckForTier(2)!);
+      const mv = a.of("move-to").find((m) => m.t === "move-to" && m.id === "bob");
+      if (mv?.t !== "move-to") throw new Error("no waiting walk broadcast");
+      expect(mv.x).toBeCloseTo(spots[0].x);
+      expect(mv.d).toBeCloseTo(spots[0].d); // off-court, on the deck
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("deck overflow parks along the sideline lineup", async () => {
+    vi.useFakeTimers();
+    try {
+      const { room } = await makeRoom(0, 2);
+      const deckSpots = interactiveSpots(cheerDeckForTier(2)!);
+      const anchor = new FakeWS();
+      await room.join(ws(anchor), identity("anchor"));
+      const leavers = deckSpots.length + 1; // one more than the deck holds
+      const socks: FakeWS[] = [];
+      for (let i = 0; i < leavers; i++) {
+        const f = new FakeWS();
+        socks.push(f);
+        await room.join(ws(f), identity(`p${i}`));
+      }
+      for (let i = 0; i < leavers; i++) room.leave(`p${i}`, ws(socks[i]));
+      vi.advanceTimersByTime(BALANCE.presence.offlineWalkDelayS * 1000 + 50);
+
+      const mv = (id: string) =>
+        anchor.sent.find((m) => m.t === "move-to" && m.id === id);
+      // the first three fill the deck seats in order...
+      for (let i = 0; i < deckSpots.length; i++) {
+        const m = mv(`p${i}`);
+        if (m?.t !== "move-to") throw new Error(`p${i} never walked`);
+        expect(m.x).toBeCloseTo(deckSpots[i].x);
+        expect(m.d).toBeCloseTo(deckSpots[i].d);
+      }
+      // ...and the fourth takes lineup slot 0 on the far sideline
+      const p = BALANCE.presence;
+      const last = mv(`p${deckSpots.length}`);
+      if (last?.t !== "move-to") throw new Error("overflow never walked");
+      expect(last.x).toBeCloseTo(p.waitLineStartXM);
+      expect(last.d).toBeCloseTo(p.waitLineDM);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a reclaim frees the deck seat for the next leaver", async () => {
+    vi.useFakeTimers();
+    try {
+      const { room } = await makeRoom(0, 2);
+      const spots = interactiveSpots(cheerDeckForTier(2)!);
+      const a = new FakeWS();
+      const b = new FakeWS();
+      const c = new FakeWS();
+      await room.join(ws(a), identity("alice"));
+      await room.join(ws(b), identity("bob"));
+      await room.join(ws(c), identity("carol"));
+      room.leave("bob", ws(b));
+      vi.advanceTimersByTime(BALANCE.presence.offlineWalkDelayS * 1000 + 50);
+      // bob took seat 0; he reclaims, then carol leaves - seat 0 is free
+      const b2 = new FakeWS();
+      await room.join(ws(b2), identity("bob"));
+      room.leave("carol", ws(c));
+      vi.advanceTimersByTime(BALANCE.presence.offlineWalkDelayS * 1000 + 50);
+      const m = a.sent.find((x) => x.t === "move-to" && x.id === "carol");
+      if (m?.t !== "move-to") throw new Error("carol never walked");
+      expect(m.x).toBeCloseTo(spots[0].x);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("a reclaim before the delay cancels the waiting walk", async () => {
     vi.useFakeTimers();
     try {
@@ -308,6 +396,40 @@ describe("the AFK lineup survives restarts", () => {
       p.waitLineStartXM,
       p.waitLineStartXM - p.waitLineGapM,
     ]);
+  });
+
+  it("a tier-2 restart re-seats the statues ON the cheer deck", async () => {
+    // abandon a lobby whose world already reached Hoop 2...
+    const storage = new MemStorage();
+    storage.worlds.set("test", {
+      lobby: "test",
+      world: { sharedScore: 0, tierId: 2 },
+      history: [],
+    });
+    const first = new Room("test", storage, () => {});
+    const anchor = new FakeWS();
+    await first.join(ws(anchor), identity("alice"));
+    const b = new FakeWS();
+    await first.join(ws(b), identity("bob"));
+    first.leave("bob", ws(b));
+    first.leave("alice", ws(anchor));
+    await vi.waitFor(() => {
+      expect(storage.worlds.get("test")?.offline?.length).toBe(2);
+    });
+
+    // ...restart: both statues take deck seats, not the sideline
+    room = new Room("test", storage, () => {});
+    const c = new FakeWS();
+    await room.join(ws(c), identity("cara"));
+    const [w] = c.of("welcome");
+    if (w?.t !== "welcome") throw new Error("unreachable");
+    const statues = w.players.filter((p) => p.offline);
+    expect(statues).toHaveLength(2);
+    const spots = interactiveSpots(cheerDeckForTier(2)!);
+    for (const s of statues) {
+      expect(s.d).toBeCloseTo(spots[0].d); // the deck row, off-court
+      expect(spots.some((sp) => Math.abs(sp.x - s.x) < 1e-6)).toBe(true);
+    }
   });
 
   it("the returning player reclaims their statue, un-grayed", async () => {

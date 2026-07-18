@@ -271,6 +271,31 @@ export function interactivesForTier(tierId: number): InteractiveElement[] {
   return out;
 }
 
+/** The cheer deck at this tier, or null before it exists (Hoop 2+). */
+export function cheerDeckForTier(tierId: number): InteractiveElement | null {
+  return (
+    interactivesForTier(tierId).find((el) => el.element === "cheer-area") ??
+    null
+  );
+}
+
+/**
+ * The standing spots of an occupiable element - ONE formula shared by
+ * the client's cheer errand and the server's offline seating, so a
+ * statue the server parks lands exactly on a client spot (and the
+ * remote avatars' on-deck check lights up the weary cheer).
+ */
+export function interactiveSpots(
+  el: InteractiveElement,
+): { x: number; d: number }[] {
+  const n = el.spots ?? 3;
+  const span = el.widthM * 0.7;
+  return Array.from({ length: n }, (_, i) => ({
+    x: el.placement.xM - span / 2 + (span * i) / Math.max(1, n - 1),
+    d: el.placement.dM,
+  }));
+}
+
 export function animationsForTier(tierId: number): Set<string> {
   const out = new Set<string>();
   for (const t of tiersUpTo(tierId))

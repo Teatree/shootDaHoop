@@ -9,8 +9,10 @@ import {
 import { resolveThrow } from "../src/shared/simulate";
 import {
   canUpgrade,
+  cheerDeckForTier,
   clampToWalkable,
   effectivePowerForTier,
+  interactiveSpots,
   interactivesForTier,
   nextTier,
   orbTimingForTier,
@@ -65,6 +67,9 @@ interface Occupant {
   catchCredits: number;
   /** the offline lineup slot this character parked in (null = not parked) */
   waitSlot: number | null;
+  /** the cheer-deck spot this offline character parked on (null = not
+   *  on the deck) - deck seats fill before the sideline lineup */
+  deckSlot: number | null;
   /** epoch ms of the disconnect (0 = never went offline) - persisted
    *  with the bundle so hydrate can prune long-abandoned characters */
   offlineSinceMs: number;
@@ -158,11 +163,18 @@ export class Room {
       .filter((c) => now - c.offlineSinceMs < p.offlineKeepH * 3_600_000)
       .sort((a, b) => b.offlineSinceMs - a.offlineSinceMs)
       .slice(0, p.offlineKeptMax);
-    kept.forEach((c, slot) => {
-      const spot = clampToCourt(
-        p.waitLineStartXM - slot * p.waitLineGapM,
-        p.waitLineDM,
-      );
+    kept.forEach((c) => {
+      // the cheer deck seats fill first (owner ask 2026-07-18: AFK
+      // characters belong ON the platform when the world has one);
+      // overflow parks along the sideline lineup as before
+      const deck = this.freeDeckSlot();
+      const waitSlot = deck ? null : this.freeWaitSlot();
+      const spot = deck
+        ? deck.spot // off-court by design - never run through clampToCourt
+        : clampToCourt(
+            p.waitLineStartXM - (waitSlot as number) * p.waitLineGapM,
+            p.waitLineDM,
+          );
       // stored data, but it crossed a disk/database - clamp the visuals
       // like a join; the id stays VERBATIM (it is the reclaim match key,
       // and it is exactly what persistWorld wrote)
@@ -186,7 +198,8 @@ export class Room {
         levitatingUntil: 0,
         offlineWalkTimer: null,
         catchCredits: 0,
-        waitSlot: slot,
+        waitSlot,
+        deckSlot: deck ? deck.slot : null,
         offlineSinceMs: c.offlineSinceMs,
         joinedAtMs: c.offlineSinceMs,
         throwsThisSession: 0,
@@ -281,6 +294,7 @@ export class Room {
         existing.joinedAtMs = Date.now();
         existing.throwsThisSession = 0;
         existing.waitSlot = null; // the lineup spot frees up
+        existing.deckSlot = null; // ...and so does the deck seat
         existing.offlineSinceMs = 0;
         // the character comes back to life: un-gray the tag everywhere
         delete existing.info.offline;
@@ -307,6 +321,7 @@ export class Room {
         offlineWalkTimer: null,
         catchCredits: 0,
         waitSlot: null,
+        deckSlot: null,
         offlineSinceMs: 0,
         joinedAtMs: Date.now(),
         throwsThisSession: 0,
@@ -381,12 +396,15 @@ export class Room {
   }
 
   /**
-   * After offlineWalkDelayS the abandoned character walks to the offline
+   * After offlineWalkDelayS the abandoned character walks to a waiting
+   * spot: a CHEER DECK seat when the world has one (owner ask
+   * 2026-07-18 - the statue weary-cheers up there), else the offline
    * LINEUP (owner ask 2026-07-17): a row of slots along the far
    * sideline, slot 0 as close to the hoop as the furniture allows, one
-   * gap apart - grayed statues waiting side by side, with the jukebox
-   * and the cheer deck visible behind them. A normal move intent, so
-   * every client animates the walk; the slot frees when they rejoin.
+   * gap apart - grayed statues waiting side by side. A normal move
+   * intent, so every client animates the walk; the spot frees when
+   * they rejoin. Deck seats are off-court on purpose - the client's
+   * move clamp (clampToWalkable) admits the deck footprint.
    */
   private scheduleOfflineWalk(playerId: string, occ: Occupant) {
     if (occ.offlineWalkTimer) clearTimeout(occ.offlineWalkTimer);
@@ -394,11 +412,18 @@ export class Room {
       occ.offlineWalkTimer = null;
       if (occ.ws !== null) return; // reclaimed in the meantime
       const p = BALANCE.presence;
-      occ.waitSlot = this.freeWaitSlot();
-      const spot = clampToCourt(
-        p.waitLineStartXM - occ.waitSlot * p.waitLineGapM,
-        p.waitLineDM,
-      );
+      const deck = this.freeDeckSlot();
+      let spot: { x: number; d: number };
+      if (deck) {
+        occ.deckSlot = deck.slot;
+        spot = deck.spot;
+      } else {
+        occ.waitSlot = this.freeWaitSlot();
+        spot = clampToCourt(
+          p.waitLineStartXM - occ.waitSlot * p.waitLineGapM,
+          p.waitLineDM,
+        );
+      }
       occ.info.x = spot.x;
       occ.info.d = spot.d;
       this.broadcast({ t: "move-to", id: playerId, x: spot.x, d: spot.d });
@@ -413,6 +438,23 @@ export class Room {
     let slot = 0;
     while (used.has(slot)) slot++;
     return slot;
+  }
+
+  /** The first free cheer-deck seat, or null when the tier has no deck
+   *  or every seat already holds a parked statue (overflow -> lineup). */
+  private freeDeckSlot(): {
+    slot: number;
+    spot: { x: number; d: number };
+  } | null {
+    const deck = cheerDeckForTier(this.world.tierId);
+    if (!deck) return null;
+    const spots = interactiveSpots(deck);
+    const used = new Set<number>();
+    for (const o of this.occupants.values())
+      if (o.ws === null && o.deckSlot !== null) used.add(o.deckSlot);
+    for (let i = 0; i < spots.length; i++)
+      if (!used.has(i)) return { slot: i, spot: spots[i] };
+    return null;
   }
 
   /**

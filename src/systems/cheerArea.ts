@@ -4,6 +4,7 @@ import { M, floorY, sortDepth } from "../world";
 import { ProximityButton } from "./proximityButton";
 import type { Player } from "../player";
 import type { InteractiveElement } from "../shared/tierChanges";
+import { interactiveSpots } from "../shared/tierRules";
 
 // The Cheering Area (Hoop 2's Interactive Element): a small wooden deck
 // above the spawn area, outside the court, that ~3 characters can stand
@@ -186,13 +187,8 @@ export class CheerArea {
   }
 
   private spots(): { x: number; d: number }[] {
-    const { xM, dM } = this.el.placement;
-    const n = this.el.spots ?? 3;
-    const span = this.el.widthM * 0.7;
-    return Array.from({ length: n }, (_, i) => ({
-      x: xM - span / 2 + (span * i) / Math.max(1, n - 1),
-      d: dM,
-    }));
+    // the ONE spot formula, shared with the server's offline seating
+    return interactiveSpots(this.el);
   }
 
   /**
