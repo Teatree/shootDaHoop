@@ -161,12 +161,13 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
         type: "hoop-change",
         heightScale: 1.1, // overall height only +10% over Hoop 2
         // owner 2026-07-15: the hoop turns DARK RED (from tier 2's black
-        // and gray); the rims go pink/magenta so they read well on the
-        // new light-gray background. PLACEHOLDER (tune): exact shades.
+        // and gray); owner 2026-07-19: the rims go DARKER PURPLE (from
+        // the earlier pink/magenta - both rims share this one paint).
+        // PLACEHOLDER (tune): exact shades.
         look: {
           board: 0x7a1a1a, //     dark red board
           boardEdge: 0x4a0e0e, // near-black red edge
-          rim: 0xff4fc3, //       pink/magenta rims
+          rim: 0x7d2bbf, //       darker purple rims
           pole: 0x5a1414, //      dark red pole
         },
         doubleHoop: {
@@ -183,7 +184,10 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
           // three sessions running; measured 2026-07-17, grid script).
           // At 1.1 the center window is +-0.51 m - still the harder rim
           // (it sits 3.5 m above the lower), but honestly hittable.
-          upper: { rScale: 1.1, protrudeLeftPx: 20, rimNetsAboveLower: 2 },
+          // protrude owner-tuned 2026-07-19: 20 -> 30 (a little further
+          // left); the pole strut is drawn from the rim's back edge, so
+          // the metal connection stretches with it for free
+          upper: { rScale: 1.1, protrudeLeftPx: 30, rimNetsAboveLower: 2 },
           lower: { rScale: 1.0 }, // keeps the tier-2 width → the wider one
           gapM: 2.0, // PLACEHOLDER (tune): the lower rim's drop below the structure top
         },

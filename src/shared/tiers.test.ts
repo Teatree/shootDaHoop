@@ -98,11 +98,11 @@ describe("hoopGeometryForTier", () => {
     );
   });
 
-  it("tier 3 upper rim protrudes exactly 20 px further left", () => {
+  it("tier 3 upper rim protrudes exactly 30 px further left (owner 2026-07-19)", () => {
     const [upper, lower] = hoopGeometryForTier(3).rims;
     const upperFront = upper.x - upper.r;
     const lowerFront = lower.x - lower.r;
-    expect(lowerFront - upperFront).toBeCloseTo(20 / BALANCE.court.meterPx, 10);
+    expect(lowerFront - upperFront).toBeCloseTo(30 / BALANCE.court.meterPx, 10);
   });
 
   it("tier 3 rim gap clears the ball so each rim is hit independently", () => {
@@ -261,7 +261,7 @@ describe("looks", () => {
     expect(t3).not.toEqual(t2); // tier 3 has its own paint job
   });
 
-  it("tier 3 hoop: dark red board/pole, pink-magenta rims (owner 2026-07-15)", () => {
+  it("tier 3 hoop: dark red board/pole, darker PURPLE rims (owner 2026-07-19)", () => {
     const t3 = hoopLookForTier(3);
     const rgb = (c: number) => [(c >> 16) & 0xff, (c >> 8) & 0xff, c & 0xff];
     for (const part of [t3.board, t3.pole]) {
@@ -270,9 +270,10 @@ describe("looks", () => {
       expect(r).toBeGreaterThan(b * 2);
       expect(r).toBeLessThan(0xa0); //    dark, not bright
     }
-    const [r, g, b] = rgb(t3.rim); // pink/magenta: strong red + blue, weak green
-    expect(r).toBeGreaterThan(0xc0);
-    expect(b).toBeGreaterThan(g);
+    const [r, g, b] = rgb(t3.rim); // purple: blue leads red, weak green...
+    expect(b).toBeGreaterThan(r);
+    expect(r).toBeGreaterThan(g);
+    expect(r).toBeLessThan(0xc0); // ...and DARKER than the old pink
   });
 });
 
