@@ -161,12 +161,15 @@ export function fastForwardBall(
   vx: number,
   vh: number,
   seconds: number,
-  geom: HoopGeometry = hoopGeometryForTier(1),
+  // a FUNCTION of flight time for the tier-4 moving hoop - the catch-up
+  // must replay the same hoop timeline the live screens stepped through
+  geom: HoopGeometry | ((tS: number) => HoopGeometry) = hoopGeometryForTier(1),
 ): { s: BallState; rested: boolean } {
   const s = createBallState(x, d, h, vx, vh);
   let rested = false;
   for (let t = 0; t < seconds && !rested; t += PHYSICS_DT) {
-    if (stepBall(s, PHYSICS_DT, geom).includes("restDone")) rested = true;
+    const g = typeof geom === "function" ? geom(t) : geom;
+    if (stepBall(s, PHYSICS_DT, g).includes("restDone")) rested = true;
   }
   return { s, rested };
 }

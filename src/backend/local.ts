@@ -11,6 +11,7 @@ import { pointsForRims } from "../shared/scoring";
 import { clampToCourt, rollSpawn, rollUpgradeClearSpot } from "../shared/court";
 import {
   canUpgrade,
+  hoopMotionForTier,
   interactivesForTier,
   nextTier,
   orbTimingForTier,
@@ -244,7 +245,14 @@ export class LocalBackend implements Backend {
       this.emitter.emit("upgradeRejected", { reason: "threshold" });
       return;
     }
-    this.world = { sharedScore: 0, tierId: next.id };
+    this.world = {
+      sharedScore: 0,
+      tierId: next.id,
+      // the moving hoop's schedule - same roll the server makes
+      hoopMotion: hoopMotionForTier(next.id)
+        ? { seed: (Math.random() * 0xffffffff) >>> 0, anchorMs: Date.now() }
+        : null,
+    };
     const spot = rollUpgradeClearSpot();
     this.self.x = spot.x;
     this.self.d = spot.d;

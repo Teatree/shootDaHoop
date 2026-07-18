@@ -4,9 +4,11 @@
 
 import type { OrbState } from "./orb";
 import type { PoseState } from "./pose";
+import type { HoopMotionState } from "./hoopMotion";
 
 export type { OrbState };
 export type { PoseState };
+export type { HoopMotionState };
 
 /**
  * Everything needed to draw a character at one instant. Streamed as
@@ -66,6 +68,13 @@ export interface WorldState {
    * better odds of a sharp shooter, so requirements grow superlinearly.
    */
   expectedPlayers?: number;
+  /**
+   * The moving hoop's schedule (Hoop 4+): rolled by the authority at
+   * the upgrade, anchored to epoch time so everyone (and restarts)
+   * replays the same timeline. Absent/null while the tier's hoop
+   * stands still (see shared/hoopMotion.ts).
+   */
+  hoopMotion?: HoopMotionState | null;
 }
 
 /**
@@ -82,6 +91,12 @@ export interface ThrowLaunch {
   vx: number; //   launch velocity, m/s
   vh: number;
   slam: boolean; // thrown while teleport-levitating (500-pt slam attempt)
+  /** epoch ms of the release - against a MOVING hoop (tier 4) the
+   *  thrower's flight and the server's resolution read the hoop's
+   *  timeline from this instant, so they stay one trajectory. The
+   *  server clamps it (shared/hoopMotion.clampLaunchStamp); absent on
+   *  still-hoop tiers and old clients (falls back to arrival time). */
+  atMs?: number;
 }
 
 export interface ThrowOutcome {

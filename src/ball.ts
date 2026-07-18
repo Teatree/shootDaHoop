@@ -30,9 +30,11 @@ interface BallOpts {
   shotDistM: number;
   /** thrown by the local player (remote balls never trigger local power-ups) */
   own: boolean;
-  /** the ACTIVE tier's hoop - a getter so an upgrade mid-flight is read
-   *  consistently on the next step */
-  geom: () => HoopGeometry;
+  /** the ACTIVE tier's hoop at `simTimeS` seconds into THIS ball's
+   *  flight - a getter so an upgrade mid-flight is read consistently on
+   *  the next step, and a function of time because the tier-4 hoop
+   *  MOVES (still hoops just ignore the argument) */
+  geom: (simTimeS: number) => HoopGeometry;
   /** the tier's ball look, as a multiply tint (T.ballLooks) */
   tint: number;
   onScore: (o: ShotOutcome) => void;
@@ -63,6 +65,10 @@ export class Ball {
   private dead = false;
   /** frame time not yet consumed by fixed-step physics (see update) */
   private acc = 0;
+  /** PHYSICS time since launch - counts only consumed fixed steps, so
+   *  it matches the server's step clock exactly (life tracks frame
+   *  time, which drifts by the unconsumed accumulator remainder) */
+  private simT: number;
   private lastRimSfxAt = -1; // substeps can rattle many times per frame
   private light: LightDir = { dx: 0, elev: 1 };
 
@@ -78,6 +84,7 @@ export class Ball {
       opts.resume?.state ??
       createBallState(opts.x, opts.d, opts.h, opts.vx, opts.vh);
     this.life = opts.resume?.lifeS ?? 0;
+    this.simT = opts.resume?.lifeS ?? 0;
 
     // physics size == visual size, whatever texture is loaded
     const diaPx = T.throw.ballRadiusM * 2 * M;
@@ -157,7 +164,8 @@ export class Ball {
     const events: ReturnType<typeof stepBall> = [];
     while (this.acc >= PHYSICS_DT && !this.dead) {
       this.acc -= PHYSICS_DT;
-      events.push(...stepBall(this.s, PHYSICS_DT, this.opts.geom()));
+      events.push(...stepBall(this.s, PHYSICS_DT, this.opts.geom(this.simT)));
+      this.simT += PHYSICS_DT;
     }
 
     for (const e of events) {

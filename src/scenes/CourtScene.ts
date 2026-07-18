@@ -40,6 +40,7 @@ import { isMobileDevice } from "../mobile";
 import { runChatCommand } from "../commands";
 import { Ball } from "../ball";
 import { type BallState, fastForwardBall } from "../shared/physics";
+import { hoopGeometryAt } from "../shared/hoopMotion";
 import { playSfx } from "../sfx";
 import type { AvailableAssets } from "../assets";
 import type { ThrowRecording } from "../ghostData";
@@ -222,6 +223,23 @@ export class CourtScene extends Phaser.Scene {
   /** The ACTIVE tier's hoop geometry - physics, camera and render share it. */
   private geom(): HoopGeometry {
     return hoopGeometryForTier(this.director?.tierId ?? 1);
+  }
+
+  /**
+   * A ball's per-step hoop geometry: the ACTIVE tier (an upgrade
+   * mid-flight is picked up next step, as before), positioned on the
+   * moving hoop's shared timeline from the launch stamp - so this
+   * flight IS the trajectory the server resolved. Still hoops degrade
+   * to the cached static geometry inside hoopGeometryAt.
+   */
+  private flightGeom(launch: ThrowLaunch): (simTimeS: number) => HoopGeometry {
+    const launchAtMs = launch.atMs ?? Date.now();
+    return (simTimeS) =>
+      hoopGeometryAt(
+        this.director?.tierId ?? 1,
+        this.world.hoopMotion,
+        launchAtMs + simTimeS * 1000,
+      );
   }
 
   preload() {
@@ -1065,6 +1083,9 @@ export class CourtScene extends Phaser.Scene {
       vx: shot.vx,
       vh: shot.vh,
       slam: slam || this.teleport.isLevitating,
+      // the moving hoop's timeline anchor - our flight and the server's
+      // resolution read the hoop from this same instant
+      atMs: Date.now(),
     };
     // random suffix: throwIds must not collide ACROSS clients - everyone
     // sees everyone's ids (outcomes, orb-consumed balls)
@@ -1093,7 +1114,7 @@ export class CourtScene extends Phaser.Scene {
       vh: launch.vh,
       shotDistM: floorDistToRim(launch.shotX, launch.shotD),
       own: true,
-      geom: () => this.geom(),
+      geom: this.flightGeom(launch),
       // YOUR ball reads slightly different from everyone else's (you can
       // only catch your own) - composed over the tier's look
       tint: multiplyTint(this.ballTint, T.ownBallMarker),
@@ -1161,7 +1182,7 @@ export class CourtScene extends Phaser.Scene {
         launch.vx,
         launch.vh,
         fastForwardS,
-        this.geom(),
+        this.flightGeom(launch),
       );
       if (ff.rested) return; // already came to rest - nothing left to show
       resume = { state: ff.s, lifeS: fastForwardS };
@@ -1174,7 +1195,7 @@ export class CourtScene extends Phaser.Scene {
       vh: launch.vh,
       shotDistM: floorDistToRim(launch.shotX, launch.shotD),
       own: false, // never triggers OUR power-ups; the server rules theirs
-      geom: () => this.geom(),
+      geom: this.flightGeom(launch),
       tint: this.ballTint,
       // cosmetic: the server's outcome event carries the result
       onScore: () => {},

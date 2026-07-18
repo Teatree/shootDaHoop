@@ -14,11 +14,13 @@ import {
   cheerDeckForTier,
   clampToWalkable,
   effectivePowerForTier,
+  hoopMotionForTier,
   interactiveSpots,
   interactivesForTier,
   nextTier,
   orbTimingForTier,
 } from "../src/shared/tierRules";
+import { clampLaunchStamp } from "../src/shared/hoopMotion";
 import type {
   AvatarState,
   ClientMsg,
@@ -149,6 +151,17 @@ export class Room {
     const bundle = await this.storage.loadWorld(this.lobby);
     if (bundle) {
       this.world = bundle.world;
+      // defensive: a hand-edited bundle at a moving-hoop tier without a
+      // schedule would leave the hoop frozen - synthesize one
+      if (hoopMotionForTier(this.world.tierId) && !this.world.hoopMotion) {
+        this.world = {
+          ...this.world,
+          hoopMotion: {
+            seed: (Math.random() * 0xffffffff) >>> 0,
+            anchorMs: Date.now(),
+          },
+        };
+      }
       this.history = bundle.history ?? [];
       this.seedOfflineLineup(bundle.offline ?? []);
     } else {
@@ -634,9 +647,16 @@ export class Room {
           if (oldest !== undefined) this.throwOwners.delete(oldest);
         }
         // never trust the client: a slam only counts if WE teleported
-        // this player moments ago (the orb is server-side now)
+        // this player moments ago (the orb is server-side now); the
+        // launch stamp (the moving hoop's timeline anchor) is clamped
+        // to a small window around arrival - and relayed CLAMPED, so
+        // every viewer steps the same hoop timeline the resolver did
         const slam = msg.launch.slam && Date.now() < occ.levitatingUntil;
-        const launch: ThrowLaunch = { ...msg.launch, slam };
+        const launch: ThrowLaunch = {
+          ...msg.launch,
+          slam,
+          atMs: clampLaunchStamp(msg.launch.atMs, Date.now()),
+        };
         // a throw made with a caught ball can't be caught again
         const bornFromCatch = occ.catchCredits > 0;
         if (bornFromCatch) occ.catchCredits--;
@@ -648,14 +668,24 @@ export class Room {
         // authoritative resolution NOW; the outcome fires when the ball
         // "lands" so score juice lines up with the visual flight
         const orb = this.orb.current;
-        const res = resolveThrow(launch, orb, this.world.tierId);
+        const res = resolveThrow(
+          launch,
+          orb,
+          this.world.tierId,
+          this.world.hoopMotion,
+        );
         const playerName = occ.info.name; // captured - they may leave mid-flight
         if (res.orbHitAtS !== undefined && orb) {
           // ruled to hit the orb - confirm when the ball visually gets
           // there; if the orb is gone by then (expired / another ball
           // took it), the throw plays out as a plain arc instead
           const orbSeq = orb.seq;
-          const plain = resolveThrow(launch, null, this.world.tierId);
+          const plain = resolveThrow(
+            launch,
+            null,
+            this.world.tierId,
+            this.world.hoopMotion,
+          );
           const hitAtS = res.orbHitAtS;
           this.schedule(
             () =>
@@ -739,11 +769,17 @@ export class Room {
           );
           break;
         }
-        // the next tier counts fresh from zero (the court keeps its size)
+        // the next tier counts fresh from zero (the court keeps its
+        // size); a moving-hoop tier gets its schedule rolled HERE - one
+        // seed + anchor, and every client (and any restart) replays the
+        // same timeline (shared/hoopMotion.ts)
         this.world = {
           sharedScore: 0,
           tierId: next.id,
           expectedPlayers: this.world.expectedPlayers,
+          hoopMotion: hoopMotionForTier(next.id)
+            ? { seed: (Math.random() * 0xffffffff) >>> 0, anchorMs: Date.now() }
+            : null,
         };
         // teleport every active player clear of the hoop
         const placements = [...this.occupants.entries()].map(([id, o]) => {

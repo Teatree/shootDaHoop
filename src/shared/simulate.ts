@@ -3,7 +3,7 @@ import { createBallState, PHYSICS_DT, stepBall } from "./physics";
 import { pointsForRims } from "./scoring";
 import { floorDistToRim } from "./court";
 import { orbHitTest, type OrbState } from "./orb";
-import { hoopGeometryForTier } from "./tierRules";
+import { hoopGeometryAt, type HoopMotionState } from "./hoopMotion";
 import type { ThrowLaunch } from "./messages";
 
 // The server-side throw resolver: runs the SAME stepBall at the SAME
@@ -39,13 +39,21 @@ export function resolveThrow(
   launch: ThrowLaunch,
   orb?: OrbState | null,
   tierId = 1,
+  motion?: HoopMotionState | null,
 ): ThrowResolution {
   const s = createBallState(launch.x, launch.d, launch.h, launch.vx, launch.vh);
   const distM = floorDistToRim(launch.shotX, launch.shotD);
-  const geom = hoopGeometryForTier(tierId);
+  // against a MOVING hoop (tier 4) geometry is a function of time - the
+  // launch stamp anchors the flight to the hoop's shared timeline (the
+  // client's visual ball reads the same one). The SERVER clamps the
+  // stamp at ingress (room.ts + shared/hoopMotion.clampLaunchStamp);
+  // here it is trusted, so a given (launch, motion) resolves the same
+  // whenever it runs. Still hoops degrade to the static geometry.
+  const launchAtMs = launch.atMs ?? Date.now();
 
   let t = 0;
   while (!s.resolved && t < BALANCE.ground.maxLifeS) {
+    const geom = hoopGeometryAt(tierId, motion, launchAtMs + t * 1000);
     stepBall(s, FIXED_DT, geom);
     t += FIXED_DT;
     if (orb && orbHitTest(orb, s.x, s.d, s.h)) {

@@ -795,8 +795,9 @@ describe("the upgrade press", () => {
       if (up?.t !== "upgraded") throw new Error("unreachable");
       expect(up.tierId).toBe(2);
       expect(up.byName).toBe("alice");
-      // the next tier counts fresh from zero
-      expect(up.world).toEqual({ sharedScore: 0, tierId: 2 });
+      // the next tier counts fresh from zero (tier 2 doesn't move -
+      // hoopMotion rides along explicitly null)
+      expect(up.world).toEqual({ sharedScore: 0, tierId: 2, hoopMotion: null });
       // every active player lands in the clear band, on the court
       expect(up.placements.map((p) => p.id).sort()).toEqual(["alice", "bob"]);
       for (const p of up.placements) {
@@ -806,10 +807,12 @@ describe("the upgrade press", () => {
         expect(p.d).toBeLessThanOrEqual(BALANCE.court.depthM);
       }
     }
-    // persisted: a rejoin loads the upgraded world
-    expect(storage.worlds.get("test")?.world).toEqual({
+    // persisted: a rejoin loads the upgraded world (in-memory storage
+    // keeps the explicit undefined/null carries; JSON drops them)
+    expect(storage.worlds.get("test")?.world).toMatchObject({
       sharedScore: 0,
       tierId: 2,
+      hoopMotion: null,
     });
     expect(storage.logs.some((e) => e.kind === "upgrade")).toBe(true);
   });
@@ -939,6 +942,10 @@ describe("the upgrade press", () => {
     await room.join(late as unknown as WebSocket, identity("carol"));
     const [welcome] = late.of("welcome");
     if (welcome?.t !== "welcome") throw new Error("no welcome");
-    expect(welcome.world).toEqual({ sharedScore: 0, tierId: 2 });
+    expect(welcome.world).toEqual({
+      sharedScore: 0,
+      tierId: 2,
+      hoopMotion: null,
+    });
   });
 });
