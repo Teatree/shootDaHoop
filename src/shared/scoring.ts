@@ -34,6 +34,17 @@ export function rimPoints(distM: number, tierId: number, rimId: string): number 
 }
 
 /**
+ * A slam (the purple-orb throw) pays flat slamPts per rim made - so a
+ * teleport DOUBLE through both tier-3 rims pays 200, not 100 (owner
+ * ask 2026-07-19: "100 pts for a teleport double is not right").
+ * Distance stays deliberately ignored; clamped so a stray rims count
+ * can never mint more than the double.
+ */
+export function slamPoints(rimsMade: number): number {
+  return T.score.slamPts * Math.min(2, Math.max(1, rimsMade));
+}
+
+/**
  * Points for a made throw given the rims it went through, in order. A
  * tier-3 "double shot" sums both rims (lower + upper = 2.25x the curve).
  * An empty list still pays one plain rim - a scored ball always banks.

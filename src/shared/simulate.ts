@@ -1,6 +1,6 @@
 import { BALANCE } from "./config";
 import { createBallState, PHYSICS_DT, stepBall } from "./physics";
-import { pointsForRims } from "./scoring";
+import { pointsForRims, slamPoints } from "./scoring";
 import { floorDistToRim } from "./court";
 import { orbHitTest, type OrbState } from "./orb";
 import { hoopGeometryAt, type HoopMotionState } from "./hoopMotion";
@@ -78,10 +78,11 @@ export function resolveThrow(
     rims,
     distM,
     // the double shot SUMS its rims - lower pays the curve, the smaller
-    // upper pays x1.25 (shared/scoring.ts); a slam is flat basePts
+    // upper pays x1.25 (shared/scoring.ts); a slam is flat slamPts per
+    // rim (a teleport double pays 200)
     points: made
       ? launch.slam
-        ? BALANCE.score.slamPts
+        ? slamPoints(rims)
         : pointsForRims(distM, tierId, s.rimsMade)
       : 0,
     resolvedAtS: t,

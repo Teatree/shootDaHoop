@@ -7,7 +7,7 @@ import {
   sanitizeBudget,
   type BudgetFields,
 } from "../shared/budget";
-import { pointsForRims } from "../shared/scoring";
+import { pointsForRims, slamPoints } from "../shared/scoring";
 import { clampToCourt, rollSpawn, rollUpgradeClearSpot } from "../shared/court";
 import {
   canUpgrade,
@@ -213,10 +213,11 @@ export class LocalBackend implements Backend {
     if (!o.made)
       this.recentMisses.set(throwId, { catchable: !pending.bornFromCatch });
     // double-shot points mirror shared/simulate.ts: sum the rims made,
-    // the smaller upper at x1.25; a slam pays flat base
+    // the smaller upper at x1.25; a slam pays flat slamPts per rim (a
+    // teleport double pays 200)
     const points = o.made
       ? o.slam
-        ? BALANCE.score.slamPts
+        ? slamPoints(o.rims)
         : pointsForRims(o.distM, this.world.tierId, o.rimIds)
       : 0;
     // score accumulates; the tier only advances via a triggered upgrade

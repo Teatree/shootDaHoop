@@ -4,6 +4,7 @@ import {
   pointsForDistance,
   pointsForRims,
   rimPoints,
+  slamPoints,
 } from "./shared/scoring";
 
 // The logistic distance curve (owner spec 2026-07-17). The exact values
@@ -89,5 +90,14 @@ describe("pointsForRims - made throws", () => {
 describe("the slam (purple orb throw)", () => {
   it("pays flat basePts - distance deliberately ignored", () => {
     expect(BALANCE.score.slamPts).toBe(BALANCE.score.basePts);
+  });
+
+  it("a teleport DOUBLE pays per rim: 200 through both (owner 2026-07-19)", () => {
+    expect(slamPoints(1)).toBe(BALANCE.score.slamPts);
+    expect(slamPoints(2)).toBe(BALANCE.score.slamPts * 2);
+    // clamped: a stray count never mints more than the double,
+    // and a made slam always banks at least the flat base
+    expect(slamPoints(3)).toBe(BALANCE.score.slamPts * 2);
+    expect(slamPoints(0)).toBe(BALANCE.score.slamPts);
   });
 });
