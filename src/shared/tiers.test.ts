@@ -121,6 +121,10 @@ describe("hoopGeometryForTier", () => {
     expect(g.rims[0].r).toBeCloseTo(BALANCE.hoop.rimRadiusM * 1.15 * 1.2, 10);
   });
 
+  it("tier 5 keeps tier 4's geometry exactly - only the motion changes", () => {
+    expect(hoopGeometryForTier(5)).toEqual(hoopGeometryForTier(4));
+  });
+
   it("the board always sits behind the back-most rim", () => {
     for (const t of HOOP_TIERS) {
       const g = hoopGeometryForTier(t.id);
@@ -177,6 +181,12 @@ describe("hoopChoreoGeometries (the upgrade animation's staged looks)", () => {
     expect(moving).toEqual(t4);
   });
 
+  it("tier 5: one start-moving beat, geometry already final", () => {
+    const stages = hoopChoreoGeometries(5);
+    expect(stages).toHaveLength(1);
+    expect(stages[0]).toEqual(hoopGeometryForTier(5));
+  });
+
   it("tier 1 has no hoop choreography", () => {
     expect(hoopChoreoGeometries(1)).toEqual([]);
   });
@@ -195,6 +205,15 @@ describe("hoopMotionForTier (the Hoop 4 moving hoop)", () => {
     expect(m.travelM).toBeGreaterThan(0);
     // "moves slowly": under a meter per second on average
     expect(m.travelM / m.travelS).toBeLessThan(1);
+  });
+
+  it("tier 5 moves x2 as fast and waits HALF the time (owner spec 2026-07-23)", () => {
+    const t4 = hoopMotionForTier(4)!;
+    const t5 = hoopMotionForTier(5)!;
+    expect(t5.travelM).toBe(t4.travelM); // the same span...
+    expect(t5.travelS).toBeCloseTo(t4.travelS / 2, 10); // ...in half the time
+    expect(t5.dwellMinS).toBeCloseTo(t4.dwellMinS / 2, 10);
+    expect(t5.dwellMaxS).toBeCloseTo(t4.dwellMaxS / 2, 10);
   });
 });
 
@@ -221,6 +240,10 @@ describe("effectivePowerForTier (+25% ball travel)", () => {
     expect(p.maxPowerM).toBeCloseTo(BALANCE.power.maxPowerM * 1.25, 10);
     expect(p.minPowerM).toBeCloseTo(BALANCE.power.minPowerM * 1.25, 10);
   });
+
+  it("tier 5 adds no further range", () => {
+    expect(effectivePowerForTier(5)).toEqual(effectivePowerForTier(4));
+  });
 });
 
 describe("looks", () => {
@@ -229,13 +252,15 @@ describe("looks", () => {
     expect(ballLookForTier(2)).toBe("red");
     expect(ballLookForTier(3)).toBe("red");
     expect(ballLookForTier(4)).toBe("pinkpurple");
+    expect(ballLookForTier(5)).toBe("pinkpurple"); // tier 5 keeps them
   });
 
-  it("court floor: standard → mahogany → glass → white", () => {
+  it("court floor: standard → mahogany → glass → white → concrete", () => {
     expect(courtLookForTier(1)).toBe("standard");
     expect(courtLookForTier(2)).toBe("mahogany");
     expect(courtLookForTier(3)).toBe("glass");
     expect(courtLookForTier(4)).toBe("white");
+    expect(courtLookForTier(5)).toBe("concrete");
   });
 
   it("tier 4 hoop: light brown base/wall, BLACK rim (owner 2026-07-18)", () => {
@@ -249,6 +274,21 @@ describe("looks", () => {
     }
     const [r, g, b] = rgb(t4.rim);
     expect(Math.max(r, g, b)).toBeLessThan(0x30); // black rim
+  });
+
+  it("tier 5 hoop: NEON WHITE glowing rim on a near-black wall and base", () => {
+    const t5 = hoopLookForTier(5);
+    const rgb = (c: number) => [(c >> 16) & 0xff, (c >> 8) & 0xff, c & 0xff];
+    // the rim: white, and flagged to draw its illuminated halo
+    expect(Math.min(...rgb(t5.rim))).toBeGreaterThan(0xf0);
+    expect(t5.rimGlow).toBe(true);
+    // wall + base: dark, almost black...
+    for (const part of [t5.board, t5.pole])
+      expect(Math.max(...rgb(part))).toBeLessThan(0x30);
+    // ...but still visible on the night sky: the board's outline is the
+    // clearly LIGHTER line that keeps the dark wall readable
+    const lum = (c: number) => rgb(c).reduce((a, b) => a + b) / 3;
+    expect(lum(t5.boardEdge)).toBeGreaterThan(lum(t5.board) + 0x18);
   });
 
   it("hoop paint: each hoop change repaints board/rim/pole", () => {
@@ -332,6 +372,29 @@ describe("atmosphereForTier", () => {
     expect(Math.max(sr, sg, sb) - Math.min(sr, sg, sb)).toBeLessThan(0x28);
   });
 
+  it("tier 5: NIGHT - dark sky, gray cratered MOONS slower than the sun", () => {
+    const a = atmosphereForTier(5);
+    const rgb = (c: number) => [(c >> 16) & 0xff, (c >> 8) & 0xff, c & 0xff];
+    const lum = (c: number) => rgb(c).reduce((x, y) => x + y) / 3;
+    // the sky is DARK now
+    expect(lum(a.sky)).toBeLessThan(0x50);
+    expect(a.overlay.alpha).toBeGreaterThan(0); // night washes the scene
+    // the moon: Earth-moon gray (channels sit close), clearly BRIGHTER
+    // than the night sky, cratered, steady
+    const [r, g, b] = rgb(a.sun.coreColor);
+    expect(Math.max(r, g, b) - Math.min(r, g, b)).toBeLessThan(0x10);
+    expect(lum(a.sun.coreColor)).toBeGreaterThan(lum(a.sky) + 0x60);
+    expect(a.sun.craters).toBe(true);
+    expect(a.sun.pulsate).toBe(false);
+    // "maybe move slower than the previous sun" - slower than tier 4's
+    expect(a.sun.speedScale).toBeLessThan(atmosphereForTier(4).sun.speedScale);
+    // moon-sized: no bigger than the tier-4 big sun
+    expect(a.sun.sizeScale).toBeLessThan(atmosphereForTier(4).sun.sizeScale);
+    // and night falls alongside the other sequences
+    const atmo = HOOP_TIERS[4].changes.find((c) => c.type === "atmosphere");
+    expect(atmo && "gradual" in atmo && atmo.gradual).toBe(true);
+  });
+
   it("the sky: base cream through tier 2, LIGHT GRAY at tier 3, gradual", () => {
     expect(atmosphereForTier(1).sky).toBe(BASE_ATMOSPHERE.sky);
     expect(atmosphereForTier(2).sky).toBe(BASE_ATMOSPHERE.sky); // tier 2 keeps it
@@ -386,6 +449,11 @@ describe("interactives & animations accumulate across tiers", () => {
 });
 
 describe("canUpgrade / nextTier", () => {
+  it("tier 5 costs x2 of tier 4 (owner spec 2026-07-23)", () => {
+    expect(HOOP_TIERS[4].threshold).toBe(HOOP_TIERS[3].threshold * 2);
+    expect(HOOP_TIERS[4].threshold).toBe(8000);
+  });
+
   it("needs the next tier's threshold, counted from the reset", () => {
     const t2 = nextTier(1)!;
     expect(canUpgrade({ sharedScore: t2.threshold - 1, tierId: 1 })).toBe(false);
@@ -440,8 +508,10 @@ describe("lobby scaling (thresholdScale / scaledThreshold)", () => {
     expect(
       requiredScore({ tierId: 3, expectedPlayers: 2, thresholdBase: 9000 }),
     ).toBe(2400 + 9000);
+    // same story a rung up: a legacy Hoop 4 world pays 8000 + banked
+    expect(requiredScore({ tierId: 4, thresholdBase: 9000 })).toBe(8000 + 9000);
     // the ladder top stays null; garbage bases clamp to 0
-    expect(requiredScore({ tierId: 4, thresholdBase: 9000 })).toBeNull();
+    expect(requiredScore({ tierId: 5, thresholdBase: 9000 })).toBeNull();
     expect(requiredScore({ tierId: 3, thresholdBase: -500 })).toBe(4000);
   });
 

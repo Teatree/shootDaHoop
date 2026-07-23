@@ -581,6 +581,47 @@ describe("Hoop 4 requirement stacks on legacy tier-3 score", () => {
     if (up?.t !== "upgraded") throw new Error("must upgrade to 3");
     expect(up.world).toMatchObject({ tierId: 3, thresholdBase: 0 });
   });
+
+  it("a legacy tier-4 world banks its score toward Hoop 5 the same way", async () => {
+    // tier 4 was the TOP when Hoop 5 shipped (2026-07-23) - absent
+    // thresholdBase migrates exactly like the tier-3 wave did
+    const storage = new MemStorage();
+    storage.worlds.set("test", {
+      lobby: "test",
+      world: { sharedScore: 6000, tierId: 4 }, // no thresholdBase = legacy
+      history: [],
+    });
+    room = new Room("test", storage, () => {});
+    const a = new FakeWS();
+    await room.join(ws(a), identity("alice"));
+    const [w] = a.of("welcome");
+    if (w?.t !== "welcome") throw new Error("unreachable");
+    expect(w.world.thresholdBase).toBe(6000);
+    // 6000 banked < 8000 + 6000 - the button must not fire
+    standAtHoop(room, "alice");
+    room.handle("alice", { t: "upgrade" });
+    expect(a.of("upgraded")).toHaveLength(0);
+  });
+
+  it("past 8000 + base the upgrade fires into tier 5 with a fresh motion roll", async () => {
+    const storage = new MemStorage();
+    storage.worlds.set("test", {
+      lobby: "test",
+      world: { sharedScore: 14200, tierId: 4, thresholdBase: 6000 },
+      history: [],
+    });
+    room = new Room("test", storage, () => {});
+    const a = new FakeWS();
+    await room.join(ws(a), identity("alice"));
+    standAtHoop(room, "alice");
+    room.handle("alice", { t: "upgrade" }); // 14200 >= 8000 + 6000
+    const [up] = a.of("upgraded");
+    if (up?.t !== "upgraded") throw new Error("must upgrade to 5");
+    expect(up.world.tierId).toBe(5);
+    expect(up.world.thresholdBase).toBe(0);
+    // tier 5 still moves - the rung rolls its own schedule
+    expect(up.world.hoopMotion).toBeTruthy();
+  });
 });
 
 // Lobby scaling (owner ask 2026-07-18): ?players=N on the invite link

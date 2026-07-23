@@ -266,6 +266,70 @@ owner, 2026-07-15)*.
 
 ---
 
+## Hoop 4 - Moving Hoop, Sunshine & Chalk
+
+*(owner spec 2026-07-18; back-filled here 2026-07-23 - the full engineering
+story lives in `docs/moving-hoop.md`.)*
+
+- **Identity:** Tier 4. **Unlock:** 4000 (double Hoop 3's cost).
+- **Ordered change list** (the owner's unlock order - background first):
+
+**1. Atmosphere Change - Sunshine.** Green-gray world; ONE big bright-yellow
+sun, back at Hoop 1's pace.
+
+**2. Hoop Change - the Moving Hoop.** Back to a SINGLE hoop: light brown wall
+and base, black rim **20% wider**. The rim + wall ride a slow vertical
+carriage (the pole stays), dwelling a **random 2-4 s** at each end before
+moving again. Every screen and the server compute the same ride from one
+seeded schedule (`shared/hoopMotion.ts`).
+
+**3. Scene Visual Change - Chalk Court.** White court, black painted lines.
+
+**4. Permanent Effect - Pink-Purple Balls.** +25% travel again; the aim
+preview gains 3 extra dots.
+
+---
+
+## Hoop 5 - Double-Time Hoop, Neon & Night
+
+*(owner spec 2026-07-23.)*
+
+- **Identity:** Tier 5.
+- **Unlock:** **8000** - **x2 of the previous Hoop**, and just like before a
+  legacy world's banked score stacks ON TOP of it (the ladder-extension
+  base: a world already sitting at Hoop 4 when this rung shipped must earn
+  the 8000 from where it is, never unlock instantly).
+- **Ordered change list** (plays in this order):
+
+**1. Hoop Change - Double Time.**
+- Behaviour: **still the moving hoop**, but now it moves **x2 as fast** and
+  **spends half the time waiting** (travel leg 2.4 s → 1.2 s, dwells
+  2-4 s → 1-2 s). Same travel span, same geometry - nothing about the
+  structure changes, only its tempo.
+- Paint: the **rim is NEON WHITE - it looks illuminated** (a soft halo is
+  drawn under the iron); the **wall and base are dark, almost black, but
+  still visible on the new background** (the board's lighter outline keeps
+  it readable against the night sky).
+- Animation: one **pop-splash** beat - the repaint lands and the carriage
+  kicks into double time.
+
+**2. Scene Visual Change - Concrete Court.**
+- Look: a **simple concrete court - dark concrete with white lines**, made to
+  look like actual poured concrete: a speckled aggregate finish plus darker
+  slab joints every 4 meters.
+- Animation: **splash.**
+
+**3. Atmosphere Change - Night.**
+- Look: **it's the night now** - the whole background recolours to a dark
+  night blue-gray, with a dark wash over the scene.
+- Moons: the **suns are now MOONS, coloured like the Earth's Moon** - pale
+  gray discs with darker crater spots - and they **move slower than the
+  previous sun.**
+- Animation: **gradual** - night falls across the WHOLE upgrade
+  choreography, alongside the other sequences.
+
+---
+
 ## Adding a new hoop (the layman guide)
 
 You do **not** touch the upgrade loop, the sync, or the rendering. To add Hoop N:

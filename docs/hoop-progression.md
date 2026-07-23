@@ -283,7 +283,28 @@ Rules of thumb for extensions:
 
 ---
 
-## 5. Where the tunables live
+## 4.5 Hoop 5 (2026-07-23) - what its slow-path touches were
+
+Hoop 5 ("Double-Time Hoop, Neon & Night", threshold 8000 = x2 Hoop 4) is
+mostly the fast path - the double-speed motion is just a new `motion`
+spec (last-wins fold; the upgrade rolls a fresh seed+anchor for any
+moving tier, so no engine work). Three small vocabulary extensions:
+
+- **`CourtLookId` "concrete"**: palette + a `speckle` flag in
+  `COURT_PALETTES` - a fixed-seed LCG speckle pass (identical on every
+  redraw, no shimmer between rebuilds) + slab joints every 4 absolute
+  meters.
+- **`HoopLook.rimGlow`**: `createHoop` draws a two-step halo under the
+  rim iron so the white stroke reads as illuminated. Rides into ghost
+  hoops for free (same createHoop).
+- **`SunMood.craters`**: the suns are MOONS - `SunSystem` grows darker
+  spot arcs on each disc (fixed fractional layout, shade derived from
+  coreColor) and `setMood` adds/sheds them live.
+
+Also: the **ladder-extension migration generalized** - hydrate now stamps
+`thresholdBase` for absent-base worlds at tier 3 OR tier 4 (each was the
+ladder top of its day). Every future rung extends that list; worlds
+upgraded under the new build always carry an explicit 0.
 
 `grep -r PLACEHOLDER src server` - currently ~23 flagged values. Highlights:
 tier thresholds (`tiers.ts`), N-per-made-shot (`server/room.ts` `applyOutcome`

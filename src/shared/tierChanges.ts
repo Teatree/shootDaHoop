@@ -21,7 +21,7 @@
 export type FxKind = "pop" | "splash" | "pop-splash" | "none";
 
 /** Court-floor skins the Scene Visual Change can switch between. */
-export type CourtLookId = "standard" | "mahogany" | "glass" | "white";
+export type CourtLookId = "standard" | "mahogany" | "glass" | "white" | "concrete";
 
 /** Ball skins the Permanent Effect can switch between (world + UI + ghosts). */
 export type BallLookId = "classic" | "red" | "pinkpurple";
@@ -50,6 +50,9 @@ export interface HoopLook {
   boardEdge: number;
   rim: number;
   pole: number;
+  /** the rim reads as ILLUMINATED: a soft halo in the rim colour drawn
+   *  under the iron (Hoop 5's neon-white rim) */
+  rimGlow?: boolean;
 }
 
 export interface DoubleHoopSpec {
@@ -197,6 +200,9 @@ export interface SunMood {
   sizeScale: number; // × the base radii (0.65 = clearly smaller)
   speedScale: number; // × traverse speed (0.6 = a slower procession)
   pulsate: boolean; //  slow radius pulse
+  /** the discs carry darker crater spots - the suns ARE moons now
+   *  (Hoop 5's night; crater shades derive from coreColor) */
+  craters?: boolean;
 }
 
 export interface AtmosphereChange {

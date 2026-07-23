@@ -22,8 +22,29 @@ const CONFIGS: SunConfig[] = ["bigSolo", "smallSolo", "bigPlusCompanion"];
 interface SunSprite {
   glow: Phaser.GameObjects.Arc;
   core: Phaser.GameObjects.Arc;
+  /** darker spots riding the disc when the mood says the suns are
+   *  MOONS (tier 5's night); empty otherwise */
+  craters: Phaser.GameObjects.Arc[];
+  radius: number; // the disc's base radius - crater offsets scale off it
   offX: number; // offset from the config anchor, px
   offY: number;
+}
+
+// crater layout as fractions of the disc radius - fixed, so every moon
+// of a config wears the same recognizable face
+const CRATER_SPOTS = [
+  { fx: -0.34, fy: -0.16, fr: 0.2 },
+  { fx: 0.24, fy: 0.26, fr: 0.14 },
+  { fx: 0.12, fy: -0.4, fr: 0.11 },
+  { fx: -0.1, fy: 0.38, fr: 0.09 },
+];
+
+/** The craters sit a shade darker than the disc they pock. */
+function craterShade(c: number, f = 0.78): number {
+  const r = Math.floor(((c >> 16) & 0xff) * f);
+  const g = Math.floor(((c >> 8) & 0xff) * f);
+  const b = Math.floor((c & 0xff) * f);
+  return (r << 16) | (g << 8) | b;
 }
 
 export class SunSystem {
@@ -51,7 +72,17 @@ export class SunSystem {
     for (const s of this.suns) {
       s.core.setFillStyle(m.coreColor, 0.95);
       s.glow.setFillStyle(m.glowColor, T.sky.glowAlpha);
+      // suns <-> moons flip live: grow or shed the crater spots
+      if (m.craters && s.craters.length === 0) {
+        s.craters = this.makeCraters(s.radius);
+      } else if (!m.craters && s.craters.length > 0) {
+        for (const c of s.craters) c.destroy();
+        s.craters = [];
+      } else {
+        for (const c of s.craters) c.setFillStyle(craterShade(m.coreColor), 0.9);
+      }
     }
+    this.update(0); // seat new craters on their discs immediately
   }
 
   update(dt: number) {
@@ -65,6 +96,7 @@ export class SunSystem {
         for (const s of this.suns) {
           s.glow.destroy();
           s.core.destroy();
+          for (const c of s.craters) c.destroy();
         }
         this.suns = [];
         this.gapLeft = T.sky.gapS;
@@ -79,6 +111,13 @@ export class SunSystem {
         for (const s of this.suns) {
           s.glow.setPosition(ax + s.offX, ay + s.offY).setScale(scale);
           s.core.setPosition(ax + s.offX, ay + s.offY).setScale(scale);
+          s.craters.forEach((c, i) => {
+            const spot = CRATER_SPOTS[i];
+            c.setPosition(
+              ax + s.offX + spot.fx * s.radius * scale,
+              ay + s.offY + spot.fy * s.radius * scale,
+            ).setScale(scale);
+          });
         }
       }
     }
@@ -108,6 +147,16 @@ export class SunSystem {
     };
   }
 
+  /** The moon face: darker spots created ON TOP of the disc (same
+   *  depth, later in the display list); update() seats them. */
+  private makeCraters(radius: number): Phaser.GameObjects.Arc[] {
+    return CRATER_SPOTS.map((spot) =>
+      this.scene.add
+        .circle(0, 0, radius * spot.fr, craterShade(this.mood.coreColor), 0.9)
+        .setDepth(-95),
+    );
+  }
+
   private spawnConfig() {
     this.p = 0;
     this.traverseS = Phaser.Math.FloatBetween(
@@ -123,7 +172,8 @@ export class SunSystem {
       const core = this.scene.add
         .circle(0, 0, radius, this.mood.coreColor, 0.95)
         .setDepth(-95);
-      this.suns.push({ glow, core, offX, offY });
+      const craters = this.mood.craters ? this.makeCraters(radius) : [];
+      this.suns.push({ glow, core, craters, radius, offX, offY });
     };
 
     if (config === "bigSolo") {

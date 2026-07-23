@@ -426,7 +426,15 @@ export function drawWall(scene: Phaser.Scene) {
 /** Court-floor skins for the Scene Visual Change (shared/tierChanges.ts). */
 const COURT_PALETTES: Record<
   CourtLookId,
-  { even: number; odd: number; lip: number; line: number; shine: boolean }
+  {
+    even: number;
+    odd: number;
+    lip: number;
+    line: number;
+    shine: boolean;
+    /** speckled aggregate finish + slab joints (the concrete look) */
+    speckle?: boolean;
+  }
 > = {
   standard: {
     even: 0xc98d5a,
@@ -461,6 +469,17 @@ const COURT_PALETTES: Record<
     line: 0x141414,
     shine: false,
   },
+  // Hoop 5: dark concrete, white lines. PLACEHOLDER (tune): the two
+  // stripe shades sit nearly together (poured slabs, not planks) and
+  // the speckle pass on top carries the "actual concrete" texture.
+  concrete: {
+    even: 0x54555a,
+    odd: 0x505156,
+    lip: 0x393a3f,
+    line: 0xf0f0ec,
+    shine: false,
+    speckle: true,
+  },
 };
 
 /** The court floor band with its painted lines, in the given skin. */
@@ -484,6 +503,33 @@ export function drawCourt(
   }
   // front lip (court edge facing the viewer)
   g.fillStyle(pal.lip).fillRect(x0, yBot, x1 - x0, 8);
+
+  // concrete gets a speckled aggregate finish plus darker slab joints
+  // every 4 absolute meters (parity-stable, like the planks)
+  if (pal.speckle) {
+    // a tiny fixed-seed LCG - every redraw speckles identically, so a
+    // court reskin never shimmers between rebuilds
+    let seed = 0x2f6e2b1;
+    const rnd = () => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return seed / 0x7fffffff;
+    };
+    for (let i = 0; i < 1100; i++) {
+      const sx = x0 + rnd() * (x1 - x0);
+      const sy = yTop + rnd() * (yBot - yTop);
+      if (rnd() < 0.45) g.fillStyle(0xffffff, 0.05 + rnd() * 0.07);
+      else g.fillStyle(0x36373c, 0.25 + rnd() * 0.2);
+      g.fillRect(sx, sy, 1 + rnd() * 2, 1 + rnd() * 2);
+    }
+    g.lineStyle(2, 0x3b3c42, 0.8);
+    for (let m = Math.ceil(T.court.leftEdgeM / 4) * 4; m < T.court.lengthM; m += 4) {
+      if (m * M <= x0) continue;
+      g.beginPath();
+      g.moveTo(m * M, yTop);
+      g.lineTo(m * M, yBot);
+      g.strokePath();
+    }
+  }
 
   // glass gets diagonal shine streaks sweeping the whole pane
   if (pal.shine) {
@@ -762,6 +808,21 @@ export function createHoop(
     const rimY = baseY - rim.h * M;
     const rimL = (rim.x - rim.r) * M;
     const rimR = (rim.x + rim.r) * M;
+    // neon rims (Hoop 5): a soft two-step halo UNDER the iron so the
+    // stroke reads as illuminated, not just painted
+    if (look.rimGlow) {
+      for (const [w, a] of [
+        [15, 0.14],
+        [9, 0.3],
+      ]) {
+        g.lineStyle(w, look.rim, a);
+        g.beginPath();
+        g.moveTo(rimL - 3, rimY);
+        g.lineTo(rimR + 3, rimY);
+        g.strokePath();
+      }
+      g.fillStyle(look.rim, 0.2).fillCircle(rimL, rimY, 7); // hook glow
+    }
     // rim stroke on the shared body graphics
     g.lineStyle(5, look.rim);
     g.beginPath();

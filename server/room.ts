@@ -152,12 +152,16 @@ export class Room {
     if (bundle) {
       this.world = bundle.world;
       // ── ladder-extension migration (owner 2026-07-19): a world that
-      // sat at Hoop 3 back when it was the TOP has banked score that
-      // was never "progress toward Hoop 4" - without this it would
-      // unlock instantly. Stamp the banked score as the extra base the
-      // next threshold sits on. Worlds upgraded/reset under the new
-      // build carry an explicit 0, so absent = legacy exactly once.
-      if (this.world.tierId === 3 && this.world.thresholdBase === undefined) {
+      // sat at the ladder's TOP of its day (Hoop 3 before Hoop 4
+      // shipped, Hoop 4 before Hoop 5) has banked score that was never
+      // "progress toward the next rung" - without this it would unlock
+      // instantly. Stamp the banked score as the extra base the next
+      // threshold sits on. Worlds upgraded/reset under the new build
+      // carry an explicit 0, so absent = legacy exactly once.
+      if (
+        (this.world.tierId === 3 || this.world.tierId === 4) &&
+        this.world.thresholdBase === undefined
+      ) {
         this.world = {
           ...this.world,
           thresholdBase: Math.max(0, this.world.sharedScore),

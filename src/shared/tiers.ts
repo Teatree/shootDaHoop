@@ -360,6 +360,85 @@ export const HOOP_TIERS: readonly HoopTierDef[] = [
     ],
   },
 
+  // ══════════════════════════════════════════════════════════════════
+  //  Hoop 5 - Double-Time Hoop, Neon & Night
+  //  (owner spec 2026-07-23) Still the moving hoop, but now it moves
+  //  x2 as fast and spends HALF the time waiting; neon-white rim that
+  //  reads as illuminated on a near-black wall and base; a dark
+  //  concrete court with white lines; and it's NIGHT - the whole
+  //  background goes dark and the suns are Earth-gray MOONS, moving
+  //  slower than the previous sun.
+  // ══════════════════════════════════════════════════════════════════
+  {
+    id: 5,
+    name: "Double-Time Hoop, Neon & Night",
+    // ── owner call 2026-07-23: x2 of the previous Hoop (4000 -> 8000);
+    // as before, a legacy world's banked score stacks on top of it
+    // (thresholdBase, server/room.ts hydrate) ──
+    threshold: 8000,
+    changes: [
+      // 1. Hoop Change - the same moving hoop, in double time: x2 the
+      //    carriage speed, half the dwell at each end. Repaint: NEON
+      //    WHITE rim (an illuminated halo under the iron), wall + base
+      //    dark, almost black - but still visible on the night sky
+      //    (the board's EDGE is the lighter line that outlines it).
+      {
+        type: "hoop-change",
+        look: {
+          board: 0x1c1d24, //     near-black wall     PLACEHOLDER (tune)
+          boardEdge: 0x3c4056, // lighter outline so the dark wall still
+          //                      reads on the night sky
+          rim: 0xffffff, //       NEON WHITE
+          rimGlow: true, //       ...drawn with the illuminated halo
+          pole: 0x1e1f26, //      near-black base     PLACEHOLDER (tune)
+        },
+        motion: {
+          travelM: 1.2, //  the same low <-> high span as Hoop 4
+          travelS: 1.2, //  x2 as fast (Hoop 4 rides a leg in 2.4 s)
+          dwellMinS: 1, //  half the waiting (Hoop 4 dwells 2-4 s)
+          dwellMaxS: 2,
+        },
+        choreo: [
+          // one beat: the repaint lands and the carriage kicks into
+          // double time (geometry is unchanged - no grow/widen stages)
+          { beat: "start-moving", fx: "pop-splash" },
+        ],
+        cameraRefit: false, // same structure, same travel envelope
+      },
+
+      // 2. Scene Visual Change - Concrete Court: dark concrete with
+      //    white lines, speckled like the real poured stuff.
+      {
+        type: "scene-visual",
+        target: "court-floor",
+        look: "concrete",
+        fx: "splash",
+      },
+
+      // 3. Atmosphere Change - Night. Everything in the background
+      //    recolours to night, GRADUALLY across the whole show (like
+      //    tier 3's gray); the suns are MOONS now - Earth-moon gray,
+      //    cratered, moving slower than the previous sun.
+      {
+        type: "atmosphere",
+        // PLACEHOLDER (tune): a dark night wash that still leaves the
+        // characters readable
+        overlay: { color: 0x0d1226, alpha: 0.22 },
+        sun: {
+          coreColor: 0xd9dade, // pale Earth-moon gray PLACEHOLDER (tune)
+          glowColor: 0xbfc5d6, // faint cool halo      PLACEHOLDER (tune)
+          sizeScale: 1.0, //      moon-sized - smaller than Hoop 4's big sun
+          speedScale: 0.6, //     slower than the previous sun  PLACEHOLDER (tune)
+          pulsate: false,
+          craters: true, //       darker spots on the disc - it IS the moon
+        },
+        sky: 0x262b38, // dark night blue-gray        PLACEHOLDER (tune)
+        gradual: true, // night falls across the whole choreography
+        fx: "pop",
+      },
+    ],
+  },
+
   // To add Hoop N: copy a tier block above, set identity + threshold,
   // compose the ordered change list from shared/tierChanges.ts blocks.
 ] as const;
